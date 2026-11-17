@@ -747,6 +747,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 PlatformBinding.getCryptoProvider(this), serverCert);
         controllerHandler = new ControllerHandler(this, conn, this, prefConfig);
         keyboardTranslator = new KeyboardTranslator();
+        keyboardTranslator.setForceQwerty(prefConfig.forceQwerty);
 
         // Setup overlay menu now that controllerHandler is initialized
         setupOverlayMenu();
@@ -1779,6 +1780,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             // as UTF-8 text (if it's a printable character).
             short translated = keyboardTranslator.translate(event.getKeyCode(), event.getDeviceId());
             if (translated == 0) {
+                translated = KeyboardTranslator.backAsMetaKey(prefConfig.backAsMeta, event.getKeyCode());
+            }
+            if (translated == 0) {
                 // Make sure it has a valid Unicode representation and it's not a dead character
                 // (which we don't support). If those are true, we can send it as UTF-8 text.
                 //
@@ -1881,6 +1885,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             }
 
             short translated = keyboardTranslator.translate(event.getKeyCode(), event.getDeviceId());
+            if (translated == 0) {
+                translated = KeyboardTranslator.backAsMetaKey(prefConfig.backAsMeta, event.getKeyCode());
+            }
             if (translated == 0) {
                 // If we sent this event as UTF-8 on key down, also report that it was handled
                 // when we get the key up event for it.

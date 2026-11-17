@@ -77,6 +77,8 @@ public class PreferenceConfiguration {
     private static final String MOUSE_EMULATION_STRING = "checkbox_mouse_emulation";
     private static final String ANALOG_SCROLLING_PREF_STRING = "analog_scrolling";
     private static final String MOUSE_NAV_BUTTONS_STRING = "checkbox_mouse_nav_buttons";
+    private static final String FORCE_QWERTY_PREF_STRING = "checkbox_force_qwerty";
+    private static final String BACK_AS_META_PREF_STRING = "checkbox_back_as_meta";
     private static final String CONTROLLER_VIBRATION_STRENGTH_PREF_STRING = "seekbar_controller_vibration_strength";
     private static final String VIBRATE_OSC_PREF_STRING = "checkbox_vibrate_osc";
     private static final String VIBRATE_FALLBACK_PREF_STRING = "checkbox_vibrate_fallback";
@@ -175,6 +177,9 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_MOUSE_EMULATION = true;
     private static final String DEFAULT_ANALOG_STICK_FOR_SCROLLING = "right";
     private static final boolean DEFAULT_MOUSE_NAV_BUTTONS = false;
+    // On, because Starwire has always sent a keyboard's keys as QWERTY
+    private static final boolean DEFAULT_FORCE_QWERTY = true;
+    private static final boolean DEFAULT_BACK_AS_META = false;
     private static final int DEFAULT_CONTROLLER_VIBRATION_STRENGTH = 100;
     private static final boolean DEFAULT_VIBRATE_OSC = true;
     private static final boolean DEFAULT_VIBRATE_FALLBACK = false;
@@ -265,6 +270,8 @@ public class PreferenceConfiguration {
     public boolean mouseEmulation;
     public AnalogStickForScrolling analogStickForScrolling;
     public boolean mouseNavButtons;
+    public boolean forceQwerty;
+    public boolean backAsMeta;
     // 0 to 100 percent of the game's rumble, on every controller
     public int controllerVibrationStrength;
     public boolean vibrateOsc;
@@ -998,6 +1005,8 @@ public class PreferenceConfiguration {
         config.usbShare = prefs.getBoolean(USB_SHARE_PREF_STRING, DEFAULT_USB_SHARE);
         config.mouseEmulation = prefs.getBoolean(MOUSE_EMULATION_STRING, DEFAULT_MOUSE_EMULATION);
         config.mouseNavButtons = prefs.getBoolean(MOUSE_NAV_BUTTONS_STRING, DEFAULT_MOUSE_NAV_BUTTONS);
+        config.forceQwerty = prefs.getBoolean(FORCE_QWERTY_PREF_STRING, DEFAULT_FORCE_QWERTY);
+        config.backAsMeta = prefs.getBoolean(BACK_AS_META_PREF_STRING, DEFAULT_BACK_AS_META);
         config.vibrateOsc = prefs.getBoolean(VIBRATE_OSC_PREF_STRING, DEFAULT_VIBRATE_OSC);
         config.vibrateFallbackToDevice = prefs.getBoolean(VIBRATE_FALLBACK_PREF_STRING, DEFAULT_VIBRATE_FALLBACK);
         config.vibrateFallbackToDeviceStrength = prefs.getInt(VIBRATE_FALLBACK_STRENGTH_PREF_STRING, DEFAULT_VIBRATE_FALLBACK_STRENGTH);

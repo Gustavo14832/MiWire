@@ -56,6 +56,7 @@ public class KeyboardTranslator implements InputManager.InputDeviceListener {
     public static final int VK_BACK_QUOTE = 192;
     public static final int VK_QUOTE = 222;
     public static final int VK_PAUSE = 19;
+    public static final short VK_LWIN = 0x5b;
 
     private static class KeyboardMapping {
         private final InputDevice device;
@@ -95,6 +96,23 @@ public class KeyboardTranslator implements InputManager.InputDeviceListener {
 
     private final SparseArray<KeyboardMapping> keyboardMappings = new SparseArray<>();
 
+    // Remap a physical keyboard's keys to QWERTY, which is what the host expects
+    private boolean forceQwerty = true;
+
+    public void setForceQwerty(boolean forceQwerty) {
+        this.forceQwerty = forceQwerty;
+    }
+
+    /** Whether a key from this device is remapped to QWERTY. */
+    static boolean remapsToQwerty(boolean forceQwerty, int deviceId) {
+        return forceQwerty && deviceId >= 0;
+    }
+
+    /** The key to send for Back when "Back button as Meta" is on, or 0 for anything else. */
+    public static short backAsMetaKey(boolean backAsMeta, int keyCode) {
+        return backAsMeta && keyCode == KeyEvent.KEYCODE_BACK ? VK_LWIN : 0;
+    }
+
     public KeyboardTranslator() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             for (int deviceId : InputDevice.getDeviceIds()) {
@@ -107,7 +125,7 @@ public class KeyboardTranslator implements InputManager.InputDeviceListener {
     }
 
     public boolean hasNormalizedMapping(int keycode, int deviceId) {
-        if (deviceId >= 0) {
+        if (remapsToQwerty(forceQwerty, deviceId)) {
             KeyboardMapping mapping = keyboardMappings.get(deviceId);
             if (mapping != null) {
                 // Try to map this device-specific keycode onto a QWERTY layout.
@@ -133,7 +151,7 @@ public class KeyboardTranslator implements InputManager.InputDeviceListener {
         int translated;
 
         // If a device ID was provided, look up the keyboard mapping
-        if (deviceId >= 0) {
+        if (remapsToQwerty(forceQwerty, deviceId)) {
             KeyboardMapping mapping = keyboardMappings.get(deviceId);
             if (mapping != null) {
                 // Try to map this device-specific keycode onto a QWERTY layout.

@@ -271,7 +271,8 @@ public final class CoverGlowSettings {
         CREDITS.put("list_microphone_device", "From logabell's Artemis changes");
         CREDITS.put("seekbar_audio_haptics_intensity", "Idea from Moonlight V+ by qiin2333");
         for (String key : new String[] {"checkbox_enable_floating_button", "virtual_display_mode",
-                "checkbox_smart_clipboard_sync", "checkbox_smart_clipboard_sync_toast", "checkbox_hide_clipboard_content"}) {
+                "checkbox_smart_clipboard_sync", "checkbox_smart_clipboard_sync_toast", "checkbox_hide_clipboard_content",
+                "checkbox_force_qwerty", "checkbox_back_as_meta"}) {
             CREDITS.put(key, artemis);
         }
         CREDITS.put("checkbox_prevent_packet_loss", "From Artemis by Yukino Song, via Artemide");

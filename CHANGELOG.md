@@ -13,6 +13,14 @@ steps and the checksums for each version.
 
 ## [Unreleased]
 
+### Added
+
+- **Back button as Meta:** a new setting under Input that sends the Windows key when a physical Back
+  button is pressed. From Artemis, credited to Yukino Song.
+- **Force QWERTY layout:** a new setting under Input to turn off the QWERTY remapping of a physical
+  keyboard's keys. It's on by default, which is what Starwire already did. From Artemis, credited
+  to Yukino Song.
+
 ## [0.3.0] - 2026-11-16
 
 ### Added
