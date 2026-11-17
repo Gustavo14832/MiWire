@@ -235,6 +235,20 @@
             android:name=".binding.input.driver.UsbDriverService"
             android:label="Usb Driver Service" />
 
+        <!-- Lets physical keyboard shortcuts that Android keeps for itself reach the stream -->
+        <service
+            android:name=".KeyboardAccessibilityService"
+            android:label="@string/keyboard_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/keyboard_accessibility_service" />
+        </service>
+
         <!-- Broadcast receiver for quitting the stream from external apps -->
         <receiver
             android:name=".receivers.StreamControlReceiver"

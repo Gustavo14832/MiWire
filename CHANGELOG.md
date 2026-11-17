@@ -20,6 +20,10 @@ steps and the checksums for each version.
 - **Force QWERTY layout:** a new setting under Input to turn off the QWERTY remapping of a physical
   keyboard's keys. It's on by default, which is what Starwire already did. From Artemis, credited
   to Yukino Song.
+- **Physical keyboard service:** an accessibility service, listed in Android's Accessibility
+  settings, that passes shortcuts Android keeps for itself (Alt+Tab, the Windows key) to the stream
+  while a physical keyboard is connected. Turn it on there to use it. From LavArtemis, credited to
+  Lavagnou.
 
 ## [0.3.0] - 2026-11-16
 

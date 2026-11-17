@@ -833,6 +833,7 @@ The menu itself, its quick actions and custom commands come from Moonlight X
 | Pinch to zoom anytime, outside Pan/Zoom mode | Idea from Moonlit Artemis (Mohammad Forhad / 4had45); uses Artemis's pan/zoom code (Yukino Song) |
 | Automatic clipboard sync (send yours when the stream starts, copy the PC's when you leave) **(Apollo / Vibepollo)** | Ported from Artemis (Yukino Song), via Artemide |
 | Force QWERTY layout (on by default, as before) and Back button as Meta (sends the Windows key from a physical Back button) | Ported from Artemis (Yukino Song) |
+| Physical keyboard accessibility service (lets Alt+Tab and the Windows key reach the PC) | Ported from LavArtemis (Lavagnou) |
 | Audio haptics: the game's bass becomes vibration on the device and/or the controller | Idea from Moonlight V+ (qiin2333); written new for Starwire |
 | From 0.3.0: controller vibration strength, 0 to 100% of the game's rumble on every controller. Audio haptics on the controller follows it too. Not yet tried on a device | New in Starwire |
 | Hide PC cursor (never / while touching / always) **(Vibepollo)** | New in Starwire |

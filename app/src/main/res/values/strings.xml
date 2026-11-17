@@ -276,6 +276,8 @@
     <string name="summary_checkbox_force_qwerty">Sends a physical keyboard\'s keys to the PC as QWERTY, which is what the host expects. Turn this off to keep another layout. Needs Android 13 or newer.</string>
     <string name="title_checkbox_back_as_meta">Back button as Meta</string>
     <string name="summary_checkbox_back_as_meta">Sends the Meta (Windows) key when a physical Back button is pressed.</string>
+    <string name="keyboard_service_label">Starwire Physical keyboard</string>
+    <string name="accessibility_description_text">Only used while you stream with a physical keyboard. Android keeps some shortcuts for itself, such as Alt+Tab and the Win key, so they never reach the PC. This service passes them to the stream. It only acts on key presses while a stream is running, and it does not store or send what you type.</string>
 
     <string name="category_on_screen_controls_settings">On-screen Controls Settings</string>
     <string name="title_checkbox_show_onscreen_controls">Show on-screen controls</string>

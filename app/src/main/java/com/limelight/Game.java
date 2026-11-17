@@ -178,6 +178,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     // Set by launchFailed() on any thread, so stageFailed() doesn't show its own dialog too
     private volatile boolean launchFailureShown = false;
     private boolean connecting = false;
+    // Set while a stream activity exists, so the physical keyboard accessibility service can reach it
+    public static Game instance;
+
     private boolean connected = false;
     private boolean userInitiatedDisconnect = false;
     private boolean autoEnterPip = false;
@@ -328,6 +331,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        instance = this;
 
         UiHelper.setLocale(this);
 
@@ -1384,6 +1389,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     protected void onDestroy() {
         stopMicrophoneCapture();
         stopUsbSharing(UsbShareTunnel.END_CLOSING);
+        if (instance == this) {
+            instance = null;
+        }
+
         super.onDestroy();
 
         // Unregister broadcast receiver
@@ -1697,6 +1706,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private byte getModifierState() {
         return (byte) modifierFlags;
+    }
+
+    public boolean isConnected() {
+        return connected;
     }
 
     @Override
