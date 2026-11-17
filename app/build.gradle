@@ -173,6 +173,8 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix ".debug"
+            // The commit a CI build came from, so Settings > Apps shows which build is installed
+            versionNameSuffix "-debug-" + (System.getenv('GITHUB_SHA') ?: 'local').take(7)
             resValue "string", "app_label", "Starwire (Debug)"
             resValue "string", "app_label_root", "Starwire (Root Debug)"
         }
