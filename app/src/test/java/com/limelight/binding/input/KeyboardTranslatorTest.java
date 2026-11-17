@@ -32,6 +32,21 @@ public class KeyboardTranslatorTest {
     }
 
     @Test
+    public void theKeyLeftOfZIsTheHostsOem102Key() {
+        assertEquals((short) 0x80E2, KeyboardTranslator.extraKey(KeyEvent.KEYCODE_BACKSLASH, 86));
+    }
+
+    @Test
+    public void theAbnt2SlashKeyIsAbntC1() {
+        assertEquals((short) 0x80C1, KeyboardTranslator.extraKey(KeyEvent.KEYCODE_RO, 89));
+    }
+
+    @Test
+    public void theBackslashKeyNextToEnterIsLeftAlone() {
+        assertEquals(0, KeyboardTranslator.extraKey(KeyEvent.KEYCODE_BACKSLASH, 43));
+    }
+
+    @Test
     public void keysAreRemappedOnlyWhenForcedAndFromARealDevice() {
         assertTrue(KeyboardTranslator.remapsToQwerty(true, 7));
         assertTrue("device 0 is a valid id", KeyboardTranslator.remapsToQwerty(true, 0));

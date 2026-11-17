@@ -1791,7 +1791,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
             // We'll send it as a raw key event if we have a key mapping, otherwise we'll send it
             // as UTF-8 text (if it's a printable character).
-            short translated = keyboardTranslator.translate(event.getKeyCode(), event.getDeviceId());
+            short translated = keyboardTranslator.translate(event.getKeyCode(), event.getScanCode(), event.getDeviceId());
             if (translated == 0) {
                 translated = KeyboardTranslator.backAsMetaKey(prefConfig.backAsMeta, event.getKeyCode());
             }
@@ -1815,7 +1815,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 return true;
             }
 
-            byte flags = keyboardTranslator.hasNormalizedMapping(event.getKeyCode(), event.getDeviceId()) ? 0 : MoonBridge.SS_KBE_FLAG_NON_NORMALIZED;
+            byte flags = keyboardTranslator.hasNormalizedMapping(event.getKeyCode(), event.getScanCode(), event.getDeviceId()) ? 0 : MoonBridge.SS_KBE_FLAG_NON_NORMALIZED;
             conn.sendKeyboardInput(translated, KeyboardPacket.KEY_DOWN, getModifierState(event), flags);
             keysDownOnPc.put(translated, flags);
         }
@@ -1897,7 +1897,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 return false;
             }
 
-            short translated = keyboardTranslator.translate(event.getKeyCode(), event.getDeviceId());
+            short translated = keyboardTranslator.translate(event.getKeyCode(), event.getScanCode(), event.getDeviceId());
             if (translated == 0) {
                 translated = KeyboardTranslator.backAsMetaKey(prefConfig.backAsMeta, event.getKeyCode());
             }
@@ -1909,7 +1909,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             }
 
             conn.sendKeyboardInput(translated, KeyboardPacket.KEY_UP, getModifierState(event),
-                    keyboardTranslator.hasNormalizedMapping(event.getKeyCode(), event.getDeviceId()) ? 0 : MoonBridge.SS_KBE_FLAG_NON_NORMALIZED);
+                    keyboardTranslator.hasNormalizedMapping(event.getKeyCode(), event.getScanCode(), event.getDeviceId()) ? 0 : MoonBridge.SS_KBE_FLAG_NON_NORMALIZED);
             keysDownOnPc.delete(translated);
         }
 

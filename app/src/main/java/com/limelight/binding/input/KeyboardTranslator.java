@@ -47,7 +47,7 @@ public class KeyboardTranslator implements InputManager.InputDeviceListener {
     public static final int VK_SEMICOLON = 59;
     public static final int VK_SLASH = 47;
     public static final int VK_SPACE = 32;
-    public static final int VK_PRINTSCREEN = 154;
+    public static final int VK_PRINTSCREEN = 0x2C; // Windows VK_SNAPSHOT
     public static final int VK_TAB = 9;
     public static final int VK_LEFT = 37;
     public static final int VK_RIGHT = 39;
@@ -111,6 +111,35 @@ public class KeyboardTranslator implements InputManager.InputDeviceListener {
     /** The key to send for Back when "Back button as Meta" is on, or 0 for anything else. */
     public static short backAsMetaKey(boolean backAsMeta, int keyCode) {
         return backAsMeta && keyCode == KeyEvent.KEYCODE_BACK ? VK_LWIN : 0;
+    }
+
+    // Linux scan codes of the two extra keys on a 102/104-key (ABNT2, ISO) keyboard
+    private static final int SCANCODE_102ND = 86;  // the key left of Z, "\\ |" on ABNT2
+    private static final int SCANCODE_RO = 89;     // the key right of ". >", "/ ?" on ABNT2
+    private static final short VK_OEM_102 = 0xE2;
+    private static final short VK_ABNT_C1 = 0xC1;
+
+    /**
+     * The key to send for the two extra keys of an ABNT2/ISO keyboard, or 0 for any other key.
+     * Android reports the key left of Z as Backslash, which is the wrong key on the host.
+     */
+    public static short extraKey(int keyCode, int scanCode) {
+        if (scanCode == SCANCODE_102ND) {
+            return (short) ((KEY_PREFIX << 8) | VK_OEM_102);
+        }
+        if (scanCode == SCANCODE_RO || keyCode == KeyEvent.KEYCODE_RO) {
+            return (short) ((KEY_PREFIX << 8) | VK_ABNT_C1);
+        }
+        return 0;
+    }
+
+    public short translate(int keycode, int scanCode, int deviceId) {
+        short extra = extraKey(keycode, scanCode);
+        return extra != 0 ? extra : translate(keycode, deviceId);
+    }
+
+    public boolean hasNormalizedMapping(int keycode, int scanCode, int deviceId) {
+        return extraKey(keycode, scanCode) == 0 && hasNormalizedMapping(keycode, deviceId);
     }
 
     public KeyboardTranslator() {
