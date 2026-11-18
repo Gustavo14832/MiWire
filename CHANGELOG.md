@@ -45,9 +45,11 @@ steps and the checksums for each version.
 ### Changed
 
 - **Restored `presentAhead` 60 Hz phase-locked `mibox-60hz` pacer:** restores immediate
-  `VK_GOOGLE_display_timing` presentation in `mibox-60hz`, calibrates the jitter window to 8 s /
-  99.6% coverage with a 14% phase margin and `3/8`-period slot-collision tolerance, and adds `PerfHint`
-  for Vulkan render and image-reader threads at a 2.0 ms CPU work target.
+  `VK_GOOGLE_display_timing` presentation in `mibox-60hz`, locks slot cadence to `1 vsync/frame`
+  (`16.67 ms`) with a 5 s / 99.6% jitter window (`decayDivisor = 128`) and max 3 queued frames to
+  prevent desktop/app `33.3 ms` slot doubling and cursor coasting, preserves warmed jitter offsets
+  across static-screen pauses without idle skips, filters host-idle intervals from `p50/p95/p99`
+  pacing telemetry, and runs `PerfHint` at a 2.0 ms CPU work target.
 - **Restored `c2.amlogic` HEVC RFI & conservative decoder resilience:** restores HEVC Reference
   Frame Invalidation on modern `c2.amlogic.*` Codec2 decoders (limiting the RFI block to legacy OMX
   decoders), removes per-drop auto-IDR storms while keeping 2 MB+ dynamic HEVC input buffer sizing
@@ -65,7 +67,8 @@ steps and the checksums for each version.
   button on Android TV and Amlogic devices.
 - **C-engine stream tuning (`moonlight-common-c`) & ADPF:** adds Android 12+ ADPF performance hint
   sessions in Java and native Vulkan threads, `recvmmsg` burst UDP video drain on Linux/Android,
-  500 us microsecond mouse coalescing with zero-hold first move and click flush, pure RFC 4594 DSCP
+  2 ms (`500 Hz`) zero-hold relative mouse coalescing with immediate UDP socket flush (`sendInputPacket`
+  and click/key preemption) to prevent ENet/Windows queue coasting, pure RFC 4594 DSCP
   marking (`IP_TOS`/`IPV6_TCLASS`), and 1 ns kernel timer slack with raised thread priority on
   native stream worker threads.
 - **Sub-pixel mouse accumulator and trigger deadzone:** preserves fractional relative mouse deltas

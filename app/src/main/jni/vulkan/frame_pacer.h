@@ -36,7 +36,7 @@ enum class JitterBuffer : int {
     Smooth = 2,
     LowestLatency = 3,  // Less buffer than LowLatency, which like it only evens out the host's
                         // timing when frames span more than one vsync
-    MiBox60Hz = 4,      // Calibrated 60 Hz phase-locked preset: 8 s window, 99.6% coverage
+    MiBox60Hz = 4,      // Calibrated 60 Hz phase-locked preset: 5 s window, 99.6% coverage, fast 2 s recovery
 };
 
 // Maps host frame timestamps onto the local clock.
@@ -55,11 +55,11 @@ public:
 
     // Checks a frame's host timestamp against the last one. Returns false if it broke the
     // timeline (the stream restarted or timestamps jumped) and the estimate was reset.
-    bool checkContinuity(int64_t hostPtsNs);
+    bool checkContinuity(int64_t hostPtsNs, int64_t arrivalNs = 0);
 
     // Records a decoded frame, measured against the host time it's scheduled from (its host
     // timestamp, or its place on the line the pacer fits to them)
-    void addSample(int64_t scheduledPtsNs, int64_t arrivalNs);
+    void addSample(int64_t scheduledPtsNs, int64_t arrivalNs, bool idleGap = false);
 
     // Starts the window over, keeping the delay, for when what samples are measured against
     // changes. Against the fitted line, the window is at least minWindowNs long.
@@ -77,7 +77,7 @@ public:
     int64_t minTransitNs() const;
 
     // How long the scheduled time is after the smallest transit time
-    int64_t bufferNs() const { return hasEstimate() ? offsetNs_ - minTransitNs() : 0; }
+    int64_t bufferNs() const { return (hasEstimate() && !minQueue_.empty()) ? (offsetNs_ - minTransitNs()) : 0; }
 
     JitterBuffer jitterBuffer() const { return jitterBuffer_; }
 
@@ -239,8 +239,8 @@ private:
     int64_t frameVsyncNs(const FrameTiming& frame, bool committable) const;
     void trackVsync(int64_t vsyncNs);
     void updateSlot(const FrameTiming& frame);
-    void updatePhase(FrameTiming& frame);
-    void scheduleFrom(FrameTiming& frame, int64_t measuredPtsNs, bool onLine, int64_t scheduledPtsNs);
+    void updatePhase(FrameTiming& frame, int64_t rawPtsDelta);
+    void scheduleFrom(FrameTiming& frame, int64_t measuredPtsNs, bool onLine, int64_t scheduledPtsNs, bool idleGap = false);
     void resetPhase();
     int64_t slotPeriodNs() const { return slotVsyncs_ * periodNs_; }
 

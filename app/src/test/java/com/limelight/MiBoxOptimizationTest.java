@@ -402,6 +402,36 @@ public class MiBoxOptimizationTest {
     }
 
     @Test
+    public void pacingStatsIgnoresHostStaticScreenIdlePauses() {
+        PacingStats stats = new PacingStats();
+        long presentNs = 1_000_000_000L;
+        long hostPtsUs = 0L;
+
+        stats.recordPresent(presentNs, hostPtsUs, 60);
+        for (int i = 0; i < 18; i++) {
+            presentNs += 16_670_000L;
+            hostPtsUs += 16_667L;
+            stats.recordPresent(presentNs, hostPtsUs, 60);
+        }
+        // Static-screen idle pauses (116.7 ms and 133.3 ms host PTS jumps) must not pollute p95/p99
+        presentNs += 116_700_000L;
+        hostPtsUs += 116_667L;
+        stats.recordPresent(presentNs, hostPtsUs, 60);
+        presentNs += 133_300_000L;
+        hostPtsUs += 133_333L;
+        stats.recordPresent(presentNs, hostPtsUs, 60);
+        // Real 33.3 ms client miss when host advanced by 1 frame (16.67 ms) IS recorded
+        presentNs += 33_330_000L;
+        hostPtsUs += 16_667L;
+        stats.recordPresent(presentNs, hostPtsUs, 60);
+
+        PacingStats.Snapshot snap = stats.snapshot();
+        assertEquals(19, snap.sampleCount);
+        assertEquals(16.67f, snap.p50Ms, 0.05f);
+        assertEquals(33.33f, snap.p99Ms, 0.05f);
+    }
+
+    @Test
     public void adpfHelperClampsWorkAndDeduplicatesTids() {
         assertEquals(0L, AdpfHelper.clampWorkDurationNs(0L, 3_000_000L));
         assertEquals(0L, AdpfHelper.clampWorkDurationNs(-500L, 3_000_000L));

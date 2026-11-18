@@ -1458,7 +1458,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                 // newer frame has replaced by the time it's due.
                                 long renderTimeNs = hostFrameTimeline.onFrameDecoded(presentationTimeUs * 1000, System.nanoTime());
                                 videoDecoder.releaseOutputBuffer(lastIndex, renderTimeNs);
-                                pacingStats.recordPresent(System.nanoTime());
+                                pacingStats.recordPresent(System.nanoTime(), presentationTimeUs, prefs.fps);
                                 activeWindowVideoStats.totalFramesRendered++;
                             }
                             // Render the latest frame now if frame pacing isn't in balanced mode
@@ -1513,7 +1513,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                     videoDecoder.releaseOutputBuffer(lastIndex, System.nanoTime());
                                 }
 
-                                pacingStats.recordPresent(System.nanoTime());
+                                pacingStats.recordPresent(System.nanoTime(), presentationTimeUs, prefs.fps);
                                 activeWindowVideoStats.totalFramesRendered++;
                             }
                             else {

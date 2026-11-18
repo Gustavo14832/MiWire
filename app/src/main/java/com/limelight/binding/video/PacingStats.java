@@ -13,6 +13,7 @@ public final class PacingStats {
     private int writeIndex;
     private int count;
     private long lastPresentNs;
+    private long lastHostPtsUs;
 
     public static final class Snapshot {
         public float p50Ms;
@@ -22,10 +23,16 @@ public final class PacingStats {
     }
 
     public synchronized void recordPresent(long presentTimeNs) {
+        recordPresent(presentTimeNs, 0L, 0);
+    }
+
+    public synchronized void recordPresent(long presentTimeNs, long hostPtsUs, int targetFps) {
         if (presentTimeNs <= 0L) {
             return;
         }
-        if (lastPresentNs != 0L && presentTimeNs > lastPresentNs) {
+        boolean hostIdlePause = hostPtsUs > 0L && lastHostPtsUs > 0L && targetFps > 0
+                && (hostPtsUs - lastHostPtsUs) > (3_000_000L / targetFps);
+        if (!hostIdlePause && lastPresentNs != 0L && presentTimeNs > lastPresentNs) {
             long deltaNs = presentTimeNs - lastPresentNs;
             if (deltaNs > 0L && deltaNs < 1_000_000_000L) {
                 deltasMs[writeIndex] = deltaNs / 1_000_000.0f;
@@ -37,6 +44,9 @@ public final class PacingStats {
         }
         if (presentTimeNs > lastPresentNs) {
             lastPresentNs = presentTimeNs;
+        }
+        if (hostPtsUs > 0L && hostPtsUs > lastHostPtsUs) {
+            lastHostPtsUs = hostPtsUs;
         }
     }
 
@@ -59,5 +69,6 @@ public final class PacingStats {
         writeIndex = 0;
         count = 0;
         lastPresentNs = 0L;
+        lastHostPtsUs = 0L;
     }
 }

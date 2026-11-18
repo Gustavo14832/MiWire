@@ -273,6 +273,7 @@ private:
         int delayVsyncs;
         bool ahead;
         int64_t slackNs;  // How long before its vsync a frame presented ahead was presented
+        int64_t hostPtsNs = 0;
         bool replaced = false;  // Another frame was presented for the same vsync
     };
 
@@ -408,11 +409,12 @@ private:
     };
     std::deque<SkipSample> skipSamples_;
     static constexpr size_t kPresentDeltaWindow = 512;
-    void recordPresentTimestampLocked(int64_t presentNs);
+    void recordPresentTimestampLocked(int64_t presentNs, int64_t hostPtsNs = 0);
     std::array<int64_t, kPresentDeltaWindow> presentDeltasNs_ {};
     size_t presentDeltaWrite_ = 0;
     size_t presentDeltaCount_ = 0;
     int64_t lastRecordedPresentNs_ = 0;
+    int64_t lastRecordedHostPtsNs_ = 0;
     bool hdrEnabled_ = false;
     bool hdrChanged_ = false;
     HdrMetadata hdrMetadata_;

@@ -995,11 +995,14 @@ std::string VulkanRenderer::rendererText() {
     return text;
 }
 
-void VulkanRenderer::recordPresentTimestampLocked(int64_t presentNs) {
+void VulkanRenderer::recordPresentTimestampLocked(int64_t presentNs, int64_t hostPtsNs) {
     if (presentNs <= 0) {
         return;
     }
-    if (lastRecordedPresentNs_ > 0 && presentNs > lastRecordedPresentNs_) {
+    const int64_t streamIntervalNs = 1'000'000'000LL / std::max(config_.streamFps, 1);
+    const bool hostIdlePause = hostPtsNs > 0 && lastRecordedHostPtsNs_ > 0 &&
+            (hostPtsNs - lastRecordedHostPtsNs_) > streamIntervalNs * 3;
+    if (!hostIdlePause && lastRecordedPresentNs_ > 0 && presentNs > lastRecordedPresentNs_) {
         const int64_t deltaNs = presentNs - lastRecordedPresentNs_;
         if (deltaNs >= 1'000'000 && deltaNs < 1'000'000'000) {
             presentDeltasNs_[presentDeltaWrite_] = deltaNs;
@@ -1011,6 +1014,9 @@ void VulkanRenderer::recordPresentTimestampLocked(int64_t presentNs) {
     }
     if (presentNs > lastRecordedPresentNs_) {
         lastRecordedPresentNs_ = presentNs;
+    }
+    if (hostPtsNs > 0 && hostPtsNs > lastRecordedHostPtsNs_) {
+        lastRecordedHostPtsNs_ = hostPtsNs;
     }
 }
 
@@ -1359,7 +1365,7 @@ void VulkanRenderer::onWake() {
             presentedFrames_++;
             if (!hasDisplayTimingExt_) {
                 std::lock_guard<std::mutex> lock(mutex_);
-                recordPresentTimestampLocked(nowNs());
+                recordPresentTimestampLocked(nowNs(), frame->timing.hostPtsNs);
             }
         }
     }
@@ -1445,7 +1451,7 @@ void VulkanRenderer::onVsync(int64_t frameTimeNanos) {
             presentedFrames_++;
             if (!hasDisplayTimingExt_) {
                 std::lock_guard<std::mutex> lock(mutex_);
-                recordPresentTimestampLocked(nowNs());
+                recordPresentTimestampLocked(nowNs(), frame->timing.hostPtsNs);
             }
         }
     }
@@ -1502,7 +1508,7 @@ void VulkanRenderer::presentAhead() {
             presentedFrames_++;
             if (!hasDisplayTimingExt_) {
                 std::lock_guard<std::mutex> lock(mutex_);
-                recordPresentTimestampLocked(nowNs());
+                recordPresentTimestampLocked(nowNs(), frame->timing.hostPtsNs);
             }
         }
     }
@@ -1775,7 +1781,8 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
         // (waiting for a swapchain image). Measured from here, the guard learned was a third of
         // what commits needed.
         pendingPresents_[presentId] = {vsyncNs, presentScheduler_.delayVsyncs(), ahead,
-                                       ahead ? vsyncNs - (commitNs != 0 ? commitNs : nowNs()) : 0};
+                                       ahead ? vsyncNs - (commitNs != 0 ? commitNs : nowNs()) : 0,
+                                       frame->timing.hostPtsNs};
         if (pendingPresents_.size() > 256) {
             // Reports lost across a swapchain rebuild never arrive
             while (!pendingPresents_.empty() && pendingPresents_.begin()->first + 128 < presentId) {
@@ -1840,6 +1847,7 @@ void VulkanRenderer::collectPresentTimings() {
     if (vk_.vkGetPastPresentationTimingGOOGLE(device_, swapchain_, &count, timings.data()) < 0) {
         return;
     }
+    std::vector<int64_t> hostPtsByIndex(count, 0);
     for (uint32_t i = 0; i < count; i++) {
         const VkPastPresentationTimingGOOGLE& t = timings[i];
 
@@ -1854,6 +1862,9 @@ void VulkanRenderer::collectPresentTimings() {
         }
 
         auto pending = pendingPresents_.find(t.presentID);
+        if (pending != pendingPresents_.end()) {
+            hostPtsByIndex[i] = pending->second.hostPtsNs;
+        }
         if (pending != pendingPresents_.end() && pending->second.ahead && !pending->second.replaced) {
             presentScheduler_.onAheadOutcome(pending->second.slackNs, pending->second.vsyncNs,
                                              pending->second.delayVsyncs, true,
@@ -1887,7 +1898,7 @@ void VulkanRenderer::collectPresentTimings() {
         const VkPastPresentationTimingGOOGLE& t = timings[i];
         if (t.presentID != 0) {
             if (t.actualPresentTime > 0) {
-                recordPresentTimestampLocked(static_cast<int64_t>(t.actualPresentTime));
+                recordPresentTimestampLocked(static_cast<int64_t>(t.actualPresentTime), hostPtsByIndex[i]);
             }
             trace_.presented(t.presentID, static_cast<int64_t>(t.actualPresentTime),
                              static_cast<int64_t>(t.earliestPresentTime), static_cast<int64_t>(t.presentMargin));

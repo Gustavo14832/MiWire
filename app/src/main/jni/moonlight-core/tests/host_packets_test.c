@@ -48,8 +48,10 @@ void PltSetEvent(PLT_EVENT* event) { (void)event; }
 void PltClearEvent(PLT_EVENT* event) { (void)event; }
 void PltWaitForEvent(PLT_EVENT* event) { (void)event; }
 void PltSleepMs(int ms) { (void)ms; }
+void PltSleepUs(int us) { (void)us; }
 void PltSleepMsInterruptible(PLT_THREAD* thread, int ms) { (void)thread; (void)ms; }
 uint64_t PltGetMillis(void) { static uint64_t t = 1000; return t += 10; }
+uint64_t PltGetMicroseconds(void) { static uint64_t t = 1000000; return t += 10000; }
 
 // Queues: a plain list, since only one thread runs
 int LbqInitializeLinkedBlockingQueue(PLINKED_BLOCKING_QUEUE queue, int sizeBound) {
@@ -317,6 +319,17 @@ int main(void) {
     threadEntry(threadContext);
     check(countInput(MULTI_CONTROLLER_MAGIC_GEN5) == 1, "sent with the Gen 5 magic (0x0C)");
     check(countInput(MULTI_CONTROLLER_MAGIC) == 0, "never the old magic (0x0D)");
+
+    printf("Relative mouse coalescing on that host:\n");
+    sentCount = 0;
+    LiSendMouseMoveEvent(5, -3);
+    LiSendMouseMoveEvent(2, 4);
+    threadEntry(threadContext);
+    check(countInput(MOUSE_MOVE_REL_MAGIC_GEN5) == 1 && sentCount == 1, "coalesced into one Gen 5 packet");
+    check(controlPayloadLength(0) == sizeof(NV_REL_MOUSE_MOVE_PACKET) &&
+          controlPayload(0)[8] == 0x00 && controlPayload(0)[9] == 0x07 &&
+          controlPayload(0)[10] == 0x00 && controlPayload(0)[11] == 0x01,
+          "summed deltaX=7 and deltaY=1 in big endian");
 
     // Sunshine, Apollo and Vibepollo handle a periodic ping (0x0200) by doing nothing, logging it
     // only at their most detailed level. A type they don't map is logged at debug level with a

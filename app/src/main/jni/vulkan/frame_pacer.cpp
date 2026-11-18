@@ -81,9 +81,9 @@ HostTimeline::HostTimeline(JitterBuffer jitterBuffer) : jitterBuffer_(jitterBuff
             decayDivisor_ = 4096;
             break;
         case JitterBuffer::MiBox60Hz:
-            windowNs_ = 8'000'000'000;
+            windowNs_ = 5'000'000'000;
             coverage_ = 0.996;
-            decayDivisor_ = 256;
+            decayDivisor_ = 128;
             break;
         case JitterBuffer::Balanced:
         default:
@@ -118,11 +118,24 @@ void HostTimeline::restartWindow(int64_t minWindowNs, int64_t minDecayDivisor) {
     decayDivisor_ = std::max(baseDecayDivisor_, minDecayDivisor);
 }
 
-bool HostTimeline::checkContinuity(int64_t hostPtsNs) {
+bool HostTimeline::checkContinuity(int64_t hostPtsNs, int64_t arrivalNs) {
     bool continuous = true;
-    if (started_ && (hostPtsNs < lastPtsNs_ - kMaxPtsBackstepNs || hostPtsNs > lastPtsNs_ + kMaxPtsGapNs)) {
-        reset();
-        continuous = false;
+    if (started_) {
+        if (hostPtsNs < lastPtsNs_ - kMaxPtsBackstepNs) {
+            reset();
+            continuous = false;
+        }
+        else if (hostPtsNs > lastPtsNs_ + kMaxPtsGapNs) {
+            if (arrivalNs > 0 && warmedUp_ && std::llabs((arrivalNs - hostPtsNs) - offsetNs_) < 500'000'000) {
+                // Static-screen pause on the same stream: keep warmed-up offsetNs_ intact
+                // so resuming motion does not starve the jitter buffer and cause skips.
+                continuous = false;
+            }
+            else {
+                reset();
+                continuous = false;
+            }
+        }
     }
     lastPtsNs_ = hostPtsNs;
     return continuous;
@@ -132,7 +145,7 @@ int64_t HostTimeline::minTransitNs() const {
     return minQueue_.empty() ? 0 : minQueue_.front().transitNs;
 }
 
-void HostTimeline::addSample(int64_t scheduledPtsNs, int64_t arrivalNs) {
+void HostTimeline::addSample(int64_t scheduledPtsNs, int64_t arrivalNs, bool idleGap) {
     if (!started_) {
         started_ = true;
         startNs_ = arrivalNs;
@@ -147,6 +160,21 @@ void HostTimeline::addSample(int64_t scheduledPtsNs, int64_t arrivalNs) {
     if (!warmingUp && !warmedUp_) {
         window_.clear();
         minQueue_.clear();
+    }
+
+    // Static-screen keepalive frames decode nearly instantaneously and would otherwise pull
+    // offsetNs_ down toward idle transit times, causing skips when real motion resumes.
+    if (!warmingUp && warmedUp_ && idleGap) {
+        const int64_t transitNs = sample.transitNs;
+        if (transitNs > offsetNs_) {
+            if (maxBufferNs_ > 0 && !minQueue_.empty()) {
+                offsetNs_ = std::min(transitNs, minTransitNs() + maxBufferNs_);
+            }
+            else {
+                offsetNs_ = transitNs;
+            }
+        }
+        return;
     }
 
     window_.push_back(sample);
@@ -270,7 +298,8 @@ size_t FramePacer::maxQueued() const {
             // Enough to hold every frame inside the buffer we schedule with, plus one slot
             const int64_t held = timeline_.bufferNs() + scheduleDelayNs() + slotPeriodNs();
             const size_t frames = static_cast<size_t>(held / std::max<int64_t>(streamIntervalNs_, 1)) + 2;
-            return std::min<size_t>(std::max<size_t>(frames, 2), kMaxQueuedFrames);
+            const size_t cap = mode_ == PacingMode::MiBox60Hz ? 3 : kMaxQueuedFrames;
+            return std::min<size_t>(std::max<size_t>(frames, 2), cap);
         }
         case PacingMode::CapFps:
         case PacingMode::Smoothness:
@@ -295,14 +324,16 @@ void FramePacer::onFrameArrived(FrameTiming& frame) {
         return;
     }
 
-    if (!timeline_.checkContinuity(frame.hostPtsNs)) {
+    const int64_t prevPtsNs = lastPtsNs_;
+    const int64_t rawPtsDelta = prevPtsNs != 0 ? (frame.hostPtsNs - prevPtsNs) : 0;
+    if (!timeline_.checkContinuity(frame.hostPtsNs, frame.arrivalNs)) {
         ptsDeltas_.clear();
         lastPtsNs_ = 0;
         resetPhase();
     }
 
     updateSlot(frame);
-    updatePhase(frame);
+    updatePhase(frame, rawPtsDelta);
 }
 
 // Adds the frame to the jitter buffer, measured against its host timestamp or, with onLine, its
@@ -310,12 +341,14 @@ void FramePacer::onFrameArrived(FrameTiming& frame) {
 // scheduledPtsNs plus the buffer. Measured against the line itself while scheduled after it, the
 // time between them was counted twice.
 // Changing what the buffer measures against starts its window over, since the two don't mix.
-void FramePacer::scheduleFrom(FrameTiming& frame, int64_t measuredPtsNs, bool onLine, int64_t scheduledPtsNs) {
+void FramePacer::scheduleFrom(FrameTiming& frame, int64_t measuredPtsNs, bool onLine, int64_t scheduledPtsNs,
+                              bool idleGap) {
     if (onLine != transitOnLine_) {
         transitOnLine_ = onLine;
-        timeline_.restartWindow(0, onLine ? kLineDecayDivisor : 0);
+        const int64_t lineDecay = timeline_.jitterBuffer() == JitterBuffer::MiBox60Hz ? 0 : kLineDecayDivisor;
+        timeline_.restartWindow(0, onLine ? lineDecay : 0);
     }
-    timeline_.addSample(measuredPtsNs, frame.arrivalNs);
+    timeline_.addSample(measuredPtsNs, frame.arrivalNs, idleGap);
     frame.targetNs = scheduledPtsNs + timeline_.offsetNs();
 }
 
@@ -323,6 +356,15 @@ void FramePacer::scheduleFrom(FrameTiming& frame, int64_t measuredPtsNs, bool on
 // This is the game's frame rate, which can be below the stream's: a game capped at 71.82 fps
 // is two vsyncs a frame on a 143.64 Hz panel, whatever the stream is set to.
 void FramePacer::updateSlot(const FrameTiming& frame) {
+    if (mode_ == PacingMode::MiBox60Hz) {
+        lastPtsNs_ = frame.hostPtsNs;
+        if (slotVsyncs_ != 1) {
+            slotVsyncs_ = 1;
+            timeline_.setSlotVsyncs(1);
+            resetPhase();
+        }
+        return;
+    }
     if (lastPtsNs_ != 0) {
         const int64_t delta = frame.hostPtsNs - lastPtsNs_;
         if (delta > 0 && delta < 1'000'000'000) {
@@ -397,13 +439,14 @@ void FramePacer::updateSlot(const FrameTiming& frame) {
 //
 // If the timestamps don't fit a line (the game's frame rate varies), frames are shown at their
 // own host timestamps.
-void FramePacer::updatePhase(FrameTiming& frame) {
+void FramePacer::updatePhase(FrameTiming& frame, int64_t rawPtsDelta) {
+    const int64_t slotPeriod = slotPeriodNs();
+    const bool idleGap = rawPtsDelta > slotPeriod * 5 / 2;
+
     if (lastVsyncNs_ == 0) {
-        scheduleFrom(frame, frame.hostPtsNs, false, frame.hostPtsNs);
+        scheduleFrom(frame, frame.hostPtsNs, false, frame.hostPtsNs, idleGap);
         return;
     }
-
-    const int64_t slotPeriod = slotPeriodNs();
 
     // At a frame a vsync, locking only evens out the host's own timing, which on a Pixel 10 Pro
     // at 120 fps cost about 3 ms more delay for 15-60% fewer uneven frames (measured when the
@@ -419,7 +462,7 @@ void FramePacer::updatePhase(FrameTiming& frame) {
         shiftNs_ = 0;
         slotParity_ = 0;
         lateNs_ = 0;
-        scheduleFrom(frame, frame.hostPtsNs, false, frame.hostPtsNs);
+        scheduleFrom(frame, frame.hostPtsNs, false, frame.hostPtsNs, idleGap);
         return;
     }
 
@@ -429,6 +472,20 @@ void FramePacer::updatePhase(FrameTiming& frame) {
         // half-slot gap when the game's presents sit near a host refresh: counting it as two
         // frames would add a frame for every such pair and wreck the fit.
         const int64_t delta = frame.hostPtsNs - phaseSamples_.back().hostPtsNs;
+        const bool prevWasLateRefresh = phaseSamples_.size() >= 2 &&
+                (phaseSamples_.back().hostPtsNs - phaseSamples_[phaseSamples_.size() - 2].hostPtsNs) > slotPeriod * 13 / 10;
+        if (mode_ == PacingMode::MiBox60Hz &&
+                (delta > slotPeriod * 4 || (delta < slotPeriod / 2 && !prevWasLateRefresh))) {
+            phaseSamples_.clear();
+            frameIndex_ = 0;
+            phaseLocked_ = false;
+            shiftNs_ = 0;
+            slotParity_ = 0;
+            lateNs_ = 0;
+            phaseSamples_.push_back({frame.arrivalNs, 0, frame.hostPtsNs});
+            scheduleFrom(frame, frame.hostPtsNs, transitOnLine_, frame.hostPtsNs, idleGap);
+            return;
+        }
         frameIndex_ += std::max<int64_t>(1, (delta + slotPeriod * 3 / 10) / slotPeriod);
     }
     phaseSamples_.push_back({frame.arrivalNs, frameIndex_, frame.hostPtsNs});
@@ -442,7 +499,7 @@ void FramePacer::updatePhase(FrameTiming& frame) {
         shiftNs_ = 0;
         slotParity_ = 0;
         lateNs_ = 0;
-        scheduleFrom(frame, frame.hostPtsNs, false, frame.hostPtsNs);
+        scheduleFrom(frame, frame.hostPtsNs, false, frame.hostPtsNs, idleGap);
     };
 
     const int64_t minPhaseSpanNs = mode_ == PacingMode::MiBox60Hz ? kMiBoxMinPhaseSpanNs : kMinPhaseSpanNs;
@@ -540,6 +597,9 @@ void FramePacer::updatePhase(FrameTiming& frame) {
         const double carried = scheduledPtsNs_ + interval * static_cast<double>(frameIndex_ - scheduledIndex_);
         if (scheduled < carried) {
             scheduled = std::max(scheduled, carried - static_cast<double>(slotPeriod) * kLateDecayPerFrame);
+            if (againstLine) {
+                scheduled = std::min(scheduled, line + static_cast<double>(slotPeriod) * 0.25);
+            }
         }
     }
     else {
@@ -551,10 +611,10 @@ void FramePacer::updatePhase(FrameTiming& frame) {
     phaseLocked_ = true;
     const int64_t scheduledNs = static_cast<int64_t>(std::llround(scheduled));
     if (againstLine) {
-        scheduleFrom(frame, scheduledNs, true, scheduledNs);
+        scheduleFrom(frame, scheduledNs, true, scheduledNs, idleGap);
     }
     else {
-        scheduleFrom(frame, frame.hostPtsNs, false, scheduledNs);
+        scheduleFrom(frame, frame.hostPtsNs, false, scheduledNs, idleGap);
     }
 
     // Where the schedule sits within the slot, as a narrow arc that allows for the fit
