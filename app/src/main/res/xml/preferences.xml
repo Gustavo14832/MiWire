@@ -615,6 +615,20 @@
             android:title="@string/title_full_range"
             android:summary="@string/summary_full_range"
             android:defaultValue="false" />
+        <com.limelight.preferences.SeekBarPreference
+            android:key="seekbar_max_pending_audio_ms"
+            android:defaultValue="30"
+            seekbar:min="10"
+            android:max="100"
+            seekbar:step="5"
+            android:summary="@string/summary_max_pending_audio_ms"
+            android:text="@string/suffix_max_pending_audio_ms"
+            android:title="@string/title_max_pending_audio_ms" />
+        <CheckBoxPreference
+            android:key="checkbox_sustained_performance"
+            android:title="@string/title_sustained_performance"
+            android:summary="@string/summary_sustained_performance"
+            android:defaultValue="false" />
         <CheckBoxPreference
             android:key="checkbox_enable_perf_overlay"
             android:title="@string/title_enable_perf_overlay"

@@ -27,8 +27,7 @@ namespace {
     constexpr int64_t kLineDecayDivisor = 1024;
     constexpr size_t kSlotDeltaWindow = 63;
     constexpr int64_t kMiBoxMinPhaseSpanNs = 1'000'000'000;
-    constexpr double kMiBoxPhaseMargin = 0.08;
-    constexpr int64_t kMiBoxLineDecayDivisor = 120;  // ~2 s at 60 fps instead of 17 s
+    constexpr double kMiBoxPhaseMargin = 0.14;
 
     // Vsyncs the period is measured over
     constexpr size_t kVsyncWindow = 480;
@@ -82,9 +81,9 @@ HostTimeline::HostTimeline(JitterBuffer jitterBuffer) : jitterBuffer_(jitterBuff
             decayDivisor_ = 4096;
             break;
         case JitterBuffer::MiBox60Hz:
-            windowNs_ = 1'500'000'000;
-            coverage_ = 0.98;
-            decayDivisor_ = 48;
+            windowNs_ = 8'000'000'000;
+            coverage_ = 0.996;
+            decayDivisor_ = 256;
             break;
         case JitterBuffer::Balanced:
         default:
@@ -210,8 +209,7 @@ FramePacer::FramePacer(PacingMode mode, int streamFps, int64_t vsyncPeriodNs, Ji
       timeline_(mode == PacingMode::MiBox60Hz ? JitterBuffer::MiBox60Hz : jitterBuffer) {
     // Frames waiting out the buffer sit in the caller's queue (maxQueued()), which also holds
     // the frame due next and one being shown
-    const int64_t maxBufferFrames = mode == PacingMode::MiBox60Hz ? 1 : static_cast<int64_t>(kMaxQueuedFrames - 3);
-    timeline_.setMaxBufferNs(maxBufferFrames * streamIntervalNs_);
+    timeline_.setMaxBufferNs(static_cast<int64_t>(kMaxQueuedFrames - 3) * streamIntervalNs_);
 }
 
 void FramePacer::setVsyncPeriod(int64_t periodNs) {
@@ -267,14 +265,13 @@ size_t FramePacer::maxQueued() const {
             return 1;
         case PacingMode::Balanced:
             return 2;
-        case PacingMode::HostTimed: {
+        case PacingMode::HostTimed:
+        case PacingMode::MiBox60Hz: {
             // Enough to hold every frame inside the buffer we schedule with, plus one slot
             const int64_t held = timeline_.bufferNs() + scheduleDelayNs() + slotPeriodNs();
             const size_t frames = static_cast<size_t>(held / std::max<int64_t>(streamIntervalNs_, 1)) + 2;
             return std::min<size_t>(std::max<size_t>(frames, 2), kMaxQueuedFrames);
         }
-        case PacingMode::MiBox60Hz:
-            return kMiBoxMaxQueuedFrames;
         case PacingMode::CapFps:
         case PacingMode::Smoothness:
         default:
@@ -290,8 +287,6 @@ void FramePacer::resetPhase() {
     phaseLocked_ = false;
     driftPerFrame_ = 0;
     lateNs_ = 0;
-    steadyQueueVsyncs_ = 0;
-    highWaterVsyncs_ = 0;
 }
 
 void FramePacer::onFrameArrived(FrameTiming& frame) {
@@ -318,8 +313,7 @@ void FramePacer::onFrameArrived(FrameTiming& frame) {
 void FramePacer::scheduleFrom(FrameTiming& frame, int64_t measuredPtsNs, bool onLine, int64_t scheduledPtsNs) {
     if (onLine != transitOnLine_) {
         transitOnLine_ = onLine;
-        const int64_t lineDecay = mode_ == PacingMode::MiBox60Hz ? kMiBoxLineDecayDivisor : kLineDecayDivisor;
-        timeline_.restartWindow(0, onLine ? lineDecay : 0);
+        timeline_.restartWindow(0, onLine ? kLineDecayDivisor : 0);
     }
     timeline_.addSample(measuredPtsNs, frame.arrivalNs);
     frame.targetNs = scheduledPtsNs + timeline_.offsetNs();
@@ -497,25 +491,17 @@ void FramePacer::updatePhase(FrameTiming& frame) {
     double spread = 1e18;
     for (double candidate : candidates) {
         double high = -1e18;
-        double secondHigh = -1e18;
         double low = 1e18;
         for (const PhaseSample& s : phaseSamples_) {
             const double residual = static_cast<double>(s.hostPtsNs - first.hostPtsNs) -
                                     candidate * static_cast<double>(s.frameIndex - first.frameIndex);
-            if (residual > high) {
-                secondHigh = high;
-                high = residual;
-            }
-            else if (residual > secondHigh) {
-                secondHigh = residual;
-            }
+            high = std::max(high, residual);
             low = std::min(low, residual);
         }
         if (high - low < spread) {
             spread = high - low;
             interval = candidate;
-            // Ignore a lone late outlier once enough phase samples exist so the 16s schedule stays steady.
-            latest = phaseSamples_.size() >= 4 ? secondHigh : high;
+            latest = high;
         }
     }
 
@@ -573,7 +559,7 @@ void FramePacer::updatePhase(FrameTiming& frame) {
 
     // Where the schedule sits within the slot, as a narrow arc that allows for the fit
     // wobbling as frames enter and leave the window
-    const int64_t effectiveTargetNs = frame.targetNs;
+    const int64_t effectiveTargetNs = frame.targetNs + presentGuardNs();
     const int64_t slotStartNs = lastVsyncNs_ - (vsyncIndex_ % slotVsyncs_) * periodNs_;
     const double width = kScheduleWidth;
     const double start = wrapCycles(static_cast<double>(effectiveTargetNs - slotStartNs) / slotPeriod - width / 2);
@@ -698,63 +684,8 @@ int FramePacer::onVsync(int64_t vsyncNs, const FrameTiming* frames, size_t count
             choice = count > 0 ? 0 : -1;
             break;
 
+        case PacingMode::HostTimed:
         case PacingMode::MiBox60Hz: {
-            if (count == 0) {
-                steadyQueueVsyncs_ = 0;
-                highWaterVsyncs_ = 0;
-                break;
-            }
-
-            if (slotVsyncs_ > 1 && lastPresentVsyncNs_ != 0) {
-                const int64_t sinceLast = vsyncNs - lastPresentVsyncNs_;
-                if (sinceLast * 2 < (2 * slotVsyncs_ - 1) * periodNs_) {
-                    break;
-                }
-            }
-
-            // Allow one initial phase alignment hold right as the schedule locks during warmup so
-            // steady streams sit cleanly inside their V-Sync window rather than straddling an edge.
-            const bool inInitialLockSettle = lastPresentVsyncNs_ == 0 || !timeline_.warmedUp() ||
-                    (phaseLocked_ && frames[0].arrivalNs - lockedSinceNs_ < 500'000'000);
-            if (count == 1 && inInitialLockSettle &&
-                    frames[0].targetNs + shiftNs_ > vsyncNs + periodNs_ / 4) {
-                steadyQueueVsyncs_ = 0;
-                highWaterVsyncs_ = 0;
-                break;
-            }
-
-            // Monotonic FIFO lock: consume strictly 1 frame per V-Sync on normal jitter or bursts,
-            // never skipping Frame 0 and starving the following V-Sync.
-            choice = 0;
-
-            if (count >= 4) {
-                highWaterVsyncs_++;
-                steadyQueueVsyncs_++;
-                if (highWaterVsyncs_ >= 15) {
-                    choice = 1;
-                    highWaterVsyncs_ = 0;
-                    steadyQueueVsyncs_ = 0;
-                }
-            }
-            else if (count >= 2) {
-                highWaterVsyncs_ = 0;
-                steadyQueueVsyncs_++;
-                if (steadyQueueVsyncs_ >= 90) {
-                    choice = 1;
-                    steadyQueueVsyncs_ = 0;
-                }
-            }
-            else {
-                highWaterVsyncs_ = 0;
-                steadyQueueVsyncs_ = 0;
-            }
-
-            const int64_t waitNs = std::max<int64_t>(0, vsyncNs - frames[choice].arrivalNs);
-            lastWaitNs_ = lastWaitNs_ == 0 ? waitNs : (lastWaitNs_ * 7 + waitNs) / 8;
-            break;
-        }
-
-        case PacingMode::HostTimed: {
             if (count == 0) {
                 break;
             }
@@ -769,7 +700,7 @@ int FramePacer::onVsync(int64_t vsyncNs, const FrameTiming* frames, size_t count
                 break;
             }
 
-            const int64_t tolerance = periodNs_ / 4;
+            const int64_t tolerance = mode_ == PacingMode::MiBox60Hz ? (periodNs_ * 3 / 8) : (periodNs_ / 4);
             int newestDue = -1;
             for (size_t i = 0; i < count; i++) {
                 if (frames[i].targetNs + shiftNs_ + presentGuardNs() <= vsyncNs) {
@@ -857,7 +788,7 @@ int64_t FramePacer::frameVsyncNs(const FrameTiming& frame, bool committable) con
     // slightest jitter: one frame replacing another at a vsync, then a vsync without a new frame.
     // Keep one frame per slot through that jitter; only a frame well off the slot moves.
     if (lastPresentVsyncNs_ != 0 && !(phaseLocked_ && slotVsyncs_ > 1)) {
-        const int64_t tolerance = periodNs_ / 4;
+        const int64_t tolerance = mode_ == PacingMode::MiBox60Hz ? (periodNs_ * 3 / 8) : (periodNs_ / 4);
         const int64_t planned = lastVsyncNs_ + (index - vsyncIndex_) * periodNs_;
         // The slot after the last frame committed, if it hasn't passed
         const int64_t nextSlot = lastPresentVsyncNs_ + slotVsyncs_ * periodNs_;

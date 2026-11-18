@@ -820,19 +820,18 @@ public class MediaCodecHelper {
             return false;
         }
         String lower = decoderName.toLowerCase(Locale.ROOT);
-        if ((lower.startsWith("c2.amlogic.") || lower.startsWith("omx.amlogic.")
-                || lower.equals("c2.amlogic") || lower.equals("omx.amlogic")) && !isFireOs) {
+        if ((lower.startsWith("omx.amlogic.") || lower.equals("omx.amlogic")) && !isFireOs) {
             return false;
         }
         return true;
     }
 
     public static boolean decoderSupportsRefFrameInvalidationHevc(MediaCodecInfo decoderInfo) {
-        // Non-FireOS Amlogic Codec2/OMX HEVC decoders (e.g., Mi Box S Gen 3 c2.amlogic.hevc.decoder)
-        // advertise FEATURE_LowLatency, which would otherwise advertise RFI and let the host use
-        // up to 16 DPB reference frames instead of 1, adding decode latency and memory bandwidth.
+        // Legacy OMX Amlogic decoders can buffer extra DPB references under RFI, whereas modern
+        // Codec2 decoders (e.g., Mi Box S Gen 3 c2.amlogic.hevc.decoder) with FEATURE_LowLatency
+        // support single-reference RFI cleanly.
         if (!shouldAllowHevcRfiForDecoder(decoderInfo.getName(), isFireTvDevice)) {
-            LimeLog.info("Disabling HEVC RFI on Amlogic decoder to force single reference frame: " + decoderInfo.getName());
+            LimeLog.info("Disabling HEVC RFI on legacy OMX Amlogic decoder: " + decoderInfo.getName());
             return false;
         }
 

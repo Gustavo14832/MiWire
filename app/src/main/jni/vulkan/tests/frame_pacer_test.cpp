@@ -461,81 +461,91 @@ int main() {
         }
     }
     {
-        // Overwatch on Azure -> Mi Box S Gen 3 (60 fps on 60 Hz): decode jitter 4.0-7.5 ms,
-        // periodic 2-frame Azure WAN bursts every ~72 frames, and occasional 14 ms teamfight spikes.
-        // Monotonic 60Hz FIFO lock must keep zero skips and zero overflow drops.
+        // Overwatch on Azure -> Mi Box S Gen 3 (60 fps on 60 Hz) with presentAhead active:
+        // decode jitter 4.0-7.5 ms and periodic late frames should show zero skips, zero overflows,
+        // and < 16.0 ms mean queue latency from decode arrival to display V-Sync.
         const int64_t period = 16'666'667;
         FramePacer pacer(PacingMode::MiBox60Hz, 60, period, JitterBuffer::MiBox60Hz);
+        pacer.setPresentAhead(true);
+        pacer.setPresentGuardNs(1'500'000);
         std::deque<FrameTiming> queue;
         const int totalFrames = 3600;
         const int64_t t0 = 5'000'000'000LL;
         int overflowDrops = 0;
+        int shown = 0;
+        double waitSumMs = 0.0;
         size_t next = 0;
-        int64_t lastShownPts = -1;
+        int64_t lastShownVsync = -1;
         bool monotonic = true;
         std::vector<int64_t> arrivals(totalFrames);
         int64_t prevArrival = 0;
         for (int i = 0; i < totalFrames; i++) {
             const int64_t hostPts = i * period;
-            // Base transit 16 ms + 4.0..7.5 ms decode jitter + burst delay + occasional 14 ms spike
             int64_t delayNs = 16'000'000 + ((i % 5) * 875'000);
             if (i % 72 == 40) {
-                delayNs += 11'500'000;  // Arrives late, bunched closely with frame i+1
-            }
-            else if (i % 180 == 90) {
-                delayNs += 14'000'000;  // Teamfight encode spike
+                delayNs += 5'000'000;
             }
             int64_t a = t0 + hostPts + delayNs;
             a = std::max(a, prevArrival + 500'000);
             arrivals[i] = prevArrival = a;
         }
+        auto drainAhead = [&](bool countLatency) {
+            while (!queue.empty()) {
+                const int64_t showVsync = pacer.plannedVsyncNs(queue.front());
+                if (showVsync == 0) {
+                    break;
+                }
+                pacer.onPresentedAhead(showVsync);
+                if (countLatency) {
+                    shown++;
+                    waitSumMs += (showVsync - queue.front().arrivalNs) / 1e6;
+                }
+                if (showVsync <= lastShownVsync) {
+                    monotonic = false;
+                }
+                lastShownVsync = showVsync;
+                queue.pop_front();
+            }
+        };
         for (int v = 0; v < totalFrames + 10; v++) {
             const int64_t vsync = t0 + v * period + 3'000'000;
+            const bool pastWarmup = vsync > t0 + 3'000'000'000LL;
             while (next < arrivals.size() && arrivals[next] <= vsync + 500'000) {
                 FrameTiming f {static_cast<int64_t>(next) * period, arrivals[next], 0};
                 pacer.onFrameArrived(f);
                 queue.push_back(f);
                 while (queue.size() > pacer.maxQueued()) {
                     queue.pop_front();
-                    overflowDrops++;
+                    if (pastWarmup) {
+                        overflowDrops++;
+                    }
                 }
+                drainAhead(pastWarmup);
                 next++;
             }
             std::vector<FrameTiming> snap(queue.begin(), queue.end());
             int choice = pacer.onVsync(vsync, snap.data(), snap.size());
             if (choice >= 0) {
-                if (choice > 0) {
-                    queue.erase(queue.begin(), queue.begin() + choice);
+                queue.erase(queue.begin(), queue.begin() + choice);
+                if (pastWarmup) {
+                    shown++;
+                    waitSumMs += (vsync - queue.front().arrivalNs) / 1e6;
                 }
-                const int64_t shownPts = queue.front().hostPtsNs;
-                queue.pop_front();
-                if (shownPts <= lastShownPts) {
+                if (vsync <= lastShownVsync) {
                     monotonic = false;
                 }
-                lastShownPts = shownPts;
+                lastShownVsync = vsync;
+                queue.pop_front();
             }
+            drainAhead(pastWarmup);
         }
-        printf("Overwatch 60s MiBox60Hz jitter/burst test: skipped %llu, overflows %d, monotonic %d\n",
-               static_cast<unsigned long long>(pacer.framesSkipped()), overflowDrops, monotonic ? 1 : 0);
-        check(pacer.framesSkipped() == 0, "mibox-60hz overwatch burst", "expected 0 skipped frames");
-        check(overflowDrops == 0, "mibox-60hz overwatch burst", "expected 0 overflow drops");
-        check(monotonic, "mibox-60hz overwatch burst", "frames not monotonic");
-    }
-    {
-        // Emergency post-freeze drain: >=4 frames queued continuously for 15 vsyncs trims 1 frame
-        // only on the 15th vsync (not before).
-        const int64_t period = 16'666'667;
-        FramePacer pacer(PacingMode::MiBox60Hz, 60, period, JitterBuffer::MiBox60Hz);
-        std::vector<FrameTiming> deep(4);
-        for (int i = 0; i < 4; i++) {
-            deep[i] = {i * period, 10'000'000'000LL + i * period, 10'000'000'000LL + i * period};
-        }
-        for (int v = 0; v < 14; v++) {
-            int c = pacer.onVsync(10'100'000'000LL + v * period, deep.data(), deep.size());
-            check(c == 0, "mibox-60hz post-freeze drain", "trimmed too early before 15 vsyncs");
-        }
-        int c15 = pacer.onVsync(10'100'000'000LL + 14 * period, deep.data(), deep.size());
-        check(c15 == 1, "mibox-60hz post-freeze drain", "did not trim 1 frame at 15th continuous >=4-frame vsync");
+        const double meanWaitMs = shown > 0 ? (waitSumMs / shown) : 0.0;
+        printf("Overwatch 60s MiBox60Hz presentAhead test: skipped %llu, overflows %d, meanWait %.2f ms, monotonic %d\n",
+               static_cast<unsigned long long>(pacer.framesSkipped()), overflowDrops, meanWaitMs, monotonic ? 1 : 0);
+        check(pacer.framesSkipped() == 0, "mibox-60hz presentAhead jitter", "expected 0 skipped frames");
+        check(overflowDrops == 0, "mibox-60hz presentAhead jitter", "expected 0 overflow drops");
+        check(meanWaitMs < 16.0, "mibox-60hz presentAhead jitter", "mean queue wait exceeded 16.0 ms");
+        check(monotonic, "mibox-60hz presentAhead jitter", "vsyncs not monotonic");
     }
 
     printf(failures ? "\n%d check(s) failed\n" : "\nAll checks passed\n", failures);

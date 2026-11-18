@@ -7,6 +7,7 @@ import android.os.Build;
 import android.preference.PreferenceManager;
 import android.view.Display;
 
+import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.audio.VbanSender;
 import com.limelight.binding.input.dualsense.TriggerPreset;
 import com.limelight.binding.input.dualsense.TriggerStrength;
@@ -123,6 +124,8 @@ public class PreferenceConfiguration {
     private static final String PREVENT_PACKET_LOSS_PREF_STRING = "checkbox_prevent_packet_loss";
     private static final String FEC_PERCENT_PREF_STRING = "list_fec_percent";
     private static final String EXACT_SLICES_PREF_STRING = "checkbox_exact_slices";
+    private static final String MAX_PENDING_AUDIO_MS_PREF_STRING = "seekbar_max_pending_audio_ms";
+    private static final String SUSTAINED_PERFORMANCE_PREF_STRING = "checkbox_sustained_performance";
     private static final String VIRTUAL_DISPLAY_MODE_PREF_STRING = "virtual_display_mode";
     private static final String VSYNC_MODE_PREF_STRING = "vsync_mode";
     private static final String SYNC_LFR_PREF_STRING = "checkbox_sync_lfr";
@@ -232,6 +235,7 @@ public class PreferenceConfiguration {
     static final String TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v2";
     static final String TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v3";
     static final String TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v4";
+    static final String TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v5";
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -336,6 +340,8 @@ public class PreferenceConfiguration {
     public boolean preventPacketLoss;
     public int fecPercentage = -1;
     public boolean exactSlicesPerFrame;
+    public int maxPendingAudioMs = 30;
+    public boolean enableSustainedPerformance;
     // "host" (send nothing), "virtual" or "primary": the virtualDisplay launch argument
     public String virtualDisplayMode;
     public int vsyncMode; // VSYNC_*
@@ -825,10 +831,13 @@ public class PreferenceConfiguration {
                 .remove(FULL_RANGE_PREF_STRING)
                 .remove(EXACT_SLICES_PREF_STRING)
                 .remove(FEC_PERCENT_PREF_STRING)
+                .remove(MAX_PENDING_AUDIO_MS_PREF_STRING)
+                .remove(SUSTAINED_PERFORMANCE_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING)
+                .remove(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING)
                 .apply();
     }
 
@@ -860,7 +869,8 @@ public class PreferenceConfiguration {
                     .putBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, true)
                     .putBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, true)
                     .putBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, true);
+                    .putBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, true)
+                    .putBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, true);
             if (!prefs.contains(RESOLUTION_PREF_STRING)) {
                 editor.putString(RESOLUTION_PREF_STRING, RES_1080P);
             }
@@ -919,7 +929,10 @@ public class PreferenceConfiguration {
                 editor.putBoolean(SOPS_PREF_STRING, false);
             }
             if (!prefs.contains(EXACT_SLICES_PREF_STRING)) {
-                editor.putBoolean(EXACT_SLICES_PREF_STRING, true);
+                editor.putBoolean(EXACT_SLICES_PREF_STRING, false);
+            }
+            if (!prefs.contains(MAX_PENDING_AUDIO_MS_PREF_STRING)) {
+                editor.putInt(MAX_PENDING_AUDIO_MS_PREF_STRING, 20);
             }
             editor.apply();
         }
@@ -964,10 +977,16 @@ public class PreferenceConfiguration {
             editor.apply();
         }
         if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, false)) {
+            prefs.edit()
+                    .putBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, true)
+                    .apply();
+        }
+        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, false)) {
             SharedPreferences.Editor editor = prefs.edit()
-                    .putBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, true);
-            if (!prefs.contains(EXACT_SLICES_PREF_STRING)) {
-                editor.putBoolean(EXACT_SLICES_PREF_STRING, true);
+                    .putBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, true)
+                    .putBoolean(EXACT_SLICES_PREF_STRING, false);
+            if (!prefs.contains(MAX_PENDING_AUDIO_MS_PREF_STRING)) {
+                editor.putInt(MAX_PENDING_AUDIO_MS_PREF_STRING, 20);
             }
             editor.apply();
         }
@@ -1244,7 +1263,10 @@ public class PreferenceConfiguration {
         config.enablePerfOverlayLite = prefs.getBoolean(PERF_OVERLAY_LITE_PREF_STRING, false);
         config.preventPacketLoss = prefs.getBoolean(PREVENT_PACKET_LOSS_PREF_STRING, false);
         config.fecPercentage = parseFecPercentage(prefs.getString(FEC_PERCENT_PREF_STRING, "-1"));
-        config.exactSlicesPerFrame = prefs.getBoolean(EXACT_SLICES_PREF_STRING, isTvOrAmlogicDevice(context));
+        config.exactSlicesPerFrame = prefs.getBoolean(EXACT_SLICES_PREF_STRING, false);
+        config.maxPendingAudioMs = AndroidAudioRenderer.clampMaxPendingAudioMs(
+                prefs.getInt(MAX_PENDING_AUDIO_MS_PREF_STRING, AndroidAudioRenderer.DEFAULT_MAX_PENDING_AUDIO_MS));
+        config.enableSustainedPerformance = prefs.getBoolean(SUSTAINED_PERFORMANCE_PREF_STRING, false);
         config.virtualDisplayMode = prefs.getString(VIRTUAL_DISPLAY_MODE_PREF_STRING, "host");
         config.applyGameOption(VSYNC_MODE_PREF_STRING, prefs.getString(VSYNC_MODE_PREF_STRING, "off"));
         config.syncLfr = prefs.getBoolean(SYNC_LFR_PREF_STRING, false);

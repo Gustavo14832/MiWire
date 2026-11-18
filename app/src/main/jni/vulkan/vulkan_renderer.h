@@ -2,6 +2,7 @@
 
 #include <android/native_window.h>
 #include <android/hardware_buffer.h>
+#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
@@ -406,6 +407,12 @@ private:
         uint64_t total;
     };
     std::deque<SkipSample> skipSamples_;
+    static constexpr size_t kPresentDeltaWindow = 512;
+    void recordPresentTimestampLocked(int64_t presentNs);
+    std::array<int64_t, kPresentDeltaWindow> presentDeltasNs_ {};
+    size_t presentDeltaWrite_ = 0;
+    size_t presentDeltaCount_ = 0;
+    int64_t lastRecordedPresentNs_ = 0;
     bool hdrEnabled_ = false;
     bool hdrChanged_ = false;
     HdrMetadata hdrMetadata_;

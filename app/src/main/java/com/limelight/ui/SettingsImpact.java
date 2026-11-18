@@ -69,6 +69,8 @@ public final class SettingsImpact {
         IMPACT.put("vulkan_sharpening", R.string.impact_vulkan_sharpening);
         IMPACT.put("checkbox_enable_hdr", R.string.impact_hdr);
         IMPACT.put("checkbox_full_range", R.string.impact_none);
+        IMPACT.put("seekbar_max_pending_audio_ms", R.string.impact_max_pending_audio_ms);
+        IMPACT.put("checkbox_sustained_performance", R.string.impact_sustained_performance);
         IMPACT.put("checkbox_enable_perf_overlay", R.string.impact_perf_overlay);
 
         ALIASES.put("list_app_resolution", "list_resolution");

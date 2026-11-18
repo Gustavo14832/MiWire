@@ -274,6 +274,46 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     // Sharing a wired USB device with the PC (Experimental), while the stream runs
     private StreamUsbShare usbShare;
     private boolean reportedCrash;
+    private PowerManager.OnThermalStatusChangedListener thermalStatusListener;
+
+    private void registerThermalStatusListener() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return;
+        }
+        PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        if (powerManager == null) {
+            return;
+        }
+        thermalStatusListener = new PowerManager.OnThermalStatusChangedListener() {
+            private boolean warned;
+
+            @Override
+            public void onThermalStatusChanged(int status) {
+                if (status >= PowerManager.THERMAL_STATUS_SEVERE && !warned) {
+                    warned = true;
+                    runOnUiThread(() -> {
+                        if (!isFinishing() && !prefConfig.disableWarnings) {
+                            Toast.makeText(Game.this, R.string.thermal_throttling_warning, Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }
+                else if (status <= PowerManager.THERMAL_STATUS_MODERATE) {
+                    warned = false;
+                }
+            }
+        };
+        powerManager.addThermalStatusListener(thermalStatusListener);
+    }
+
+    private void unregisterThermalStatusListener() {
+        if (thermalStatusListener != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (powerManager != null) {
+                powerManager.removeThermalStatusListener(thermalStatusListener);
+            }
+            thermalStatusListener = null;
+        }
+    }
 
     private WifiManager.WifiLock highPerfWifiLock;
     private WifiManager.WifiLock lowLatencyWifiLock;
@@ -408,6 +448,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         boolean applyPreferenceOverrides = Game.this.getIntent().getBooleanExtra(EXTRA_APPLY_PREFERENCE_OVERRIDES, true);
         prefConfig = AppPreferences.getEffectivePreferences(this, appKey, quickLaunchAppKey, applyPreferenceOverrides);
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
+
+        if (prefConfig.enableSustainedPerformance && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            getWindow().setSustainedPerformanceMode(true);
+        }
+        registerThermalStatusListener();
 
         // Enter landscape unless we're on a square screen
         setPreferredOrientationForCurrentDisplay();
@@ -1459,6 +1504,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        unregisterThermalStatusListener();
         stopMicrophoneCapture();
         stopUsbSharing(UsbShareTunnel.END_CLOSING);
         if (instance == this) {
@@ -3503,7 +3549,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         AudioHaptics audioHaptics = prefConfig.audioHapticsOutputs != 0 ?
                 new AudioHaptics(Game.this, prefConfig.audioHapticsOutputs,
                         prefConfig.audioHapticsIntensity, this::audioHapticsRumble) : null;
-        conn.start(new AndroidAudioRenderer(Game.this, prefConfig.enableAudioFx, audioHaptics),
+        conn.start(new AndroidAudioRenderer(Game.this, prefConfig.enableAudioFx, audioHaptics, prefConfig.maxPendingAudioMs),
                 decoderRenderer, Game.this);
     }
 

@@ -518,7 +518,7 @@ bool VulkanRenderer::init(ANativeWindow* output) {
         }
     }
 
-    presentAhead_ = hasDisplayTimingExt_ && pacer_.mode() == PacingMode::HostTimed;
+    presentAhead_ = hasDisplayTimingExt_ && pacer_.isHostTimed();
     pacer_.setPresentAhead(presentAhead_);
     pacer_.setPresentGuardNs(presentScheduler_.guardNs());
     perfHint_.start(ndk_, PerfHint::kDefaultTargetNs);
@@ -995,35 +995,64 @@ std::string VulkanRenderer::rendererText() {
     return text;
 }
 
+void VulkanRenderer::recordPresentTimestampLocked(int64_t presentNs) {
+    if (presentNs <= 0) {
+        return;
+    }
+    if (lastRecordedPresentNs_ > 0 && presentNs > lastRecordedPresentNs_) {
+        const int64_t deltaNs = presentNs - lastRecordedPresentNs_;
+        if (deltaNs >= 1'000'000 && deltaNs < 1'000'000'000) {
+            presentDeltasNs_[presentDeltaWrite_] = deltaNs;
+            presentDeltaWrite_ = (presentDeltaWrite_ + 1) % kPresentDeltaWindow;
+            if (presentDeltaCount_ < kPresentDeltaWindow) {
+                presentDeltaCount_++;
+            }
+        }
+    }
+    if (presentNs > lastRecordedPresentNs_) {
+        lastRecordedPresentNs_ = presentNs;
+    }
+}
+
 std::string VulkanRenderer::pacingText() {
     std::lock_guard<std::mutex> lock(mutex_);
 
     std::string headline;
     std::string details;
     char text[96];
-    if (pacer_.mode() == PacingMode::MiBox60Hz) {
-        if (pacer_.lastWaitNs() > 0 || pacer_.timeline().hasEstimate()) {
-            snprintf(text, sizeof(text), "%.1f ms wait, %.2f Hz", pacer_.lastWaitNs() / 1e6,
-                     1e9 / static_cast<double>(pacer_.vsyncPeriodNs()));
-            headline = text;
-            snprintf(text, sizeof(text), "60Hz zero-skip lock (%d vsync%s/frame)",
-                     static_cast<int>(pacer_.slotVsyncs()), pacer_.slotVsyncs() == 1 ? "" : "s");
-            details = text;
-        }
-    }
-    else if (pacer_.isHostTimed() && pacer_.timeline().hasEstimate()) {
+    if (pacer_.isHostTimed() && pacer_.timeline().hasEstimate()) {
         // The display's measured refresh rate, to compare with the host's frame rate
         snprintf(text, sizeof(text), "%.1f ms buffer, %.2f Hz", (pacer_.timeline().bufferNs() + pacer_.scheduleDelayNs()) / 1e6,
                  1e9 / static_cast<double>(pacer_.vsyncPeriodNs()));
         headline = text;
         if (pacer_.phaseLocked()) {
-            snprintf(text, sizeof(text), "locked at %d vsync%s/frame", static_cast<int>(pacer_.slotVsyncs()),
-                     pacer_.slotVsyncs() == 1 ? "" : "s");
+            if (pacer_.mode() == PacingMode::MiBox60Hz) {
+                snprintf(text, sizeof(text), "60Hz phase-locked (%d vsync%s/frame, %dv)",
+                         static_cast<int>(pacer_.slotVsyncs()), pacer_.slotVsyncs() == 1 ? "" : "s",
+                         presentScheduler_.delayVsyncs());
+            }
+            else {
+                snprintf(text, sizeof(text), "locked at %d vsync%s/frame", static_cast<int>(pacer_.slotVsyncs()),
+                         pacer_.slotVsyncs() == 1 ? "" : "s");
+            }
             details = text;
         }
         else {
             details = "unlocked";
         }
+    }
+    if (presentDeltaCount_ >= 16) {
+        std::vector<int64_t> sorted(presentDeltasNs_.begin(), presentDeltasNs_.begin() + presentDeltaCount_);
+        std::sort(sorted.begin(), sorted.end());
+        const size_t n = sorted.size();
+        const double p50 = sorted[n * 50 / 100] / 1e6;
+        const double p95 = sorted[std::min(n - 1, n * 95 / 100)] / 1e6;
+        const double p99 = sorted[std::min(n - 1, n * 99 / 100)] / 1e6;
+        snprintf(text, sizeof(text), "p50/95/99 %.1f/%.1f/%.1f ms", p50, p95, p99);
+        if (!headline.empty()) {
+            headline += " \u00b7 ";
+        }
+        headline += text;
     }
     // Frames skipped recently. A running total since the stream started says little about
     // how it's going now.
@@ -1328,6 +1357,10 @@ void VulkanRenderer::onWake() {
         }
         if (frame && renderFrame(frame)) {
             presentedFrames_++;
+            if (!hasDisplayTimingExt_) {
+                std::lock_guard<std::mutex> lock(mutex_);
+                recordPresentTimestampLocked(nowNs());
+            }
         }
     }
     else if ((flags & kWakeHdr) && current_ && renderFrame(current_)) {
@@ -1410,6 +1443,10 @@ void VulkanRenderer::onVsync(int64_t frameTimeNanos) {
     if (frame) {
         if (renderFrame(frame, presentId)) {
             presentedFrames_++;
+            if (!hasDisplayTimingExt_) {
+                std::lock_guard<std::mutex> lock(mutex_);
+                recordPresentTimestampLocked(nowNs());
+            }
         }
     }
     else if (swapchainDirty_ && current_) {
@@ -1463,6 +1500,10 @@ void VulkanRenderer::presentAhead() {
         }
         if (renderFrame(frame, presentId, showVsyncNs, true, commitNs)) {
             presentedFrames_++;
+            if (!hasDisplayTimingExt_) {
+                std::lock_guard<std::mutex> lock(mutex_);
+                recordPresentTimestampLocked(nowNs());
+            }
         }
     }
 }
@@ -1845,6 +1886,9 @@ void VulkanRenderer::collectPresentTimings() {
     for (uint32_t i = 0; i < count; i++) {
         const VkPastPresentationTimingGOOGLE& t = timings[i];
         if (t.presentID != 0) {
+            if (t.actualPresentTime > 0) {
+                recordPresentTimestampLocked(static_cast<int64_t>(t.actualPresentTime));
+            }
             trace_.presented(t.presentID, static_cast<int64_t>(t.actualPresentTime),
                              static_cast<int64_t>(t.earliestPresentTime), static_cast<int64_t>(t.presentMargin));
         }

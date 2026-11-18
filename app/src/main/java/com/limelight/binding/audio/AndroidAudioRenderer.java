@@ -16,8 +16,11 @@ import com.limelight.nvstream.jni.MoonBridge;
 
 public class AndroidAudioRenderer implements AudioRenderer {
 
+    public static final int DEFAULT_MAX_PENDING_AUDIO_MS = 30;
+
     private final Context context;
     private final boolean enableAudioFx;
+    private final int maxPendingAudioMs;
 
     private AudioTrack track;
     private boolean audioThreadPriorityElevated;
@@ -25,14 +28,23 @@ public class AndroidAudioRenderer implements AudioRenderer {
     // Optional: turns the bass in the audio into vibration
     private final AudioHaptics haptics;
 
+    public static int clampMaxPendingAudioMs(int ms) {
+        return Math.max(10, Math.min(100, ms));
+    }
+
     public AndroidAudioRenderer(Context context, boolean enableAudioFx) {
-        this(context, enableAudioFx, null);
+        this(context, enableAudioFx, null, DEFAULT_MAX_PENDING_AUDIO_MS);
     }
 
     public AndroidAudioRenderer(Context context, boolean enableAudioFx, AudioHaptics haptics) {
+        this(context, enableAudioFx, haptics, DEFAULT_MAX_PENDING_AUDIO_MS);
+    }
+
+    public AndroidAudioRenderer(Context context, boolean enableAudioFx, AudioHaptics haptics, int maxPendingAudioMs) {
         this.context = context;
         this.enableAudioFx = enableAudioFx;
         this.haptics = haptics;
+        this.maxPendingAudioMs = clampMaxPendingAudioMs(maxPendingAudioMs);
     }
 
     private AudioTrack createAudioTrack(int channelConfig, int sampleRate, int bufferSize, boolean lowLatency) {
@@ -219,11 +231,10 @@ public class AndroidAudioRenderer implements AudioRenderer {
             haptics.process(audioData);
         }
 
-        // Only queue up to 30 ms of pending audio data in addition to what AudioTrack is buffering for us.
-        if (MoonBridge.getPendingAudioDuration() < 30) {
+        // Only queue up to the configured cap of pending audio data in addition to what AudioTrack buffers.
+        if (MoonBridge.getPendingAudioDuration() < maxPendingAudioMs) {
             // This will block until the write is completed. That can cause a backlog
-            // of pending audio data, so we do the above check to be able to bound
-            // latency at 30 ms in that situation.
+            // of pending audio data, so we do the above check to bound latency.
             track.write(audioData, 0, audioData.length);
         }
         else {

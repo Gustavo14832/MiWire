@@ -29,22 +29,29 @@ steps and the checksums for each version.
   reconstruction (`forceExplicitReconstruction`) when supported by the YCbCr sampler.
 - **FEC percentage & exact slices settings:** adds `list_fec_percent` (fixing a zero-initialization
   bug in `callbacks.c` that previously sent `0` FEC instead of `-1` host default), `checkbox_exact_slices`
-  (`x-ss-video[0].exactSlicesPerFrame`, enabled on TV/Amlogic by default), and microhertz
-  `clientRefreshRateUhz` negotiation with Sunshine hosts.
+  (`x-ss-video[0].exactSlicesPerFrame`, off by default to preserve full-frame NVENC prediction), and
+  microhertz `clientRefreshRateUhz` negotiation with Sunshine hosts.
 - **Controller deduplication & stick center calibration:** filters identical repeated controller HID
   polling reports while keeping a 1 s keepalive heartbeat, and adds `StickCenterStore` rest-center
   drift compensation.
+- **Native LTO, ADPF CPU accounting, pacing percentiles & thermal monitoring:** adds `-O3 -flto`
+  release NDK optimization flags for `moonlight-core` and `vulkan_renderer`, unifies `AdpfHelper`
+  CPU work measurement across input/render/Choreographer threads with Android 14 `setThreads()`,
+  adds `p50/p95/p99` present-interval percentiles in the performance overlay, configurable pending
+  audio cap (`seekbar_max_pending_audio_ms`, seeded to `20 ms` on TV/Amlogic), Android 10+ thermal
+  throttling warnings, and sustained performance mode (`checkbox_sustained_performance`), adapted
+  from LavArtemis (Lavagnou).
 
 ### Changed
 
-- **Zero-skip 60 Hz V-Sync lock (`mibox-60hz`) & 2.0 ms ADPF tuning:** removes `presentAhead`
-  same-vsync overwrites in `mibox-60hz`, expands queue capacity to 5 frames, enforces monotonic FIFO
-  1-frame-per-vsync delivery on bursts and decode jitter, adds `PerfHint` tracking both render and
-  image-reader threads against a 2.0 ms CPU work target, and recalibrates decoder ADPF to 6.0 ms.
-- **Amlogic HEVC 1-reference-frame fix & decoder resilience:** disables HEVC RFI on non-FireOS
-  Amlogic decoders so hosts limit DPB reference frames to 1 instead of 16, sets 2 MB+ dynamic
-  HEVC input buffer sizing with runtime expansion, adds IDR auto-recovery on dropped frames plus a
-  3-stage output stall watchdog, elevates audio playback thread priority (`THREAD_PRIORITY_URGENT_AUDIO`),
+- **Restored `presentAhead` 60 Hz phase-locked `mibox-60hz` pacer:** restores immediate
+  `VK_GOOGLE_display_timing` presentation in `mibox-60hz`, calibrates the jitter window to 8 s /
+  99.6% coverage with a 14% phase margin and `3/8`-period slot-collision tolerance, and adds `PerfHint`
+  for Vulkan render and image-reader threads at a 2.0 ms CPU work target.
+- **Restored `c2.amlogic` HEVC RFI & conservative decoder resilience:** restores HEVC Reference
+  Frame Invalidation on modern `c2.amlogic.*` Codec2 decoders (limiting the RFI block to legacy OMX
+  decoders), removes per-drop auto-IDR storms while keeping 2 MB+ dynamic HEVC input buffer sizing
+  and a 1.2 s stall watchdog, elevates audio playback thread priority (`THREAD_PRIORITY_URGENT_AUDIO`),
   and adds ARM64 `AT_HWCAP` AES detection.
 - **Amlogic Codec2 low-latency tuning:** bypasses Android's generic `low-latency` key on
   `c2.amlogic` decoders, applies vendor game-mode, boost, and priority options at an operating rate

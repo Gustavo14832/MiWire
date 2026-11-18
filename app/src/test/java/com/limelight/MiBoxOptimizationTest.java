@@ -16,8 +16,10 @@ import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.ControllerStateSender;
 import com.limelight.binding.input.StickCenterStore;
+import com.limelight.binding.video.AdpfHelper;
 import com.limelight.binding.video.DecoderInputBufferSizing;
 import com.limelight.binding.video.MediaCodecHelper;
+import com.limelight.binding.video.PacingStats;
 import com.limelight.nvstream.StreamConfiguration;
 import com.limelight.preferences.PreferenceConfiguration;
 
@@ -76,8 +78,9 @@ public class MiBoxOptimizationTest {
         assertEquals(3, prefs.getInt("seekbar_deadzone", -1));
         assertFalse(prefs.getBoolean("checkbox_gamepad_motion_sensors", true));
         assertFalse(prefs.getBoolean("checkbox_enable_sops", true));
-        assertTrue(prefs.getBoolean("checkbox_exact_slices", false));
-        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v4", false));
+        assertFalse(prefs.getBoolean("checkbox_exact_slices", true));
+        assertEquals(20, prefs.getInt("seekbar_max_pending_audio_ms", 0));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
 
         // User edits persist on subsequent calls
         prefs.edit()
@@ -110,7 +113,9 @@ public class MiBoxOptimizationTest {
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v2", false));
         assertEquals(1, prefs.getBoolean("mibox_tv_gaming_defaults_v3", false) ? 1 : 0);
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v4", false));
-        assertTrue(prefs.getBoolean("checkbox_exact_slices", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
+        assertFalse(prefs.getBoolean("checkbox_exact_slices", true));
+        assertEquals(20, prefs.getInt("seekbar_max_pending_audio_ms", 0));
         assertEquals("vulkan", prefs.getString("video_renderer", ""));
         assertEquals("high", prefs.getString("spatial_dithering", ""));
         assertEquals("balanced", prefs.getString("vulkan_sharpening", ""));
@@ -144,7 +149,9 @@ public class MiBoxOptimizationTest {
 
         assertEquals(1, prefs.getBoolean("mibox_tv_gaming_defaults_v3", false) ? 1 : 0);
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v4", false));
-        assertTrue(prefs.getBoolean("checkbox_exact_slices", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
+        assertFalse(prefs.getBoolean("checkbox_exact_slices", true));
+        assertEquals(20, prefs.getInt("seekbar_max_pending_audio_ms", 0));
         assertEquals("high", prefs.getString("spatial_dithering", ""));
         assertEquals("balanced", prefs.getString("vulkan_sharpening", ""));
         assertTrue(prefs.getBoolean("checkbox_full_range", false));
@@ -253,10 +260,36 @@ public class MiBoxOptimizationTest {
     }
 
     @Test
-    public void amlogicHevcDisablesRfiToForceSingleReferenceFrameUnlessFireOs() {
-        assertFalse(MediaCodecHelper.shouldAllowHevcRfiForDecoder("c2.amlogic.hevc.decoder", false));
+    public void tvDefaultsV4UpgradesCleanlyToV5AndDisablesExactSlices() {
+        prefs.edit()
+                .putBoolean("mibox_tv_gaming_defaults_v1", true)
+                .putBoolean("mibox_tv_gaming_defaults_v2", true)
+                .putBoolean("mibox_tv_gaming_defaults_v3", true)
+                .putBoolean("mibox_tv_gaming_defaults_v4", true)
+                .putBoolean("checkbox_exact_slices", true)
+                .commit();
+
+        PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
+
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
+        assertFalse(prefs.getBoolean("checkbox_exact_slices", true));
+        assertEquals(20, prefs.getInt("seekbar_max_pending_audio_ms", 0));
+
+        // Explicit user changes after v5 migration persist
+        prefs.edit()
+                .putBoolean("checkbox_exact_slices", true)
+                .putInt("seekbar_max_pending_audio_ms", 15)
+                .commit();
+        PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
+        assertTrue(prefs.getBoolean("checkbox_exact_slices", false));
+        assertEquals(15, prefs.getInt("seekbar_max_pending_audio_ms", 0));
+    }
+
+    @Test
+    public void amlogicHevcEnablesRfiOnModernCodec2AndBlocksLegacyOmx() {
+        assertTrue(MediaCodecHelper.shouldAllowHevcRfiForDecoder("c2.amlogic.hevc.decoder", false));
         assertFalse(MediaCodecHelper.shouldAllowHevcRfiForDecoder("OMX.amlogic.hevc.decoder.awesome", false));
-        assertTrue(MediaCodecHelper.shouldAllowHevcRfiForDecoder("c2.amlogic.hevc.decoder", true));
+        assertTrue(MediaCodecHelper.shouldAllowHevcRfiForDecoder("OMX.amlogic.hevc.decoder.awesome", true));
         assertTrue(MediaCodecHelper.shouldAllowHevcRfiForDecoder("c2.qti.hevc.decoder", false));
 
         CodecProfileLevel profileLevel = new CodecProfileLevel();
@@ -275,7 +308,7 @@ public class MiBoxOptimizationTest {
                 .setIsHardwareAccelerated(true)
                 .setCapabilities(caps)
                 .build();
-        assertFalse(MediaCodecHelper.decoderSupportsRefFrameInvalidationHevc(amlogic));
+        assertTrue(MediaCodecHelper.decoderSupportsRefFrameInvalidationHevc(amlogic));
     }
 
     @Test
@@ -342,5 +375,54 @@ public class MiBoxOptimizationTest {
         assertEquals(-0.04f, loaded.ly, 1e-5f);
         assertEquals(StickCenterStore.MAX_OFFSET, loaded.rx, 1e-5f);
         assertEquals(-0.02f, loaded.ry, 1e-5f);
+    }
+
+    @Test
+    public void pacingStatsComputesRollingPercentilesAndIgnoresOutliers() {
+        PacingStats stats = new PacingStats();
+        long t = 1_000_000_000L;
+        stats.recordPresent(t);
+        for (int i = 0; i < 98; i++) {
+            t += 16_670_000L;
+            stats.recordPresent(t);
+        }
+        for (int i = 0; i < 2; i++) {
+            t += 33_330_000L;
+            stats.recordPresent(t);
+        }
+        // >= 1 s pause gap must be ignored
+        t += 1_500_000_000L;
+        stats.recordPresent(t);
+
+        PacingStats.Snapshot snap = stats.snapshot();
+        assertEquals(100, snap.sampleCount);
+        assertEquals(16.67f, snap.p50Ms, 0.05f);
+        assertEquals(16.67f, snap.p95Ms, 0.05f);
+        assertEquals(33.33f, snap.p99Ms, 0.05f);
+    }
+
+    @Test
+    public void adpfHelperClampsWorkAndDeduplicatesTids() {
+        assertEquals(0L, AdpfHelper.clampWorkDurationNs(0L, 3_000_000L));
+        assertEquals(0L, AdpfHelper.clampWorkDurationNs(-500L, 3_000_000L));
+        assertEquals(AdpfHelper.MIN_REPORT_WORK_NS, AdpfHelper.clampWorkDurationNs(10_000L, 3_000_000L));
+        assertEquals(2_500_000L, AdpfHelper.clampWorkDurationNs(2_500_000L, 3_000_000L));
+        assertEquals(12_000_000L, AdpfHelper.clampWorkDurationNs(50_000_000L, 3_000_000L));
+
+        int[] tids = new int[0];
+        tids = AdpfHelper.appendUniqueTid(tids, 101);
+        assertEquals(1, tids.length);
+        assertTrue(tids == AdpfHelper.appendUniqueTid(tids, 101));
+        assertTrue(tids == AdpfHelper.appendUniqueTid(tids, -1));
+        tids = AdpfHelper.appendUniqueTid(tids, 202);
+        assertEquals(2, tids.length);
+        assertEquals(202, tids[1]);
+    }
+
+    @Test
+    public void audioRendererClampsMaxPendingAudioMs() {
+        assertEquals(10, AndroidAudioRenderer.clampMaxPendingAudioMs(5));
+        assertEquals(20, AndroidAudioRenderer.clampMaxPendingAudioMs(20));
+        assertEquals(100, AndroidAudioRenderer.clampMaxPendingAudioMs(250));
     }
 }

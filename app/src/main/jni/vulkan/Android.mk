@@ -16,6 +16,10 @@ LOCAL_SRC_FILES := \
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH) $(LOCAL_PATH)/../moonlight-core/moonlight-common-c/src $(LOCAL_PATH)/../adrenotools/include
 LOCAL_CPPFLAGS += -std=c++17 -Wall
+ifneq ($(NDK_DEBUG),1)
+LOCAL_CPPFLAGS += -O3 -flto
+LOCAL_LDFLAGS += -flto
+endif
 
 # For LiSetPartialFrameDeadline(), which tells moonlight-common-c when to cut short PyroWave frames
 # still arriving (VulkanRenderer::updatePartialDeadline()). MoonBridge loads it first.

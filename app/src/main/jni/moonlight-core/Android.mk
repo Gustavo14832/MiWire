@@ -57,6 +57,10 @@ LOCAL_CFLAGS := -DHAS_SOCKLEN_T=1 -DLC_ANDROID -DHAVE_CLOCK_GETTIME=1 -DNDEBUG
 
 ifeq ($(NDK_DEBUG),1)
 LOCAL_CFLAGS += -DLC_DEBUG
+else
+# Optimize streaming hot paths (RTP depacketization, Reed-Solomon nanors FEC, enet)
+LOCAL_CFLAGS += -O3 -flto
+LOCAL_LDFLAGS += -flto
 endif
 
 LOCAL_LDLIBS := -llog

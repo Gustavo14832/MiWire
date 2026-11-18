@@ -332,6 +332,12 @@
     <string name="summary_enable_hdr">Stream HDR / 10-bit SDR when the game and PC GPU support it. Requires a GPU with HEVC Main 10 encoding support.</string>
     <string name="title_full_range">Force full range video (Experimental)</string>
     <string name="summary_full_range">This will cause loss of detail in light and dark areas if your device doesn\'t properly display full range video content.</string>
+    <string name="title_max_pending_audio_ms">Max pending audio backlog</string>
+    <string name="summary_max_pending_audio_ms">Drop audio packets once the playback queue exceeds this limit to prevent growing audio delay</string>
+    <string name="suffix_max_pending_audio_ms">" ms"</string>
+    <string name="title_sustained_performance">Sustained performance mode</string>
+    <string name="summary_sustained_performance">Request consistent clock levels during long sessions instead of bursty thermal boosting (Android 7+)</string>
+    <string name="thermal_throttling_warning">Device is overheating and may throttle video decoding or frame pacing</string>
     <string name="title_enable_perf_overlay">Show performance stats while streaming</string>
     <string name="summary_enable_perf_overlay">Display real-time stream performance information while streaming</string>
     <string name="title_enable_post_stream_toast">Show latency message after streaming</string>
@@ -424,7 +430,7 @@
     <string name="jitter_buffer_balanced">Balanced (Recommended)</string>
     <string name="jitter_buffer_smooth">Smooth</string>
     <string name="pacing_host_timed">Sync to host frame timing (best with the Vulkan renderer)</string>
-    <string name="pacing_mibox_60hz">Mi Box S Gen 3: Zero-skip 60 Hz V-Sync lock (Vulkan)</string>
+    <string name="pacing_mibox_60hz">Mi Box S Gen 3: 60 Hz phase-locked low latency (Vulkan)</string>
 
     <string name="title_analog_scrolling">Use an analog stick to scroll</string>
     <string name="summary_analog_scrolling">Select an analog stick to scroll when in mouse emulation mode</string>
@@ -947,6 +953,8 @@
     <string name="impact_vulkan_sharpening">Small GPU cost. No change to latency.</string>
     <string name="impact_hdr">Uses 10-bit video, which needs hardware HEVC or AV1 decoding. Slower devices may take longer per frame.</string>
     <string name="impact_perf_overlay">Very small. Lite mode draws less.</string>
+    <string name="impact_max_pending_audio_ms">Lower values cap audio lag sooner, at a higher risk of brief audio crackles during network spikes.</string>
+    <string name="impact_sustained_performance">Can stabilize thermal behavior during long sessions; some devices lower peak boost clocks.</string>
 
     <!-- Game screen: the slim bar that takes over once the header has scrolled away -->
     <string name="cg_back_to_top">Show the selected game</string>
