@@ -37,10 +37,10 @@ static uint8_t currentPenButtonState;
 #define LI_WHEEL_DELTA 120
 
 // If we try to send more than one stylus or mouse motion event
-// per 2 ms (500 Hz cap), wait briefly to batch with the next motion event while
+// per 1 ms (1000 Hz cap), wait briefly to batch with the next motion event while
 // letting the first move leave immediately and flushing immediately
 // if an urgent input (click/button/key) enters the queue.
-#define MOUSE_BATCHING_INTERVAL_US 2000
+#define MOUSE_BATCHING_INTERVAL_US 1000
 #define PEN_BATCHING_INTERVAL_MS 1
 
 // Don't batch up/down/cancel events
@@ -375,7 +375,7 @@ static void inputSendThreadProc(void* context) {
         else if (holder->packet.header.magic == relMouseMagicLE) {
             uint64_t nowUs = PltGetMicroseconds();
 
-            // First move leaves immediately; subsequent moves within 2 ms wait briefly
+            // First move leaves immediately; subsequent moves within 1 ms wait briefly
             // unless an urgent event (click, button, or key) is waiting behind it.
             if (lastMousePacketTimeUs != 0 &&
                     nowUs < lastMousePacketTimeUs + MOUSE_BATCHING_INTERVAL_US &&
@@ -448,7 +448,7 @@ static void inputSendThreadProc(void* context) {
         else if (holder->packet.header.magic == LE32(MOUSE_MOVE_ABS_MAGIC)) {
             uint64_t nowUs = PltGetMicroseconds();
 
-            // First move leaves immediately; subsequent moves within 2 ms wait briefly
+            // First move leaves immediately; subsequent moves within 1 ms wait briefly
             // unless an urgent event (click, button, or key) is waiting behind it.
             if (lastMousePacketTimeUs != 0 &&
                     nowUs < lastMousePacketTimeUs + MOUSE_BATCHING_INTERVAL_US &&
