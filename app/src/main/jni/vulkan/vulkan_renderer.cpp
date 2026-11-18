@@ -495,7 +495,7 @@ bool VulkanRenderer::init(ANativeWindow* output) {
     }
 
     if (pacer_.mode() == PacingMode::MiBox60Hz) {
-        presentScheduler_.preferSingleVsync(1'500'000);
+        presentScheduler_.fix(1, 1'500'000);
     }
 
     // To try a present delay or guard rather than the ones learned (PresentScheduler):
@@ -1001,7 +1001,7 @@ void VulkanRenderer::recordPresentTimestampLocked(int64_t presentNs, int64_t hos
     }
     const int64_t streamIntervalNs = 1'000'000'000LL / std::max(config_.streamFps, 1);
     const bool hostIdlePause = hostPtsNs > 0 && lastRecordedHostPtsNs_ > 0 &&
-            (hostPtsNs - lastRecordedHostPtsNs_) > streamIntervalNs * 3;
+            (hostPtsNs - lastRecordedHostPtsNs_) > streamIntervalNs * 5 / 2;
     if (!hostIdlePause && lastRecordedPresentNs_ > 0 && presentNs > lastRecordedPresentNs_) {
         const int64_t deltaNs = presentNs - lastRecordedPresentNs_;
         if (deltaNs >= 1'000'000 && deltaNs < 1'000'000'000) {
@@ -1041,6 +1041,11 @@ std::string VulkanRenderer::pacingText() {
                 snprintf(text, sizeof(text), "locked at %d vsync%s/frame", static_cast<int>(pacer_.slotVsyncs()),
                          pacer_.slotVsyncs() == 1 ? "" : "s");
             }
+            details = text;
+        }
+        else if (pacer_.mode() == PacingMode::MiBox60Hz) {
+            snprintf(text, sizeof(text), "60Hz low-latency (%d vsync/frame, %dv)",
+                     static_cast<int>(pacer_.slotVsyncs()), presentScheduler_.delayVsyncs());
             details = text;
         }
         else {

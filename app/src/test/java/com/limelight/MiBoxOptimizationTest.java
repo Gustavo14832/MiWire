@@ -413,7 +413,11 @@ public class MiBoxOptimizationTest {
             hostPtsUs += 16_667L;
             stats.recordPresent(presentNs, hostPtsUs, 60);
         }
-        // Static-screen idle pauses (116.7 ms and 133.3 ms host PTS jumps) must not pollute p95/p99
+        // Static-screen / 3-refresh desktop idle pauses (50.0 ms, 116.7 ms, and 133.3 ms host PTS jumps)
+        // must not pollute p95/p99
+        presentNs += 50_000_000L;
+        hostPtsUs += 49_980L;
+        stats.recordPresent(presentNs, hostPtsUs, 60);
         presentNs += 116_700_000L;
         hostPtsUs += 116_667L;
         stats.recordPresent(presentNs, hostPtsUs, 60);

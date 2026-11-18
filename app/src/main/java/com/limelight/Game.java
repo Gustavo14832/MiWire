@@ -503,6 +503,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     InputDevice.SOURCE_CLASS_POSITION | // Touchpads
                     InputDevice.SOURCE_CLASS_TRACKBALL // Mice (pointer capture)
             );
+            getWindow().getDecorView().requestUnbufferedDispatch(
+                    InputDevice.SOURCE_CLASS_BUTTON | // Keyboards
+                    InputDevice.SOURCE_CLASS_JOYSTICK | // Gamepads
+                    InputDevice.SOURCE_CLASS_POINTER | // Touchscreens and mice (w/o pointer capture)
+                    InputDevice.SOURCE_CLASS_POSITION | // Touchpads
+                    InputDevice.SOURCE_CLASS_TRACKBALL // Mice (pointer capture)
+            );
         }
 
         notificationOverlayView = findViewById(R.id.notificationOverlay);

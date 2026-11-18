@@ -31,7 +31,7 @@ public final class PacingStats {
             return;
         }
         boolean hostIdlePause = hostPtsUs > 0L && lastHostPtsUs > 0L && targetFps > 0
-                && (hostPtsUs - lastHostPtsUs) > (3_000_000L / targetFps);
+                && (hostPtsUs - lastHostPtsUs) > (2_500_000L / targetFps);
         if (!hostIdlePause && lastPresentNs != 0L && presentTimeNs > lastPresentNs) {
             long deltaNs = presentTimeNs - lastPresentNs;
             if (deltaNs > 0L && deltaNs < 1_000_000_000L) {

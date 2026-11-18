@@ -272,6 +272,23 @@ int main() {
         Result r = runAndReport(s);
         check(r.finalDelay == 2, s.name, "should raise back to 2 vsyncs when 1 vsync is genuinely missed");
     }
+    {
+        // Fixed 1-vsync mode (MiBox60Hz on Mali-G310 where presentMargin == 0):
+        // transient misses during app launches must never ratchet delay above 1 vsync.
+        PresentScheduler scheduler;
+        scheduler.fix(1, 1'500'000);
+        const int64_t period = 16'666'667;
+        int64_t vsync = 1'000'000'000;
+        for (int i = 0; i < 200; i++) {
+            vsync += period;
+            const bool transientMiss = (i >= 70 && i < 80);
+            const int64_t actual = vsync + (transientMiss ? 2 * period : period);
+            scheduler.onAheadOutcome(4'000'000, vsync, 1, true, actual, vsync + period, 0, period);
+            scheduler.onPresented(vsync, 1, period, actual, vsync + period, 0, 4'000'000);
+        }
+        check(scheduler.delayVsyncs() == 1 && scheduler.guardNs() == 1'500'000,
+              "60 Hz MiBox fixed 1-vsync", "fix(1, 1.5 ms) must remain at 1 vsync without presentMargin");
+    }
 
     printf(failures ? "\n%d check(s) failed\n" : "\nAll checks passed\n", failures);
     return failures ? 1 : 0;

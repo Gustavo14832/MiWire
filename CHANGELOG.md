@@ -44,12 +44,13 @@ steps and the checksums for each version.
 
 ### Changed
 
-- **Restored `presentAhead` 60 Hz phase-locked `mibox-60hz` pacer:** restores immediate
-  `VK_GOOGLE_display_timing` presentation in `mibox-60hz`, locks slot cadence to `1 vsync/frame`
-  (`16.67 ms`) with a 5 s / 99.6% jitter window (`decayDivisor = 128`) and max 3 queued frames to
-  prevent desktop/app `33.3 ms` slot doubling and cursor coasting, preserves warmed jitter offsets
-  across static-screen pauses without idle skips, filters host-idle intervals from `p50/p95/p99`
-  pacing telemetry, and runs `PerfHint` at a 2.0 ms CPU work target.
+- **Restored `presentAhead` 60 Hz low-latency `mibox-60hz` pacer:** restores immediate
+  `VK_GOOGLE_display_timing` presentation in `mibox-60hz`, locks `PresentScheduler` at `1` vsync
+  (`1.5 ms` guard) so Mali-G310 `presentMargin = 0` reports never ratchet compositor lag to 2–3
+  vsyncs, locks slot cadence to `1 vsync/frame` (`16.67 ms`) with zero `shiftNs_` phase delay and a
+  2 s / 95% jitter window (`decayDivisor = 32`, up to 6 queued frames for burst absorption),
+  preserves warmed jitter state across >5 s static-screen pauses, filters >2.5x host-idle intervals
+  from `p50/p95/p99` pacing telemetry, and runs `PerfHint` at a 2.0 ms CPU work target.
 - **Restored `c2.amlogic` HEVC RFI & conservative decoder resilience:** restores HEVC Reference
   Frame Invalidation on modern `c2.amlogic.*` Codec2 decoders (limiting the RFI block to legacy OMX
   decoders), removes per-drop auto-IDR storms while keeping 2 MB+ dynamic HEVC input buffer sizing
@@ -67,7 +68,7 @@ steps and the checksums for each version.
   button on Android TV and Amlogic devices.
 - **C-engine stream tuning (`moonlight-common-c`) & ADPF:** adds Android 12+ ADPF performance hint
   sessions in Java and native Vulkan threads, `recvmmsg` burst UDP video drain on Linux/Android,
-  2 ms (`500 Hz`) zero-hold relative mouse coalescing with immediate UDP socket flush (`sendInputPacket`
+  1 ms (`1000 Hz`) zero-hold relative mouse coalescing with immediate UDP socket flush (`sendInputPacket`
   and click/key preemption) to prevent ENet/Windows queue coasting, pure RFC 4594 DSCP
   marking (`IP_TOS`/`IPV6_TCLASS`), and 1 ns kernel timer slack with raised thread priority on
   native stream worker threads.

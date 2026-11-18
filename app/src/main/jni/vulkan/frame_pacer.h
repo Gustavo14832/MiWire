@@ -36,7 +36,7 @@ enum class JitterBuffer : int {
     Smooth = 2,
     LowestLatency = 3,  // Less buffer than LowLatency, which like it only evens out the host's
                         // timing when frames span more than one vsync
-    MiBox60Hz = 4,      // Calibrated 60 Hz phase-locked preset: 5 s window, 99.6% coverage, fast 2 s recovery
+    MiBox60Hz = 4,      // Calibrated 60 Hz low-latency preset: 2 s window, 95% coverage, fast 0.5 s recovery
 };
 
 // Maps host frame timestamps onto the local clock.
@@ -59,7 +59,7 @@ public:
 
     // Records a decoded frame, measured against the host time it's scheduled from (its host
     // timestamp, or its place on the line the pacer fits to them)
-    void addSample(int64_t scheduledPtsNs, int64_t arrivalNs, bool idleGap = false);
+    void addSample(int64_t scheduledPtsNs, int64_t arrivalNs);
 
     // Starts the window over, keeping the delay, for when what samples are measured against
     // changes. Against the fitted line, the window is at least minWindowNs long.
@@ -239,8 +239,8 @@ private:
     int64_t frameVsyncNs(const FrameTiming& frame, bool committable) const;
     void trackVsync(int64_t vsyncNs);
     void updateSlot(const FrameTiming& frame);
-    void updatePhase(FrameTiming& frame, int64_t rawPtsDelta);
-    void scheduleFrom(FrameTiming& frame, int64_t measuredPtsNs, bool onLine, int64_t scheduledPtsNs, bool idleGap = false);
+    void updatePhase(FrameTiming& frame);
+    void scheduleFrom(FrameTiming& frame, int64_t measuredPtsNs, bool onLine, int64_t scheduledPtsNs);
     void resetPhase();
     int64_t slotPeriodNs() const { return slotVsyncs_ * periodNs_; }
 

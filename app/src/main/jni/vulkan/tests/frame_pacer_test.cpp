@@ -431,34 +431,92 @@ int main() {
         report(s, r);
     }
     {
-        // Mi Box S Gen 3 60 Hz phase-locked mode: phase lock stays active on 60 fps / 60 Hz
-        const Scenario bases[] = {
-            {"mibox-60hz sweep: 60 Hz host, 60 Hz display", 60.0, 60, 60.0},
-            {"mibox-60hz sweep: 144 Hz host thinned, 60 Hz", 144.0, 60, 60.0},
-        };
-        for (Scenario s : bases) {
-            s.mode = PacingMode::MiBox60Hz;
-            s.jitterBuffer = JitterBuffer::MiBox60Hz;
-            s.durationS = 20.0;
-            Result worst;
-            double worstLatency = 0;
-            bool allLocked = true;
-            for (int i = 0; i < 20; i++) {
-                s.vsyncPhase = i / 20.0;
-                Result r = run(s);
-                allLocked = allLocked && r.lockedAtEnd;
-                worst.skipped = std::max(worst.skipped, r.skipped);
-                worst.heldShort = std::max(worst.heldShort, r.heldShort);
-                worst.heldLong = std::max(worst.heldLong, r.heldLong);
-                worstLatency = std::max(worstLatency, r.meanLatencyMs);
+        // Mi Box S Gen 3 60 Hz low-latency mode: with presentAhead and 1.5 ms guard, keeps 0 phase
+        // shift (unlocked 1-vsync path) and 0 skips across all 20 VSync phases at 60 fps / 60 Hz.
+        const int64_t period = 16'666'667;
+        const int64_t t0 = 5'000'000'000LL;
+        const int totalFrames = 1200;
+        uint64_t worstSkipped = 0;
+        int worstOverflows = 0;
+        double worstMeanWaitMs = 0.0;
+        bool allZeroShift = true;
+        for (int ph = 0; ph < 20; ph++) {
+            std::mt19937 rng(1234);
+            std::uniform_real_distribution<double> uniform(0.0, 1.0);
+            FramePacer pacer(PacingMode::MiBox60Hz, 60, period, JitterBuffer::MiBox60Hz);
+            pacer.setPresentAhead(true);
+            pacer.setPresentGuardNs(1'500'000);
+            std::vector<int64_t> arrivals(totalFrames);
+            int64_t prev = 0;
+            for (int i = 0; i < totalFrames; i++) {
+                const double delayMs = 20.0 + uniform(rng) * 4.0;
+                const int64_t a = std::max(t0 + i * period + static_cast<int64_t>(delayMs * 1e6), prev + 200'000);
+                arrivals[i] = prev = a;
             }
-            printf("%-44s worst of 20 phases: locked=%d skipped %d, short %d, long %d, mean latency %.1f ms\n",
-                   s.name, allLocked ? 1 : 0, worst.skipped, worst.heldShort, worst.heldLong, worstLatency);
-            check(allLocked, s.name, "phase lock should stay active at 60 fps / 60 Hz");
-            check(worst.skipped <= 1 && worst.heldShort <= 2 && worst.heldLong <= 2, s.name,
-                  "uneven frames at some phase");
-            check(worstLatency < 18.0, s.name, "latency exceeded single-vsync target");
+            std::deque<FrameTiming> queue;
+            size_t next = 0;
+            int overflows = 0;
+            int shown = 0;
+            double waitSumMs = 0.0;
+            uint64_t skipsAtWarmup = 0;
+            bool latchedWarmup = false;
+            auto drainAhead = [&](bool countStats) {
+                while (!queue.empty()) {
+                    const int64_t showVsync = pacer.plannedVsyncNs(queue.front());
+                    if (showVsync == 0) {
+                        break;
+                    }
+                    pacer.onPresentedAhead(showVsync);
+                    if (countStats) {
+                        shown++;
+                        waitSumMs += (showVsync - queue.front().arrivalNs) / 1e6;
+                    }
+                    queue.pop_front();
+                }
+            };
+            for (int v = 0; v < totalFrames + 10; v++) {
+                const int64_t vsync = t0 + v * period + static_cast<int64_t>((ph / 20.0) * period);
+                const bool pastWarmup = vsync > t0 + 3'000'000'000LL;
+                if (pastWarmup && !latchedWarmup) {
+                    latchedWarmup = true;
+                    skipsAtWarmup = pacer.framesSkipped();
+                }
+                while (next < arrivals.size() && arrivals[next] <= vsync + 500'000) {
+                    FrameTiming f {static_cast<int64_t>(next) * period, arrivals[next], 0};
+                    pacer.onFrameArrived(f);
+                    if (pacer.phaseLocked() || pacer.phaseShiftNs() != 0) {
+                        allZeroShift = false;
+                    }
+                    queue.push_back(f);
+                    while (queue.size() > pacer.maxQueued()) {
+                        queue.pop_front();
+                        if (pastWarmup) {
+                            overflows++;
+                        }
+                    }
+                    next++;
+                    drainAhead(pastWarmup);
+                }
+                std::vector<FrameTiming> snap(queue.begin(), queue.end());
+                const int choice = pacer.onVsync(vsync, snap.data(), snap.size());
+                if (choice >= 0) {
+                    if (pastWarmup) {
+                        shown++;
+                        waitSumMs += (vsync - queue[choice].arrivalNs) / 1e6;
+                    }
+                    queue.erase(queue.begin(), queue.begin() + choice + 1);
+                }
+                drainAhead(pastWarmup);
+            }
+            worstSkipped = std::max(worstSkipped, pacer.framesSkipped() - skipsAtWarmup);
+            worstOverflows = std::max(worstOverflows, overflows);
+            worstMeanWaitMs = std::max(worstMeanWaitMs, shown > 0 ? waitSumMs / shown : 0.0);
         }
+        printf("mibox-60hz 20-phase presentAhead sweep: zeroShift=%d skipped %llu, overflows %d, worstWait %.2f ms\n",
+               allZeroShift ? 1 : 0, static_cast<unsigned long long>(worstSkipped), worstOverflows, worstMeanWaitMs);
+        check(allZeroShift, "mibox-60hz 20-phase sweep", "expected zero phaseShiftNs and unlocked 1-vsync path");
+        check(worstSkipped == 0 && worstOverflows == 0, "mibox-60hz 20-phase sweep", "expected 0 skips and 0 overflows");
+        check(worstMeanWaitMs < 20.0, "mibox-60hz 20-phase sweep", "mean wait exceeded 20.0 ms");
     }
     {
         // Overwatch on Azure -> Mi Box S Gen 3 (60 fps on 60 Hz) with presentAhead active:
@@ -709,6 +767,78 @@ int main() {
         check(alwaysWarmedAfterWarmup, "mibox-60hz static screen pauses", "warmedUp_ must survive 6 s pause");
         check(pacer.framesSkipped() == 0 && overflowDrops == 0,
               "mibox-60hz static screen pauses", "expected 0 skipped or overflowed frames");
+    }
+    {
+        // Regression test: 3 s idle -> slow mouse movement (50 ms spacing with variable transit) ->
+        // rapid 60 FPS mouse movement must never freeze frames into the far future or overflow the queue.
+        const int64_t period = 16'666'667;
+        FramePacer pacer(PacingMode::MiBox60Hz, 60, period, JitterBuffer::MiBox60Hz);
+        pacer.setPresentAhead(true);
+        pacer.setPresentGuardNs(1'500'000);
+        const int64_t t0 = 5'000'000'000LL;
+
+        struct SampleFrame { int64_t pts; int64_t arrival; };
+        std::vector<SampleFrame> seq;
+        int64_t curPts = 0;
+        for (int i = 0; i < 120; i++) {
+            curPts += period;
+            seq.push_back({curPts, t0 + curPts + 14'000'000});
+        }
+        curPts += 3'000'000'000LL;
+        for (int i = 0; i < 20; i++) {
+            curPts += 3 * period;
+            seq.push_back({curPts, t0 + curPts + 14'000'000 + (i % 4) * 6'000'000});
+        }
+        for (int i = 0; i < 60; i++) {
+            curPts += period;
+            seq.push_back({curPts, t0 + curPts + 15'000'000 + (i % 3) * 2'000'000});
+        }
+
+        std::deque<FrameTiming> queue;
+        size_t next = 0;
+        int overflowDrops = 0;
+        double maxWaitAfterIdleMs = 0.0;
+        auto drainAhead = [&](bool afterIdle) {
+            while (!queue.empty()) {
+                const int64_t showVsync = pacer.plannedVsyncNs(queue.front());
+                if (showVsync == 0) {
+                    break;
+                }
+                pacer.onPresentedAhead(showVsync);
+                if (afterIdle) {
+                    maxWaitAfterIdleMs = std::max(maxWaitAfterIdleMs, (showVsync - queue.front().arrivalNs) / 1e6);
+                }
+                queue.pop_front();
+            }
+        };
+        const int totalVsyncs = static_cast<int>(curPts / period) + 15;
+        for (int v = 0; v < totalVsyncs; v++) {
+            const int64_t vsync = t0 + v * period + 3'000'000;
+            while (next < seq.size() && seq[next].arrival <= vsync + 500'000) {
+                const bool afterIdle = next >= 120;
+                FrameTiming f {seq[next].pts, seq[next].arrival, 0};
+                pacer.onFrameArrived(f);
+                queue.push_back(f);
+                while (queue.size() > pacer.maxQueued()) {
+                    queue.pop_front();
+                    overflowDrops++;
+                }
+                next++;
+                drainAhead(afterIdle);
+            }
+            std::vector<FrameTiming> snap(queue.begin(), queue.end());
+            const int choice = pacer.onVsync(vsync, snap.data(), snap.size());
+            if (choice >= 0) {
+                if (next >= 120) {
+                    maxWaitAfterIdleMs = std::max(maxWaitAfterIdleMs, (vsync - queue[choice].arrivalNs) / 1e6);
+                }
+                queue.erase(queue.begin(), queue.begin() + choice + 1);
+            }
+            drainAhead(next >= 120);
+        }
+        check(overflowDrops == 0, "mibox-60hz idle to slow/fast mouse", "expected 0 queue overflow drops");
+        check(pacer.framesSkipped() == 0, "mibox-60hz idle to slow/fast mouse", "expected 0 skipped frames");
+        check(maxWaitAfterIdleMs < 35.0, "mibox-60hz idle to slow/fast mouse", "mouse frames froze across multiple VSyncs");
     }
 
     printf(failures ? "\n%d check(s) failed\n" : "\nAll checks passed\n", failures);
