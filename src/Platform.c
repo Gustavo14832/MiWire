@@ -4,6 +4,12 @@
 #include <pthread.h>
 #include <psp2/kernel/processmgr.h>
 #endif
+#if defined(__ANDROID__)
+#include <sys/prctl.h>
+#include <sys/resource.h>
+#include <unistd.h>
+#include <string.h>
+#endif
 
 // The maximum amount of time before observing an interrupt
 // in PltSleepMsInterruptible().
@@ -89,6 +95,27 @@ void* ThreadProc(void* context) {
     pthread_setname_np(ctx->name);
 #endif
 
+#if defined(__ANDROID__)
+    if (ctx->name != NULL) {
+        if (strcmp(ctx->name, "InputSend") == 0) {
+            prctl(PR_SET_TIMERSLACK, 1UL, 0UL, 0UL, 0UL);
+            if (setpriority(PRIO_PROCESS, 0, -19) != 0 && setpriority(PRIO_PROCESS, 0, -16) != 0) {
+                setpriority(PRIO_PROCESS, 0, -8);
+            }
+        }
+        else if (strcmp(ctx->name, "VideoRecv") == 0 ||
+                 strcmp(ctx->name, "ControlRecv") == 0 ||
+                 strcmp(ctx->name, "AudioRecv") == 0 ||
+                 strcmp(ctx->name, "AudioDec") == 0 ||
+                 strcmp(ctx->name, "VideoDec") == 0) {
+            prctl(PR_SET_TIMERSLACK, 1UL, 0UL, 0UL, 0UL);
+            if (setpriority(PRIO_PROCESS, 0, -16) != 0) {
+                setpriority(PRIO_PROCESS, 0, -8);
+            }
+        }
+    }
+#endif
+
     ctx->entry(ctx->context);
 
     free(ctx);
@@ -111,6 +138,19 @@ void PltSleepMs(int ms) {
 #else
     useconds_t usecs = ms * 1000;
     usleep(usecs);
+#endif
+}
+
+void PltSleepUs(int us) {
+    if (us <= 0) {
+        return;
+    }
+#if defined(LC_WINDOWS)
+    SleepEx((us + 999) / 1000, FALSE);
+#elif defined(__3DS__)
+    svcSleepThread((s64)us * 1000);
+#else
+    usleep((useconds_t)us);
 #endif
 }
 

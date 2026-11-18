@@ -241,7 +241,7 @@ void closeSocket(SOCKET s) {
 
 // These set "safe" host or link-local QoS options that we can unconditionally
 // set without having to worry about routers blockholing the traffic.
-static void setSocketQos(SOCKET s, int socketQosType) {
+static void setSocketQos(SOCKET s, int addressFamily, int socketQosType) {
 #ifdef SO_NET_SERVICE_TYPE
     int value;
     switch (socketQosType) {
@@ -286,6 +286,27 @@ static void setSocketQos(SOCKET s, int socketQosType) {
         Limelog("setsockopt(SO_PRIORITY, %d) failed: %d\n", value, (int)LastSocketError());
     }
 #endif
+    // Mark pure RFC 4594 DSCP (without ECN bits) for wired LAN/router QoS queues:
+    // Audio = EF (46 << 2 = 0xB8), Video = CS4 (32 << 2 = 0x80)
+    int dscp = 0;
+    if (socketQosType == SOCK_QOS_TYPE_AUDIO) {
+        dscp = 46 << 2;
+    }
+    else if (socketQosType == SOCK_QOS_TYPE_VIDEO) {
+        dscp = 32 << 2;
+    }
+    if (dscp != 0) {
+#ifdef IP_TOS
+        if (addressFamily == AF_INET) {
+            setsockopt(s, IPPROTO_IP, IP_TOS, (char*)&dscp, sizeof(dscp));
+        }
+#endif
+#ifdef IPV6_TCLASS
+        if (addressFamily == AF_INET6) {
+            setsockopt(s, IPPROTO_IPV6, IPV6_TCLASS, (char*)&dscp, sizeof(dscp));
+        }
+#endif
+    }
 }
 
 SOCKET bindUdpSocket(int addressFamily, struct sockaddr_storage* localAddr, SOCKADDR_LEN addrLen, int bufferSize, int socketQosType) {
@@ -355,7 +376,7 @@ SOCKET bindUdpSocket(int addressFamily, struct sockaddr_storage* localAddr, SOCK
 
     // Enable QOS for the socket (best effort)
     if (socketQosType != SOCK_QOS_TYPE_BEST_EFFORT) {
-        setSocketQos(s, socketQosType);
+        setSocketQos(s, addressFamily, socketQosType);
     }
 
 #ifdef __3DS__

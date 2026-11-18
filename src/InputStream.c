@@ -37,10 +37,10 @@ static uint8_t currentPenButtonState;
 #define LI_WHEEL_DELTA 120
 
 // If we try to send more than one stylus or mouse motion event
-// per millisecond, we'll wait a little bit to try to batch with
-// the next one. This batching wait paradoxically _decreases_
-// effective input latency by avoiding packet queuing in ENet.
-#define MOUSE_BATCHING_INTERVAL_MS 1
+// per 500 us, wait briefly to batch with the next motion event while
+// letting the first move leave immediately and flushing immediately
+// if an urgent input (click/button/key) enters the queue.
+#define MOUSE_BATCHING_INTERVAL_US 500
 #define PEN_BATCHING_INTERVAL_MS 1
 
 // Don't batch up/down/cancel events
@@ -319,6 +319,15 @@ static void floatToNetfloat(float in, netfloat out) {
     }
 }
 
+static bool hasUrgentInputQueued(uint32_t relMouseMagicLE) {
+    PPACKET_HOLDER nextHolder;
+    if (LbqPeekQueueElement(&packetQueue, (void**)&nextHolder) != LBQ_SUCCESS) {
+        return false;
+    }
+    return nextHolder->packet.header.magic != relMouseMagicLE &&
+           nextHolder->packet.header.magic != LE32(MOUSE_MOVE_ABS_MAGIC);
+}
+
 // Input thread proc
 static void inputSendThreadProc(void* context) {
     SOCK_RET err;
@@ -335,7 +344,7 @@ static void inputSendThreadProc(void* context) {
         relMouseMagicLE = LE32(MOUSE_MOVE_REL_MAGIC);
     }
 
-    uint64_t lastMousePacketTime = 0;
+    uint64_t lastMousePacketTimeUs = 0;
     uint64_t lastPenPacketTime = 0;
 
     while (!PltIsThreadInterrupted(&inputSendThread)) {
@@ -364,13 +373,16 @@ static void inputSendThreadProc(void* context) {
         }
         // If it's a relative mouse move packet, we can do batching
         else if (holder->packet.header.magic == relMouseMagicLE) {
-            uint64_t now = PltGetMillis();
+            uint64_t nowUs = PltGetMicroseconds();
 
-            // Delay for batching if required
-            if (now < lastMousePacketTime + MOUSE_BATCHING_INTERVAL_MS) {
+            // First move leaves immediately; subsequent moves within 500 us wait briefly
+            // unless an urgent event (click, button, or key) is waiting behind it.
+            if (lastMousePacketTimeUs != 0 &&
+                    nowUs < lastMousePacketTimeUs + MOUSE_BATCHING_INTERVAL_US &&
+                    !hasUrgentInputQueued(relMouseMagicLE)) {
                 flushInputOnControlStream();
-                PltSleepMs((int)(lastMousePacketTime + MOUSE_BATCHING_INTERVAL_MS - now));
-                now = PltGetMillis();
+                PltSleepUs((int)(lastMousePacketTimeUs + MOUSE_BATCHING_INTERVAL_US - nowUs));
+                nowUs = PltGetMicroseconds();
             }
 
             PltLockMutex(&batchedInputMutex);
@@ -412,8 +424,8 @@ static void inputSendThreadProc(void* context) {
                 // Don't hold the batching lock while we're doing network I/O
                 PltUnlockMutex(&batchedInputMutex);
 
-                // Encrypt and send the split packet
-                if (!sendInputPacket(holder, more)) {
+                // Encrypt and send the split packet (coalesce with any urgent queued packet)
+                if (!sendInputPacket(holder, more || LbqGetItemCount(&packetQueue) > 0)) {
                     freePacketHolder(holder);
                     return;
                 }
@@ -426,7 +438,7 @@ static void inputSendThreadProc(void* context) {
 
             PltUnlockMutex(&batchedInputMutex);
 
-            lastMousePacketTime = now;
+            lastMousePacketTimeUs = nowUs;
 
             // We sent everything we needed in the loop above, so we can just free the
             // holder of the original packet and wait for another input event.
@@ -435,13 +447,16 @@ static void inputSendThreadProc(void* context) {
         }
         // If it's an absolute mouse move packet, we should only send the latest
         else if (holder->packet.header.magic == LE32(MOUSE_MOVE_ABS_MAGIC)) {
-            uint64_t now = PltGetMillis();
+            uint64_t nowUs = PltGetMicroseconds();
 
-            // Delay for batching if required
-            if (now < lastMousePacketTime + MOUSE_BATCHING_INTERVAL_MS) {
+            // First move leaves immediately; subsequent moves within 500 us wait briefly
+            // unless an urgent event (click, button, or key) is waiting behind it.
+            if (lastMousePacketTimeUs != 0 &&
+                    nowUs < lastMousePacketTimeUs + MOUSE_BATCHING_INTERVAL_US &&
+                    !hasUrgentInputQueued(relMouseMagicLE)) {
                 flushInputOnControlStream();
-                PltSleepMs((int)(lastMousePacketTime + MOUSE_BATCHING_INTERVAL_MS - now));
-                now = PltGetMillis();
+                PltSleepUs((int)(lastMousePacketTimeUs + MOUSE_BATCHING_INTERVAL_US - nowUs));
+                nowUs = PltGetMicroseconds();
             }
 
             PltLockMutex(&batchedInputMutex);
@@ -463,7 +478,7 @@ static void inputSendThreadProc(void* context) {
 
             PltUnlockMutex(&batchedInputMutex);
 
-            lastMousePacketTime = now;
+            lastMousePacketTimeUs = nowUs;
         }
         // If it's a pen packet, we should only send the latest move or hover events
         else if (holder->packet.header.magic == LE32(SS_PEN_MAGIC) && TOUCH_EVENT_IS_BATCHABLE(holder->packet.pen.eventType)) {
