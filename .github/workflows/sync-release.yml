@@ -1,0 +1,99 @@
+name: Sync release
+
+# Every day, if the original Starwire has a new stable release, merge it into the branch with my
+# changes and start a build. A conflict the script can't settle fails the run, and GitHub emails
+# me. The workflow files on that branch are never touched, because the token that runs this can't
+# change them.
+on:
+  schedule:
+    - cron: '23 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: sync-release
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    # Only on a fork. The original repository has nothing to merge into itself.
+    if: github.repository_owner != 'SicarioGaming'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: feature/back-as-meta-force-qwerty
+          fetch-depth: 0
+
+      - name: Merge the latest release
+        id: sync
+        env:
+          BRANCH: feature/back-as-meta-force-qwerty
+        run: |
+          set -euo pipefail
+          BRANCH="${BRANCH:?set BRANCH}"
+          UPSTREAM_URL="${UPSTREAM_URL:-https://github.com/SicarioGaming/Starwire.git}"
+          OUT="${GITHUB_OUTPUT:-/dev/null}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q "$BRANCH"
+
+          git remote remove upstream 2>/dev/null || true
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch -q --no-tags upstream '+refs/tags/*:refs/tags/upstream/*'
+
+          # The newest stable release (v1.2.3, not v1.2.3-rc1) of the original app
+          LATEST=$(git tag --list 'upstream/v[0-9]*' | sed 's#^upstream/##' | grep -v -- '-' | sort -V | tail -1 || true)
+          if [ -z "$LATEST" ]; then
+            echo "::error::No release tag found in the original repository"
+            exit 1
+          fi
+
+          if git merge-base --is-ancestor "refs/tags/upstream/$LATEST" HEAD; then
+            echo "$BRANCH already has $LATEST"
+            echo "merged=false" >> "$OUT"
+            exit 0
+          fi
+
+          echo "Merging $LATEST into $BRANCH"
+          git merge --no-ff --no-commit "refs/tags/upstream/$LATEST" || true
+          if [ ! -f .git/MERGE_HEAD ]; then
+            echo "::error::The merge of $LATEST did not start"
+            exit 1
+          fi
+
+          # The token that runs this can't change workflow files, so they stay as they are on this branch
+          git checkout HEAD -- .github/workflows
+          for f in $(git diff --cached --name-only --diff-filter=A -- .github/workflows); do
+            git rm -q -f -- "$f"
+          done
+
+          # A conflict in the readme or the changelog takes the original's version. Anywhere else, stop.
+          OTHER=""
+          for f in $(git diff --name-only --diff-filter=U); do
+            case "$f" in
+              README.md|CHANGELOG.md) git checkout --theirs -- "$f"; git add -- "$f" ;;
+              *) OTHER="$OTHER $f" ;;
+            esac
+          done
+          if [ -n "$OTHER" ]; then
+            git merge --abort
+            echo "::error::$LATEST conflicts with your changes in:$OTHER. Merge it by hand."
+            exit 1
+          fi
+
+          git commit -q -m "chore(sync): merge $LATEST from the original repository"
+          git push origin "HEAD:$BRANCH"
+          echo "merged=true" >> "$OUT"
+          echo "tag=$LATEST" >> "$OUT"
+
+      - name: Build the merged branch
+        if: steps.sync.outputs.merged == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build.yml --ref feature/back-as-meta-force-qwerty
