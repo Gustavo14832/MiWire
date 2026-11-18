@@ -714,7 +714,7 @@ public class MediaCodecHelper {
                     if (videoFormat.containsKey(MediaFormat.KEY_FRAME_RATE)) {
                         fps = videoFormat.getInteger(MediaFormat.KEY_FRAME_RATE);
                     }
-                    int amlOperatingRate = Math.max(120, Math.min(fps * 2, 240));
+                    int amlOperatingRate = Math.max(240, Math.min(fps * 2, 480));
                     setNewOption |= safeSet(videoFormat, MediaFormat.KEY_OPERATING_RATE, amlOperatingRate, tryNumber, false);
                     setNewOption |= safeSet(videoFormat, MediaFormat.KEY_PRIORITY, 0, tryNumber, false);
                     // Amlogic low latency vendor extensions

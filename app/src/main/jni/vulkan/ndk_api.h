@@ -11,6 +11,9 @@
 #include <media/NdkImage.h>
 #include <media/NdkImageReader.h>
 
+struct APerformanceHintManager;
+struct APerformanceHintSession;
+
 struct NdkApi {
     // libnativewindow.so (API 26)
     void (*AHardwareBuffer_acquire)(AHardwareBuffer* buffer);
@@ -41,6 +44,15 @@ struct NdkApi {
                                                        AChoreographer_refreshRateCallback callback, void* data);
     void (*AChoreographer_unregisterRefreshRateCallback)(AChoreographer* choreographer,
                                                          AChoreographer_refreshRateCallback callback, void* data);
+
+    // Optional Android 12+ ADPF (libandroid.so, API 31+)
+    APerformanceHintManager* (*APerformanceHint_getManager)();
+    APerformanceHintSession* (*APerformanceHint_createSession)(APerformanceHintManager* manager,
+                                                               const int32_t* threadIds, size_t size,
+                                                               int64_t initialTargetWorkDurationNanos);
+    int (*APerformanceHint_reportActualWorkDuration)(APerformanceHintSession* session,
+                                                     int64_t actualDurationNanos);
+    void (*APerformanceHint_closeSession)(APerformanceHintSession* session);
 };
 
 // Loads the functions above. Returns nullptr if a required one is missing.

@@ -240,4 +240,9 @@
     <string name="error_code_prefix">Código de erro:</string>
     <string name="fps_suffix_fps">FPS</string>
     <string name="pcview_menu_eol">Fim do serviço NVIDIA GameStream</string>
+    <string name="vulkan_sharpening_off">Desligado</string>
+    <string name="vulkan_sharpening_balanced">Equilibrado (CAS)</string>
+    <string name="vulkan_sharpening_crisp">Nítido (CAS+)</string>
+    <string name="title_vulkan_sharpening">Nitidez de imagem (Vulkan RCAS)</string>
+    <string name="summary_vulkan_sharpening">Restaura detalhes finos suavizados pela compressão de vídeo sem halos artificiais (apenas renderizador Vulkan)</string>
 </resources>

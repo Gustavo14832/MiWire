@@ -30,6 +30,7 @@ struct RendererConfig {
     int framePacing = 0;       // PreferenceConfiguration.FRAME_PACING_*
     int jitterBuffer = 1;      // PreferenceConfiguration.JITTER_BUFFER_*
     int ditherMode = 0;        // 0 = off, 1 = low, 2 = high
+    int sharpenMode = 0;       // 0 = off, 1 = balanced, 2 = crisp
     int colorspace = 1;        // MoonBridge.COLORSPACE_*
     bool fullRange = false;
     bool tenBit = false;       // The stream is 10-bit
@@ -155,6 +156,7 @@ private:
         VkChromaLocation xChromaOffset = VK_CHROMA_LOCATION_COSITED_EVEN;
         VkChromaLocation yChromaOffset = VK_CHROMA_LOCATION_COSITED_EVEN;
         VkFilter filter = VK_FILTER_NEAREST;
+        VkBool32 forceExplicitReconstruction = VK_FALSE;
 
         bool operator==(const ConversionKey& other) const;
     };
@@ -357,6 +359,7 @@ private:
     bool stopped_ = false;
     std::mutex stopMutex_;
     AChoreographer* choreographer_ = nullptr;
+    APerformanceHintSession* hintSession_ = nullptr;
     bool refreshRateCallbackRegistered_ = false;
     std::atomic<bool> presentOnArrival_ {false};  // Mailbox swapchain in lowest latency mode
     // Held for any Vulkan work: the render thread's, and frames the image reader presents ahead

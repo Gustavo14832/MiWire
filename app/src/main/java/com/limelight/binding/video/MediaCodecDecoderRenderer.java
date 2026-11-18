@@ -240,6 +240,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     // record framing and sites chroma at the center
     private boolean pyrowaveCenterChroma;
     private long pyrowaveDecodeNs;
+    private long mediaCodecDecodeNs;
 
     // Direct renderer in the host frame timing pacing mode
     private HostFrameTimeline hostFrameTimeline;
@@ -689,9 +690,22 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 break;
         }
 
+        int sharpenMode;
+        switch (prefs.vulkanSharpening) {
+            case BALANCED:
+                sharpenMode = 1;
+                break;
+            case CRISP:
+                sharpenMode = 2;
+                break;
+            default:
+                sharpenMode = 0;
+                break;
+        }
+
         VulkanRendererBridge renderer = VulkanRendererBridge.create(outputSurface,
                 initialWidth, initialHeight, refreshRate, prefs.framePacing, prefs.jitterBuffer, ditherMode,
-                getPreferredColorSpace(),
+                sharpenMode, getPreferredColorSpace(),
                 getPreferredColorRange() == MoonBridge.COLOR_RANGE_FULL,
                 (videoFormat & MoonBridge.VIDEO_FORMAT_MASK_10BIT) != 0,
                 pyrowave, pyrowaveCenterChroma, prefs.pyrowaveLateFrames, getDisplayRefreshRate(),
@@ -1333,6 +1347,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private void startRendererThread()
     {
         nanoPacer.reset();
+        mediaCodecDecodeNs = 0;
         displayRefreshRateHz = getDisplayRefreshRate();
         if (!(displayRefreshRateHz > 1f)) {
             displayRefreshRateHz = 60f;
@@ -1342,8 +1357,23 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             @Override
             public void run() {
                 Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_DISPLAY);
+                android.os.PerformanceHintManager.Session hintSession = null;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && context != null) {
+                    try {
+                        android.os.PerformanceHintManager phm =
+                                context.getSystemService(android.os.PerformanceHintManager.class);
+                        if (phm != null) {
+                            long targetNs = 1_000_000_000L / Math.max(60, refreshRate);
+                            hintSession = phm.createHintSession(
+                                    new int[] { Process.myPid(), Process.myTid() }, targetNs);
+                        }
+                    } catch (Throwable ignored) {
+                    }
+                }
                 BufferInfo info = new BufferInfo();
+                try {
                 while (!stopping) {
+                    final long iterStartNs = System.nanoTime();
                     try {
                         // Try to output a frame
                         // Async decode hands frames it dropped back here for release, keeping
@@ -1354,6 +1384,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
                         int outIndex = dequeueOutput(info, 50000);
                         if (outIndex >= 0) {
+                            long dequeueDoneNs = System.nanoTime();
                             long presentationTimeUs = info.presentationTimeUs;
                             int lastIndex = outIndex;
 
@@ -1366,6 +1397,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                 for (int extra = 0; extra < 3; extra++) {
                                     int nextOut = dequeueOutput(info, 0);
                                     if (nextOut >= 0) {
+                                        dequeueDoneNs = System.nanoTime();
                                         numFramesOut++;
                                         presentationTimeUs = info.presentationTimeUs;
                                         videoDecoder.releaseOutputBuffer(nextOut, true);
@@ -1391,6 +1423,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                             else if (prefs.framePacing != PreferenceConfiguration.FRAME_PACING_BALANCED) {
                                 // Get the last output buffer in the queue
                                 while ((outIndex = dequeueOutput(info, 0)) >= 0) {
+                                    dequeueDoneNs = System.nanoTime();
                                     videoDecoder.releaseOutputBuffer(lastIndex, false);
 
                                     numFramesOut++;
@@ -1408,8 +1441,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                     nanoLatest.index = lastIndex;
                                     nanoLatest.ptsUs = presentationTimeUs;
                                     nanoLatest.flags = info.flags;
-                                    nanoLatest.dequeueNs = System.nanoTime();
+                                    nanoLatest.dequeueNs = dequeueDoneNs;
                                     numFramesOut += nanoPacer.waitAndDrainLatest(info, nanoLatest, nanoPacerCallbacks);
+                                    dequeueDoneNs = System.nanoTime();
                                     lastIndex = nanoLatest.index;
                                     presentationTimeUs = nanoLatest.ptsUs;
                                 }
@@ -1446,6 +1480,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                     for (int drained = 0; drained < SYNC_LFR_MAX_DRAIN_PER_FRAME; drained++) {
                                         int newerIndex = dequeueOutput(info, 0);
                                         if (newerIndex >= 0) {
+                                            dequeueDoneNs = System.nanoTime();
                                             videoDecoder.releaseOutputBuffer(lastIndex, false);
                                             numFramesOut++;
                                             lastIndex = newerIndex;
@@ -1481,7 +1516,14 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                             }
 
                             // Update decode latency stats using real enqueue->dequeue time
-                            updateDecodeLatencyStats(presentationTimeUs);
+                            updateDecodeLatencyStats(presentationTimeUs, dequeueDoneNs);
+                            if (hintSession != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                try {
+                                    hintSession.reportActualWorkDuration(
+                                            Math.max(100_000L, System.nanoTime() - iterStartNs));
+                                } catch (Throwable ignored) {
+                                }
+                            }
                         } else {
                             switch (outIndex) {
                                 case MediaCodec.INFO_TRY_AGAIN_LATER:
@@ -1499,6 +1541,14 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                         handleDecoderException(e);
                     } finally {
                         doCodecRecoveryIfRequired(CR_FLAG_RENDER_THREAD);
+                    }
+                }
+                } finally {
+                    if (hintSession != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        try {
+                            hintSession.close();
+                        } catch (Throwable ignored) {
+                        }
                     }
                 }
             }
@@ -2353,13 +2403,16 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         return (int)(globalVideoStats.decoderTimeMs / globalVideoStats.totalFramesReceived);
     }
 
-    // Update stats using real decode time: enqueue->dequeue, instead of uptime - PTS
-    private void updateDecodeLatencyStats(long presentationTimeUs) {
+    // Update stats using real decode time: enqueue->dequeue, excluding downstream render/swap time
+    private void updateDecodeLatencyStats(long presentationTimeUs, long dequeueDoneNs) {
         Long enqNs = enqueueNsByPtsUs.get(presentationTimeUs);
         if (enqNs != null) {
             enqueueNsByPtsUs.delete(presentationTimeUs);
-            long decMs = (System.nanoTime() - enqNs) / 1_000_000L;
-            if (decMs >= 0 && decMs < 1000) {
+            long decNs = dequeueDoneNs - enqNs;
+            if (decNs >= 0 && decNs < 1_000_000_000L) {
+                mediaCodecDecodeNs += decNs;
+                long decMs = mediaCodecDecodeNs / 1_000_000L;
+                mediaCodecDecodeNs -= decMs * 1_000_000L;
                 activeWindowVideoStats.decoderTimeMs += decMs;
                 if (!USE_FRAME_RENDER_TIME) {
                     activeWindowVideoStats.totalTimeMs += decMs;

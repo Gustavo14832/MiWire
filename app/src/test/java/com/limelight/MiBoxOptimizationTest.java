@@ -58,7 +58,9 @@ public class MiBoxOptimizationTest {
         assertEquals(35000, prefs.getInt("seekbar_bitrate_kbps", 0));
         assertEquals("forceh265", prefs.getString("video_format", ""));
         assertEquals("vulkan", prefs.getString("video_renderer", ""));
-        assertEquals("low", prefs.getString("spatial_dithering", ""));
+        assertEquals("high", prefs.getString("spatial_dithering", ""));
+        assertEquals("balanced", prefs.getString("vulkan_sharpening", ""));
+        assertTrue(prefs.getBoolean("checkbox_full_range", false));
         assertEquals("mibox-60hz", prefs.getString("frame_pacing", ""));
         assertEquals("off", prefs.getString("vsync_mode", ""));
         assertFalse(prefs.getBoolean("checkbox_async_decode", true));
@@ -72,10 +74,17 @@ public class MiBoxOptimizationTest {
         assertFalse(prefs.getBoolean("checkbox_enable_sops", true));
 
         // User edits persist on subsequent calls
-        prefs.edit().putInt("seekbar_bitrate_kbps", 50000).putString("list_fps", "120").commit();
+        prefs.edit()
+                .putInt("seekbar_bitrate_kbps", 50000)
+                .putString("list_fps", "120")
+                .putString("vulkan_sharpening", "off")
+                .putBoolean("checkbox_full_range", false)
+                .commit();
         PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
         assertEquals(50000, prefs.getInt("seekbar_bitrate_kbps", 0));
         assertEquals("120", prefs.getString("list_fps", ""));
+        assertEquals("off", prefs.getString("vulkan_sharpening", ""));
+        assertFalse(prefs.getBoolean("checkbox_full_range", true));
     }
 
     @Test
@@ -93,8 +102,11 @@ public class MiBoxOptimizationTest {
         PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
 
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v2", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v3", false));
         assertEquals("vulkan", prefs.getString("video_renderer", ""));
-        assertEquals("low", prefs.getString("spatial_dithering", ""));
+        assertEquals("high", prefs.getString("spatial_dithering", ""));
+        assertEquals("balanced", prefs.getString("vulkan_sharpening", ""));
+        assertTrue(prefs.getBoolean("checkbox_full_range", false));
         assertEquals("mibox-60hz", prefs.getString("frame_pacing", ""));
         assertEquals("off", prefs.getString("vsync_mode", ""));
         assertFalse(prefs.getBoolean("checkbox_async_decode", true));
@@ -109,6 +121,34 @@ public class MiBoxOptimizationTest {
         PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
         assertEquals("host-timed", prefs.getString("frame_pacing", ""));
         assertTrue(prefs.getBoolean("checkbox_usb_driver", false));
+    }
+
+    @Test
+    public void tvDefaultsV2UpgradesCleanlyToV3() {
+        prefs.edit()
+                .putBoolean("mibox_tv_gaming_defaults_v1", true)
+                .putBoolean("mibox_tv_gaming_defaults_v2", true)
+                .putString("spatial_dithering", "low")
+                .putInt("seekbar_bitrate_kbps", 35000)
+                .commit();
+
+        PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
+
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v3", false));
+        assertEquals("high", prefs.getString("spatial_dithering", ""));
+        assertEquals("balanced", prefs.getString("vulkan_sharpening", ""));
+        assertTrue(prefs.getBoolean("checkbox_full_range", false));
+
+        // User edits after v3 seeding are preserved
+        prefs.edit()
+                .putString("spatial_dithering", "off")
+                .putString("vulkan_sharpening", "crisp")
+                .putBoolean("checkbox_full_range", false)
+                .commit();
+        PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
+        assertEquals("off", prefs.getString("spatial_dithering", ""));
+        assertEquals("crisp", prefs.getString("vulkan_sharpening", ""));
+        assertFalse(prefs.getBoolean("checkbox_full_range", true));
     }
 
     @Test
@@ -160,7 +200,7 @@ public class MiBoxOptimizationTest {
         assertEquals(1, format.getInteger("vendor.amlogic.vdec.boost"));
         assertEquals(0, format.getInteger(MediaFormat.KEY_PRIORITY));
         int operatingRate = format.getInteger(MediaFormat.KEY_OPERATING_RATE);
-        assertTrue("unexpected operating rate: " + operatingRate, operatingRate >= 120 && operatingRate <= 240);
+        assertEquals(240, operatingRate);
 
         assertTrue(MediaCodecHelper.shouldSkipPostStartLowLatency("c2.amlogic.hevc.decoder"));
         assertFalse(MediaCodecHelper.shouldSkipPostStartLowLatency("c2.qti.hevc.decoder"));

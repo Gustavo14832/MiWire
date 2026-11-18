@@ -24,17 +24,27 @@ steps and the checksums for each version.
   settings, that passes shortcuts Android keeps for itself (Alt+Tab, the Windows key) to the stream
   while a physical keyboard is connected. Turn it on there to use it. From LavArtemis, credited to
   Lavagnou.
+- **Vulkan RCAS sharpening:** adds a 5-tap AMD FidelityFX Contrast-Adaptive Sharpening option in
+  the Vulkan fragment shaders (`Off`, `Balanced`, `Crisp`), with a noise gate and explicit chroma
+  reconstruction (`forceExplicitReconstruction`) when supported by the YCbCr sampler.
 
 ### Changed
 
 - **Amlogic Codec2 low-latency tuning:** bypasses Android's generic `low-latency` key on
-  `c2.amlogic` decoders, applies vendor game-mode, boost, and priority options, and enables HEVC
-  and `omx.amlogic` direct submit with multi-buffer Vulkan output drain on `rendererThread`.
+  `c2.amlogic` decoders, applies vendor game-mode, boost, and priority options at an operating rate
+  of 240 for 60 FPS streams, and enables HEVC and `omx.amlogic` direct submit with multi-buffer
+  Vulkan output drain and nanosecond dequeue timing on `rendererThread`.
 - **Android TV / Mi Box gaming defaults & 60 Hz phase-locked pacing:** adds the `mibox-60hz`
   Vulkan frame pacing mode with a 1-vsync `PresentScheduler` target and 2 s jitter recovery, and
-  seeds 1080p60 HEVC, Vulkan renderer, low spatial dithering, native kernel HID (`checkbox_usb_driver`
-  off), LB+RB overlay trigger, 3% stick deadzone, while disabling motion sensors, SOPS, and the
-  floating button on Android TV and Amlogic devices.
+  seeds 1080p60 HEVC, Vulkan renderer, 10-bit SDR swapchain with high spatial dithering, balanced
+  Vulkan RCAS sharpening, full-range color (`0-255`), native kernel HID (`checkbox_usb_driver` off),
+  LB+RB overlay trigger, 3% stick deadzone, while disabling motion sensors, SOPS, and the floating
+  button on Android TV and Amlogic devices.
+- **C-engine stream tuning (`moonlight-common-c`) & ADPF:** adds Android 12+ ADPF performance hint
+  sessions in Java and native Vulkan threads, `recvmmsg` burst UDP video drain on Linux/Android,
+  500 us microsecond mouse coalescing with zero-hold first move and click flush, pure RFC 4594 DSCP
+  marking (`IP_TOS`/`IPV6_TCLASS`), and 1 ns kernel timer slack with raised thread priority on
+  native stream worker threads.
 - **Sub-pixel mouse accumulator and trigger deadzone:** preserves fractional relative mouse deltas
   across events and lowers the minimum analog trigger deadzone floor to 2%.
 - **System and audio tuning:** enables performance Game Mode, removes `gwpAsanMode`, skips Wi-Fi

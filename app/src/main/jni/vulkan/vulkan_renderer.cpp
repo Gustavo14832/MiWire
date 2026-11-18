@@ -9,6 +9,7 @@
 #include <ctime>
 #include <poll.h>
 #include <sys/eventfd.h>
+#include <sys/prctl.h>
 #include <sys/resource.h>
 #include <unistd.h>
 #include <android/log.h>
@@ -35,6 +36,7 @@ namespace {
         float params[4];
         float params2[4];
         float ycbcr[4];
+        float texel[4];
     };
 
     constexpr float kOutputPassthrough = 0.0f;
@@ -95,6 +97,7 @@ namespace {
     void raiseThreadPriority(const char* name) {
         // ANDROID_PRIORITY_URGENT_DISPLAY, then ANDROID_PRIORITY_DISPLAY
         const pid_t tid = gettid();
+        prctl(PR_SET_TIMERSLACK, 1UL, 0UL, 0UL, 0UL);
         if (setpriority(PRIO_PROCESS, tid, -8) != 0 && setpriority(PRIO_PROCESS, tid, -4) != 0) {
             ALOGW("Could not raise the %s thread's priority", name);
             return;
@@ -169,7 +172,7 @@ bool VulkanRenderer::ConversionKey::operator==(const ConversionKey& other) const
            components.r == other.components.r && components.g == other.components.g &&
            components.b == other.components.b && components.a == other.components.a &&
            xChromaOffset == other.xChromaOffset && yChromaOffset == other.yChromaOffset &&
-           filter == other.filter;
+           filter == other.filter && forceExplicitReconstruction == other.forceExplicitReconstruction;
 }
 
 VkInstance VulkanRenderer::createVkInstance(VkApi& vk, bool pyrowave, bool* hasColorspaceExt, InstanceSetup& setup) {
@@ -1253,10 +1256,31 @@ void VulkanRenderer::renderThreadMain() {
     }
     ndk_->AChoreographer_postFrameCallback64(choreographer_, &VulkanRenderer::onVsyncThunk, this);
 
+    if (ndk_->APerformanceHint_getManager && ndk_->APerformanceHint_createSession &&
+            ndk_->APerformanceHint_reportActualWorkDuration && ndk_->APerformanceHint_closeSession) {
+        APerformanceHintManager* hintManager = ndk_->APerformanceHint_getManager();
+        if (hintManager) {
+            int32_t tids[1] = { static_cast<int32_t>(gettid()) };
+            const int64_t targetNs = std::max<int64_t>(1'000'000, pacer_.vsyncPeriodNs());
+            std::lock_guard<std::mutex> renderLock(renderMutex_);
+            hintSession_ = ndk_->APerformanceHint_createSession(hintManager, tids, 1, targetNs);
+            if (hintSession_) {
+                ALOGI("ADPF render hint session active (target %.2f ms)", targetNs / 1e6);
+            }
+        }
+    }
+
     while (!quit_) {
         ALooper_pollOnce(-1, nullptr, nullptr, nullptr);
     }
 
+    {
+        std::lock_guard<std::mutex> renderLock(renderMutex_);
+        if (hintSession_ && ndk_->APerformanceHint_closeSession) {
+            ndk_->APerformanceHint_closeSession(hintSession_);
+            hintSession_ = nullptr;
+        }
+    }
     if (refreshRateCallbackRegistered_) {
         ndk_->AChoreographer_unregisterRefreshRateCallback(choreographer_, &VulkanRenderer::onRefreshRateThunk, this);
     }
@@ -1573,6 +1597,10 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
     pc.params[3] = contentPeakNits;
     pc.params2[0] = kSdrWhiteNits;
     pc.params2[1] = static_cast<float>(std::max(quarterTurns(preTransform_), 0));
+    pc.texel[0] = bufferWidth > 0.0f ? 1.0f / bufferWidth : 0.0f;
+    pc.texel[1] = bufferHeight > 0.0f ? 1.0f / bufferHeight : 0.0f;
+    pc.texel[2] = config_.sharpenMode == 2 ? 0.18f : (config_.sharpenMode == 1 ? 0.13f : 0.0f);
+    pc.texel[3] = 0.0f;
     if (planar) {
         // PyroWave is always full range, in the colorspace we asked for, or BT.2020 for HDR
         const int colorspace = hdrActive_ ? 2 : config_.colorspace;
@@ -1763,6 +1791,10 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
     }
 
     evictImports();
+    if (hintSession_ && ndk_->APerformanceHint_reportActualWorkDuration) {
+        const int64_t durationNs = std::max<int64_t>(100'000, nowNs() - startNs);
+        ndk_->APerformanceHint_reportActualWorkDuration(hintSession_, durationNs);
+    }
     return true;
 }
 
@@ -1906,7 +1938,7 @@ bool VulkanRenderer::createSwapchain() {
             ALOGW("Surface has no HDR10 format; tone mapping HDR to SDR");
         }
     }
-    if (!found && (config_.tenBit || hdrActive_)) {
+    if (!found && (config_.ditherMode > 0 || config_.tenBit || hdrActive_)) {
         found = findFormat(VK_FORMAT_A2B10G10R10_UNORM_PACK32, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, &chosen);
     }
     if (!found) {
@@ -2068,9 +2100,10 @@ bool VulkanRenderer::createSwapchain() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         char description[128];
-        snprintf(description, sizeof(description), "%s%s",
+        snprintf(description, sizeof(description), "%s%s%s",
                  outputPq_ ? "HDR10" : (outputBits_ == 10 ? "10-bit SDR" : "8-bit SDR"),
-                 (hdrActive_ && !outputPq_) ? " (tone mapped)" : "");
+                 (hdrActive_ && !outputPq_) ? " (tone mapped)" : "",
+                 config_.sharpenMode == 2 ? " \u00b7 CAS+" : (config_.sharpenMode == 1 ? " \u00b7 CAS" : ""));
         outputDescription_ = description;
     }
 
@@ -2141,7 +2174,7 @@ bool VulkanRenderer::ensureConversion(const ConversionKey& key) {
         info.xChromaOffset = key.xChromaOffset;
         info.yChromaOffset = key.yChromaOffset;
         info.chromaFilter = key.filter;
-        info.forceExplicitReconstruction = VK_FALSE;
+        info.forceExplicitReconstruction = key.forceExplicitReconstruction;
         VkResult result = vk_.vkCreateSamplerYcbcrConversion(device_, &info, nullptr, &conversion_);
         if (result != VK_SUCCESS) {
             ALOGE("vkCreateSamplerYcbcrConversion failed: %d", result);
@@ -2345,6 +2378,10 @@ VulkanRenderer::ImportedBuffer* VulkanRenderer::importBuffer(AHardwareBuffer* bu
         key.yChromaOffset = formatProps.suggestedYChromaOffset;
         key.filter = (!key.ycbcr || (formatProps.formatFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT))
                      ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+        key.forceExplicitReconstruction =
+                (key.ycbcr && (formatProps.formatFeatures &
+                        VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT))
+                ? VK_TRUE : VK_FALSE;
 
         // We know how the host encoded the stream, so use that instead of what the buffer
         // suggests. Sunshine sends HDR as BT.2020.

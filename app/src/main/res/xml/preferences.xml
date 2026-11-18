@@ -586,6 +586,13 @@
             android:entryValues="@array/spatial_dithering_values"
             android:summary="@string/summary_spatial_dithering"
             android:defaultValue="off" />
+        <ListPreference
+            android:key="vulkan_sharpening"
+            android:title="@string/title_vulkan_sharpening"
+            android:entries="@array/vulkan_sharpening_names"
+            android:entryValues="@array/vulkan_sharpening_values"
+            android:summary="@string/summary_vulkan_sharpening"
+            android:defaultValue="off" />
         <CheckBoxPreference
             android:key="checkbox_enable_hdr"
             android:title="@string/title_enable_hdr"

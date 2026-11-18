@@ -150,6 +150,7 @@ public class VulkanRendererBridge {
      * @param framePacing one of PreferenceConfiguration.FRAME_PACING_*
      * @param jitterBuffer one of PreferenceConfiguration.JITTER_BUFFER_*
      * @param ditherMode 0 = off, 1 = low, 2 = high
+     * @param sharpenMode 0 = off, 1 = balanced, 2 = crisp
      * @param colorspace one of MoonBridge.COLORSPACE_*
      * @param pyrowave the stream is PyroWave, which the renderer decodes itself
      * @param pyrowaveCenterChroma the PyroWave host sites 4:2:0 chroma at the center (the nonary
@@ -159,8 +160,8 @@ public class VulkanRendererBridge {
      *                       {@code adb shell setprop debug.moonlight.pacer_trace 1}, or null
      */
     public static VulkanRendererBridge create(Surface output, int streamWidth, int streamHeight, int streamFps,
-                                              int framePacing, int jitterBuffer, int ditherMode, int colorspace,
-                                              boolean fullRange, boolean tenBit, boolean pyrowave,
+                                              int framePacing, int jitterBuffer, int ditherMode, int sharpenMode,
+                                              int colorspace, boolean fullRange, boolean tenBit, boolean pyrowave,
                                               boolean pyrowaveCenterChroma, int pyrowaveLateFrames,
                                               float displayRefreshHz, String traceDirectory) {
         if (!isSupported() || (pyrowave && !isPyrowaveSupported())) {
@@ -168,8 +169,8 @@ public class VulkanRendererBridge {
         }
 
         long handle = nativeCreate(output, streamWidth, streamHeight, streamFps, framePacing, jitterBuffer, ditherMode,
-                colorspace, fullRange, tenBit, pyrowave, pyrowaveCenterChroma, pyrowaveLateFrames, displayRefreshHz,
-                traceDirectory);
+                sharpenMode, colorspace, fullRange, tenBit, pyrowave, pyrowaveCenterChroma, pyrowaveLateFrames,
+                displayRefreshHz, traceDirectory);
         if (handle == 0) {
             return null;
         }
@@ -282,8 +283,8 @@ public class VulkanRendererBridge {
     private static native void nativeConfigureCustomDriver(String driverPath, String hookLibDir, String cacheDir);
     private static native boolean nativeIsCustomDriverActive();
     private static native long nativeCreate(Surface output, int streamWidth, int streamHeight, int streamFps,
-                                            int framePacing, int jitterBuffer, int ditherMode, int colorspace,
-                                            boolean fullRange, boolean tenBit, boolean pyrowave,
+                                            int framePacing, int jitterBuffer, int ditherMode, int sharpenMode,
+                                            int colorspace, boolean fullRange, boolean tenBit, boolean pyrowave,
                                             boolean pyrowaveCenterChroma, int pyrowaveLateFrames,
                                             float displayRefreshHz, String traceDirectory);
     private static native boolean nativeSubmitPyrowaveFrame(long handle, byte[] frame, int length, long hostPtsUs,

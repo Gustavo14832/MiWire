@@ -33,6 +33,12 @@ public class PreferenceConfiguration {
         HIGH,
     }
 
+    public enum VulkanSharpeningOption {
+        OFF,
+        BALANCED,
+        CRISP,
+    }
+
     public enum AnalogStickForScrolling {
         NONE,
         RIGHT,
@@ -134,6 +140,7 @@ public class PreferenceConfiguration {
     private static final String AUTO_RESUME_STREAM_PREF_STRING = "checkbox_auto_resume_stream";
     private static final String VIDEO_RENDERER_PREF_STRING = "video_renderer";
     private static final String SPATIAL_DITHERING_PREF_STRING = "spatial_dithering";
+    static final String VULKAN_SHARPENING_PREF_STRING = "vulkan_sharpening";
     private static final String JITTER_BUFFER_PREF_STRING = "jitter_buffer";
     private static final String PYROWAVE_LATE_FRAMES_PREF_STRING = "pyrowave_late_frames";
     static final String CUSTOM_VULKAN_DRIVER_PREF_STRING = "checkbox_custom_vulkan_driver";
@@ -160,6 +167,7 @@ public class PreferenceConfiguration {
     private static final String DEFAULT_VIDEO_FORMAT = "auto";
     private static final String DEFAULT_VIDEO_RENDERER = "auto";
     private static final String DEFAULT_SPATIAL_DITHERING = "off";
+    private static final String DEFAULT_VULKAN_SHARPENING = "off";
     private static final String DEFAULT_JITTER_BUFFER = "balanced";
     private static final String DEFAULT_PYROWAVE_LATE_FRAMES = "balanced";
     private static final boolean DEFAULT_CUSTOM_VULKAN_DRIVER = false;
@@ -220,6 +228,7 @@ public class PreferenceConfiguration {
 
     static final String TV_GAMING_DEFAULTS_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v1";
     static final String TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v2";
+    static final String TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v3";
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -261,6 +270,7 @@ public class PreferenceConfiguration {
     public FormatOption videoFormat;
     public VideoRendererOption videoRenderer;
     public SpatialDitheringOption spatialDithering;
+    public VulkanSharpeningOption vulkanSharpening;
     public int deadzonePercentage;
     public int oscOpacity;
     public boolean stretchVideo, enableSops, playHostAudio, disableWarnings;
@@ -596,6 +606,21 @@ public class PreferenceConfiguration {
         }
     }
 
+    private static VulkanSharpeningOption getVulkanSharpeningValue(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+
+        String str = prefs.getString(VULKAN_SHARPENING_PREF_STRING, DEFAULT_VULKAN_SHARPENING);
+        if (str.equals("balanced")) {
+            return VulkanSharpeningOption.BALANCED;
+        }
+        else if (str.equals("crisp")) {
+            return VulkanSharpeningOption.CRISP;
+        }
+        else {
+            return VulkanSharpeningOption.OFF;
+        }
+    }
+
     private static int getPyrowaveLateFramesValue(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
 
@@ -774,11 +799,13 @@ public class PreferenceConfiguration {
                 .remove(VIDEO_FORMAT_PREF_STRING)
                 .remove(VIDEO_RENDERER_PREF_STRING)
                 .remove(SPATIAL_DITHERING_PREF_STRING)
+                .remove(VULKAN_SHARPENING_PREF_STRING)
                 .remove(FRAME_PACING_PREF_STRING)
                 .remove(ENABLE_HDR_PREF_STRING)
                 .remove(FULL_RANGE_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING)
+                .remove(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING)
                 .apply();
     }
 
@@ -808,7 +835,8 @@ public class PreferenceConfiguration {
         if (!prefs.getBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, false)) {
             SharedPreferences.Editor editor = prefs.edit()
                     .putBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, true);
+                    .putBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, true)
+                    .putBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, true);
             if (!prefs.contains(RESOLUTION_PREF_STRING)) {
                 editor.putString(RESOLUTION_PREF_STRING, RES_1080P);
             }
@@ -825,7 +853,13 @@ public class PreferenceConfiguration {
                 editor.putString(VIDEO_RENDERER_PREF_STRING, "vulkan");
             }
             if (!prefs.contains(SPATIAL_DITHERING_PREF_STRING)) {
-                editor.putString(SPATIAL_DITHERING_PREF_STRING, "low");
+                editor.putString(SPATIAL_DITHERING_PREF_STRING, "high");
+            }
+            if (!prefs.contains(VULKAN_SHARPENING_PREF_STRING)) {
+                editor.putString(VULKAN_SHARPENING_PREF_STRING, "balanced");
+            }
+            if (!prefs.contains(FULL_RANGE_PREF_STRING)) {
+                editor.putBoolean(FULL_RANGE_PREF_STRING, true);
             }
             if (!prefs.contains(FRAME_PACING_PREF_STRING)) {
                 editor.putString(FRAME_PACING_PREF_STRING, "mibox-60hz");
@@ -869,7 +903,7 @@ public class PreferenceConfiguration {
                 editor.putString(VIDEO_RENDERER_PREF_STRING, "vulkan");
             }
             if (!prefs.contains(SPATIAL_DITHERING_PREF_STRING)) {
-                editor.putString(SPATIAL_DITHERING_PREF_STRING, "low");
+                editor.putString(SPATIAL_DITHERING_PREF_STRING, "high");
             }
             if (!prefs.contains(USB_DRIVER_PREF_SRING)) {
                 editor.putBoolean(USB_DRIVER_PREF_SRING, false);
@@ -885,6 +919,21 @@ public class PreferenceConfiguration {
             }
             editor.putBoolean(ASYNC_DECODE_PREF_STRING, false);
             editor.putBoolean(ASYNC_LFR_PREF_STRING, false);
+            editor.apply();
+        }
+        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, false)) {
+            SharedPreferences.Editor editor = prefs.edit()
+                    .putBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, true);
+            if (!prefs.contains(VULKAN_SHARPENING_PREF_STRING)) {
+                editor.putString(VULKAN_SHARPENING_PREF_STRING, "balanced");
+            }
+            if (!prefs.contains(FULL_RANGE_PREF_STRING)) {
+                editor.putBoolean(FULL_RANGE_PREF_STRING, true);
+            }
+            if (!prefs.contains(SPATIAL_DITHERING_PREF_STRING) ||
+                    "low".equals(prefs.getString(SPATIAL_DITHERING_PREF_STRING, null))) {
+                editor.putString(SPATIAL_DITHERING_PREF_STRING, "high");
+            }
             editor.apply();
         }
     }
@@ -1091,6 +1140,7 @@ public class PreferenceConfiguration {
         config.videoFormat = getVideoFormatValue(context);
         config.videoRenderer = getVideoRendererValue(context);
         config.spatialDithering = getSpatialDitheringValue(context);
+        config.vulkanSharpening = getVulkanSharpeningValue(context);
         config.framePacing = getFramePacingValue(context);
         config.warpFactor = warpFactorFor(prefs.getString(FRAME_PACING_PREF_STRING, DEFAULT_FRAME_PACING));
         config.jitterBuffer = getJitterBufferValue(context);
