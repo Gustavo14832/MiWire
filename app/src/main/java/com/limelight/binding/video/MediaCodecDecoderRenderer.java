@@ -419,8 +419,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         }
 
         // Only used if the direct renderer ends up in use
-        if (prefs.framePacing == PreferenceConfiguration.FRAME_PACING_HOST_TIMED) {
-            hostFrameTimeline = new HostFrameTimeline(getDisplayRefreshRate(), prefs.jitterBuffer);
+        if (PreferenceConfiguration.isHostTimedPacing(prefs.framePacing)) {
+            int jb = prefs.framePacing == PreferenceConfiguration.FRAME_PACING_MIBOX_60HZ
+                    ? PreferenceConfiguration.JITTER_BUFFER_LOW_LATENCY : prefs.jitterBuffer;
+            hostFrameTimeline = new HostFrameTimeline(getDisplayRefreshRate(), jb);
         }
 
         this.activeWindowVideoStats = new VideoStats();
@@ -471,6 +473,17 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         }
 
         if (hevcDecoder != null) {
+            boolean hevcDirectSubmit = MediaCodecHelper.decoderCanDirectSubmit(hevcDecoder.getName());
+            if (hevcDirectSubmit) {
+                LimeLog.info("Decoder "+hevcDecoder.getName()+" will use direct submit");
+            }
+            if (avcDecoder == null || prefs.videoFormat == PreferenceConfiguration.FormatOption.FORCE_HEVC) {
+                directSubmit = hevcDirectSubmit;
+            }
+            else if (prefs.videoFormat != PreferenceConfiguration.FormatOption.FORCE_H264) {
+                directSubmit = directSubmit && hevcDirectSubmit;
+            }
+
             refFrameInvalidationHevc = MediaCodecHelper.decoderSupportsRefFrameInvalidationHevc(hevcDecoder);
             hevcOptimalSlicesPerFrame = MediaCodecHelper.getDecoderOptimalSlicesPerFrame(hevcDecoder.getName());
 
@@ -482,6 +495,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         }
 
         if (av1Decoder != null) {
+            if (prefs.videoFormat == PreferenceConfiguration.FormatOption.FORCE_AV1) {
+                directSubmit = MediaCodecHelper.decoderCanDirectSubmit(av1Decoder.getName());
+            }
+
             refFrameInvalidationAv1 = MediaCodecHelper.decoderSupportsRefFrameInvalidationAv1(av1Decoder);
 
             if (refFrameInvalidationAv1) {
@@ -1343,9 +1360,24 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                             numFramesOut++;
 
                             if (vulkanRenderer != null) {
-                                // The Vulkan renderer paces frames itself, so hand each one over
-                                // as soon as it's decoded
+                                // The Vulkan renderer paces frames itself, so hand each ready decoded buffer
+                                // over immediately without waiting for outer loop iterations.
                                 videoDecoder.releaseOutputBuffer(lastIndex, true);
+                                for (int extra = 0; extra < 3; extra++) {
+                                    int nextOut = dequeueOutput(info, 0);
+                                    if (nextOut >= 0) {
+                                        numFramesOut++;
+                                        presentationTimeUs = info.presentationTimeUs;
+                                        videoDecoder.releaseOutputBuffer(nextOut, true);
+                                    }
+                                    else {
+                                        if (nextOut == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                                            outputFormat = videoDecoder.getOutputFormat();
+                                            LimeLog.info("New output format: " + outputFormat);
+                                        }
+                                        break;
+                                    }
+                                }
                             }
                             else if (hostFrameTimeline != null) {
                                 // Show each frame at its host timestamp plus a constant delay.
@@ -1472,7 +1504,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             }
         };
         rendererThread.setName("Video - Renderer (MediaCodec)");
-        rendererThread.setPriority(Thread.NORM_PRIORITY + 2);
+        rendererThread.setPriority(Thread.MAX_PRIORITY);
         rendererThread.start();
     }
 

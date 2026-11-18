@@ -68,6 +68,7 @@ public class MediaCodecHelper {
         directSubmitPrefixes.add("omx.TI");
         directSubmitPrefixes.add("omx.arc");
         directSubmitPrefixes.add("omx.nvidia");
+        directSubmitPrefixes.add("omx.amlogic");
 
         // All Codec2 decoders
         directSubmitPrefixes.add("c2.");

@@ -16,6 +16,18 @@ void PresentScheduler::fix(int delayVsyncs, int64_t guardNs) {
     }
 }
 
+void PresentScheduler::preferSingleVsync(int64_t initialGuardNs) {
+    if (!delayFixed_) {
+        delay_ = kMinDelay;
+        loweredLast_ = false;
+        resetWindows();
+    }
+    if (!guardFixed_ && initialGuardNs >= kMinGuardNs) {
+        guardNs_ = initialGuardNs;
+        resetGuardHistory();
+    }
+}
+
 void PresentScheduler::resetGuardHistory() {
     std::fill(std::begin(guardSamples_), std::end(guardSamples_), 0.0);
     std::fill(std::begin(guardFails_), std::end(guardFails_), 0.0);

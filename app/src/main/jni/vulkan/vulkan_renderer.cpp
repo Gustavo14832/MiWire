@@ -491,6 +491,10 @@ bool VulkanRenderer::init(ANativeWindow* output) {
         return false;
     }
 
+    if (pacer_.mode() == PacingMode::MiBox60Hz) {
+        presentScheduler_.preferSingleVsync(1'500'000);
+    }
+
     // To try a present delay or guard rather than the ones learned (PresentScheduler):
     // adb shell setprop debug.moonlight.present_delay 1 (vsyncs), and
     // adb shell setprop debug.moonlight.present_guard_us 6000. Empty or 0 delay learns as usual.
@@ -511,7 +515,7 @@ bool VulkanRenderer::init(ANativeWindow* output) {
         }
     }
 
-    presentAhead_ = hasDisplayTimingExt_ && pacer_.mode() == PacingMode::HostTimed;
+    presentAhead_ = hasDisplayTimingExt_ && pacer_.isHostTimed();
     pacer_.setPresentAhead(presentAhead_);
     pacer_.setPresentGuardNs(presentScheduler_.guardNs());
 
@@ -992,14 +996,21 @@ std::string VulkanRenderer::pacingText() {
     std::string headline;
     std::string details;
     char text[96];
-    if (pacer_.mode() == PacingMode::HostTimed && pacer_.timeline().hasEstimate()) {
+    if (pacer_.isHostTimed() && pacer_.timeline().hasEstimate()) {
         // The display's measured refresh rate, to compare with the host's frame rate
         snprintf(text, sizeof(text), "%.1f ms buffer, %.2f Hz", (pacer_.timeline().bufferNs() + pacer_.scheduleDelayNs()) / 1e6,
                  1e9 / static_cast<double>(pacer_.vsyncPeriodNs()));
         headline = text;
         if (pacer_.phaseLocked()) {
-            snprintf(text, sizeof(text), "locked at %d vsync%s/frame", static_cast<int>(pacer_.slotVsyncs()),
-                     pacer_.slotVsyncs() == 1 ? "" : "s");
+            if (pacer_.mode() == PacingMode::MiBox60Hz) {
+                snprintf(text, sizeof(text), "60Hz phase-locked (%d vsync%s/frame, %dv)",
+                         static_cast<int>(pacer_.slotVsyncs()), pacer_.slotVsyncs() == 1 ? "" : "s",
+                         presentScheduler_.delayVsyncs());
+            }
+            else {
+                snprintf(text, sizeof(text), "locked at %d vsync%s/frame", static_cast<int>(pacer_.slotVsyncs()),
+                         pacer_.slotVsyncs() == 1 ? "" : "s");
+            }
             details = text;
         }
         else {

@@ -418,6 +418,7 @@
     <string name="jitter_buffer_balanced">Balanced (Recommended)</string>
     <string name="jitter_buffer_smooth">Smooth</string>
     <string name="pacing_host_timed">Sync to host frame timing (best with the Vulkan renderer)</string>
+    <string name="pacing_mibox_60hz">Mi Box S Gen 3: 60 Hz phase-locked low latency (Vulkan)</string>
 
     <string name="title_analog_scrolling">Use an analog stick to scroll</string>
     <string name="summary_analog_scrolling">Select an analog stick to scroll when in mouse emulation mode</string>
@@ -728,6 +729,7 @@
     <string name="feel_cap_fps">Like Balanced, with the PC sending no more frames than this screen shows.</string>
     <string name="feel_smoothness">Every frame is shown in order, so motion is the smoothest, but the delay can grow a lot.</string>
     <string name="feel_host_timed">Frames are shown on the PC\'s own timing. Steady motion, best with the Vulkan renderer.</string>
+    <string name="feel_mibox_60hz">Frames are phase-locked to each 60 Hz refresh with a 1-vsync target and short jitter recovery.</string>
     <string name="feel_warp">The PC sends twice the frames and the newest one is always shown. Lower delay, but the tablet, PC and network work harder.</string>
     <string name="feel_warp2">The PC sends four times the frames and the newest one is always shown. The lowest delay, with the most work for the tablet, PC and network.</string>
     <string name="feel_vsync">V-Sync stops tearing but can add up to one frame of delay.</string>

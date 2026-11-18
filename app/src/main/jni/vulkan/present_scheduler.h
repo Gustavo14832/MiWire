@@ -38,6 +38,11 @@ public:
     // trying a setting on a device. Either can be left out (0, or below 0 for the guard).
     void fix(int delayVsyncs, int64_t guardNs);
 
+    // Starts at a single-vsync presentation target with an initial guard, while still letting
+    // guard learning and miss-driven delay raises adapt on the device (used for 60 Hz TVs where
+    // Mali drivers often leave presentMargin at 0 and would otherwise stay stuck at 2 vsyncs).
+    void preferSingleVsync(int64_t initialGuardNs = 1'500'000);
+
     // When to ask for an image presented at `vsyncNs` to reach the screen: halfway through the
     // vsync interval before the one we want, so the compositor takes it for that vsync.
     int64_t desiredPresentNs(int64_t vsyncNs, int64_t periodNs) const {

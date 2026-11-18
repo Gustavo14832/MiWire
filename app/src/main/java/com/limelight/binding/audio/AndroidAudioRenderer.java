@@ -72,6 +72,16 @@ public class AndroidAudioRenderer implements AudioRenderer {
         }
     }
 
+    public static boolean shouldAttemptLowLatencyAudio(int sdkInt, int nativeSampleRate,
+                                                       int streamSampleRate, boolean enableAudioFx) {
+        if (enableAudioFx) {
+            return false;
+        }
+        // On Android 12+ (API 31+, including Android 14 TV), AudioTrack PERFORMANCE_MODE_LOW_LATENCY
+        // supports resampling via FastMixer even when HDMI initially reports 44.1 kHz before switching to 48 kHz.
+        return nativeSampleRate == streamSampleRate || sdkInt >= Build.VERSION_CODES.S;
+    }
+
     @Override
     public int setup(MoonBridge.AudioConfiguration audioConfiguration, int sampleRate, int samplesPerFrame) {
         int channelConfig;
@@ -155,14 +165,11 @@ public class AndroidAudioRenderer implements AudioRenderer {
                     throw new IllegalStateException();
             }
 
-            // Skip low latency options if hardware sample rate doesn't match the content
-            if (AudioTrack.getNativeOutputSampleRate(AudioManager.STREAM_MUSIC) != sampleRate && lowLatency) {
-                continue;
-            }
-
-            // Skip low latency options when using audio effects, since low latency mode
-            // precludes the use of the audio effect pipeline (as of Android 13).
-            if (enableAudioFx && lowLatency) {
+            if (lowLatency && !shouldAttemptLowLatencyAudio(
+                    Build.VERSION.SDK_INT,
+                    AudioTrack.getNativeOutputSampleRate(AudioManager.STREAM_MUSIC),
+                    sampleRate,
+                    enableAudioFx)) {
                 continue;
             }
 

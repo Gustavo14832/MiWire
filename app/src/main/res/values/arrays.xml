@@ -171,6 +171,7 @@
         <item>@string/pacing_host_timed</item>
         <item>@string/pacing_warp</item>
         <item>@string/pacing_warp2</item>
+        <item>@string/pacing_mibox_60hz</item>
     </string-array>
     <string-array name="video_frame_pacing_values" translatable="false">
         <item>latency</item>
@@ -180,6 +181,7 @@
         <item>host-timed</item>
         <item>warp</item>
         <item>warp2</item>
+        <item>mibox-60hz</item>
     </string-array>
 
     <!-- Starwire: hiding the PC's cursor in the video -->

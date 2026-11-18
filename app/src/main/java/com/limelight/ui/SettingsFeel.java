@@ -87,6 +87,11 @@ public final class SettingsFeel {
                 textRes = R.string.feel_host_timed;
                 delay = LEVEL_MEDIUM;
                 break;
+            case "mibox-60hz":
+                position = 0.28f;
+                textRes = R.string.feel_mibox_60hz;
+                delay = LEVEL_LOWER;
+                break;
             case "warp":
                 position = 0.06f;
                 textRes = R.string.feel_warp;
@@ -115,7 +120,7 @@ public final class SettingsFeel {
                 pacingEffect));
 
         // V-Sync and Async LFR apply to the direct renderer, not host frame timing
-        boolean direct = !"host-timed".equals(pacing);
+        boolean direct = !"host-timed".equals(pacing) && !"mibox-60hz".equals(pacing);
         String vsyncName = entryName(context, R.array.vsync_mode_names, R.array.vsync_mode_values, vsync);
         int vsyncEffect;
         if (!direct) {

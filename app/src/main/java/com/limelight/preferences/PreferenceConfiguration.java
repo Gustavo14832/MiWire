@@ -219,12 +219,18 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_AUTO_RESUME_STREAM = false;
 
     static final String TV_GAMING_DEFAULTS_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v1";
+    static final String TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v2";
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
     public static final int FRAME_PACING_CAP_FPS = 2;
     public static final int FRAME_PACING_MAX_SMOOTHNESS = 3;
     public static final int FRAME_PACING_HOST_TIMED = 4;
+    public static final int FRAME_PACING_MIBOX_60HZ = 5;
+
+    public static boolean isHostTimedPacing(int framePacing) {
+        return framePacing == FRAME_PACING_HOST_TIMED || framePacing == FRAME_PACING_MIBOX_60HZ;
+    }
 
     // Delay added to ride out network jitter in the host frame timing pacing mode
     public static final int JITTER_BUFFER_LOW_LATENCY = 0;
@@ -659,6 +665,9 @@ public class PreferenceConfiguration {
         else if (str.equals("host-timed")) {
             return FRAME_PACING_HOST_TIMED;
         }
+        else if (str.equals("mibox-60hz")) {
+            return FRAME_PACING_MIBOX_60HZ;
+        }
         else if (str.equals("warp") || str.equals("warp2")) {
             // Warp Drive and Warp 2 present like Prefer lowest latency; see warpFactorFor()
             return FRAME_PACING_MIN_LATENCY;
@@ -763,9 +772,13 @@ public class PreferenceConfiguration {
                 .remove(RESOLUTION_PREF_STRING)
                 .remove(FPS_PREF_STRING)
                 .remove(VIDEO_FORMAT_PREF_STRING)
+                .remove(VIDEO_RENDERER_PREF_STRING)
+                .remove(SPATIAL_DITHERING_PREF_STRING)
+                .remove(FRAME_PACING_PREF_STRING)
                 .remove(ENABLE_HDR_PREF_STRING)
                 .remove(FULL_RANGE_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING)
+                .remove(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING)
                 .apply();
     }
 
@@ -789,51 +802,91 @@ public class PreferenceConfiguration {
      * preserving any values the user already configured manually.
      */
     public static void seedTvGamingDefaultsIfNeeded(SharedPreferences prefs, boolean isTvOrAmlogic) {
-        if (!isTvOrAmlogic || prefs == null || prefs.getBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, false)) {
+        if (!isTvOrAmlogic || prefs == null) {
             return;
         }
-        SharedPreferences.Editor editor = prefs.edit()
-                .putBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, true);
-        if (!prefs.contains(RESOLUTION_PREF_STRING)) {
-            editor.putString(RESOLUTION_PREF_STRING, RES_1080P);
+        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, false)) {
+            SharedPreferences.Editor editor = prefs.edit()
+                    .putBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, true)
+                    .putBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, true);
+            if (!prefs.contains(RESOLUTION_PREF_STRING)) {
+                editor.putString(RESOLUTION_PREF_STRING, RES_1080P);
+            }
+            if (!prefs.contains(FPS_PREF_STRING)) {
+                editor.putString(FPS_PREF_STRING, "60");
+            }
+            if (!prefs.contains(BITRATE_PREF_STRING)) {
+                editor.putInt(BITRATE_PREF_STRING, 35000);
+            }
+            if (!prefs.contains(VIDEO_FORMAT_PREF_STRING)) {
+                editor.putString(VIDEO_FORMAT_PREF_STRING, "forceh265");
+            }
+            if (!prefs.contains(VIDEO_RENDERER_PREF_STRING)) {
+                editor.putString(VIDEO_RENDERER_PREF_STRING, "vulkan");
+            }
+            if (!prefs.contains(SPATIAL_DITHERING_PREF_STRING)) {
+                editor.putString(SPATIAL_DITHERING_PREF_STRING, "low");
+            }
+            if (!prefs.contains(FRAME_PACING_PREF_STRING)) {
+                editor.putString(FRAME_PACING_PREF_STRING, "mibox-60hz");
+            }
+            if (!prefs.contains(VSYNC_MODE_PREF_STRING)) {
+                editor.putString(VSYNC_MODE_PREF_STRING, "off");
+            }
+            if (!prefs.contains(ASYNC_DECODE_PREF_STRING)) {
+                editor.putBoolean(ASYNC_DECODE_PREF_STRING, false);
+            }
+            if (!prefs.contains(ASYNC_LFR_PREF_STRING)) {
+                editor.putBoolean(ASYNC_LFR_PREF_STRING, false);
+            }
+            if (!prefs.contains(USB_DRIVER_PREF_SRING)) {
+                editor.putBoolean(USB_DRIVER_PREF_SRING, false);
+            }
+            if (!prefs.contains(VIBRATE_FALLBACK_PREF_STRING)) {
+                editor.putBoolean(VIBRATE_FALLBACK_PREF_STRING, false);
+            }
+            if (!prefs.contains(OVERLAY_TRIGGER_BUTTON_PREF_STRING)) {
+                editor.putString(OVERLAY_TRIGGER_BUTTON_PREF_STRING, "lb_rb");
+            }
+            if (!prefs.contains(ENABLE_FLOATING_BUTTON_PREF_STRING)) {
+                editor.putBoolean(ENABLE_FLOATING_BUTTON_PREF_STRING, false);
+            }
+            if (!prefs.contains(DEADZONE_PREF_STRING)) {
+                editor.putInt(DEADZONE_PREF_STRING, 3);
+            }
+            if (!prefs.contains(GAMEPAD_MOTION_SENSORS_PREF_STRING)) {
+                editor.putBoolean(GAMEPAD_MOTION_SENSORS_PREF_STRING, false);
+            }
+            if (!prefs.contains(SOPS_PREF_STRING)) {
+                editor.putBoolean(SOPS_PREF_STRING, false);
+            }
+            editor.apply();
         }
-        if (!prefs.contains(FPS_PREF_STRING)) {
-            editor.putString(FPS_PREF_STRING, "60");
+        else if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, false)) {
+            SharedPreferences.Editor editor = prefs.edit()
+                    .putBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, true);
+            if (!prefs.contains(VIDEO_RENDERER_PREF_STRING)) {
+                editor.putString(VIDEO_RENDERER_PREF_STRING, "vulkan");
+            }
+            if (!prefs.contains(SPATIAL_DITHERING_PREF_STRING)) {
+                editor.putString(SPATIAL_DITHERING_PREF_STRING, "low");
+            }
+            if (!prefs.contains(USB_DRIVER_PREF_SRING)) {
+                editor.putBoolean(USB_DRIVER_PREF_SRING, false);
+            }
+            if (!prefs.contains(VIBRATE_FALLBACK_PREF_STRING)) {
+                editor.putBoolean(VIBRATE_FALLBACK_PREF_STRING, false);
+            }
+            if ("latency".equals(prefs.getString(FRAME_PACING_PREF_STRING, null))) {
+                editor.putString(FRAME_PACING_PREF_STRING, "mibox-60hz");
+            }
+            if ("fast".equals(prefs.getString(VSYNC_MODE_PREF_STRING, null))) {
+                editor.putString(VSYNC_MODE_PREF_STRING, "off");
+            }
+            editor.putBoolean(ASYNC_DECODE_PREF_STRING, false);
+            editor.putBoolean(ASYNC_LFR_PREF_STRING, false);
+            editor.apply();
         }
-        if (!prefs.contains(BITRATE_PREF_STRING)) {
-            editor.putInt(BITRATE_PREF_STRING, 35000);
-        }
-        if (!prefs.contains(VIDEO_FORMAT_PREF_STRING)) {
-            editor.putString(VIDEO_FORMAT_PREF_STRING, "forceh265");
-        }
-        if (!prefs.contains(FRAME_PACING_PREF_STRING)) {
-            editor.putString(FRAME_PACING_PREF_STRING, "latency");
-        }
-        if (!prefs.contains(VSYNC_MODE_PREF_STRING)) {
-            editor.putString(VSYNC_MODE_PREF_STRING, "fast");
-        }
-        if (!prefs.contains(ASYNC_DECODE_PREF_STRING)) {
-            editor.putBoolean(ASYNC_DECODE_PREF_STRING, true);
-        }
-        if (!prefs.contains(ASYNC_LFR_PREF_STRING)) {
-            editor.putBoolean(ASYNC_LFR_PREF_STRING, true);
-        }
-        if (!prefs.contains(OVERLAY_TRIGGER_BUTTON_PREF_STRING)) {
-            editor.putString(OVERLAY_TRIGGER_BUTTON_PREF_STRING, "lb_rb");
-        }
-        if (!prefs.contains(ENABLE_FLOATING_BUTTON_PREF_STRING)) {
-            editor.putBoolean(ENABLE_FLOATING_BUTTON_PREF_STRING, false);
-        }
-        if (!prefs.contains(DEADZONE_PREF_STRING)) {
-            editor.putInt(DEADZONE_PREF_STRING, 3);
-        }
-        if (!prefs.contains(GAMEPAD_MOTION_SENSORS_PREF_STRING)) {
-            editor.putBoolean(GAMEPAD_MOTION_SENSORS_PREF_STRING, false);
-        }
-        if (!prefs.contains(SOPS_PREF_STRING)) {
-            editor.putBoolean(SOPS_PREF_STRING, false);
-        }
-        editor.apply();
     }
 
     public static void completeLanguagePreferenceMigration(Context context) {

@@ -124,6 +124,8 @@ public class AppPreferences {
                 return PreferenceConfiguration.FRAME_PACING_MAX_SMOOTHNESS;
             case "host-timed":
                 return PreferenceConfiguration.FRAME_PACING_HOST_TIMED;
+            case "mibox-60hz":
+                return PreferenceConfiguration.FRAME_PACING_MIBOX_60HZ;
             case "warp":
             case "warp2":
                 // Shown like Prefer lowest latency; warpFactorFor() sets the frame rate multiple

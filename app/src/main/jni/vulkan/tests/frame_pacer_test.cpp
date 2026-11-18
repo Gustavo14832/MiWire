@@ -49,6 +49,7 @@ struct Result {
     double cadenceErrorMs = 0; // Mean |display interval - host interval| between shown frames
     int heldShort = 0;         // Frames on screen for fewer vsyncs than a slot
     int heldLong = 0;          // Frames on screen for more vsyncs than a slot
+    bool lockedAtEnd = false;
 };
 
 // Host present times of the frames Sunshine sends, in ns
@@ -202,6 +203,7 @@ Result run(const Scenario& s, bool verbose = false) {
 
     r.meanLatencyMs = r.shown ? latencySum / r.shown : 0;
     r.cadenceErrorMs = cadenceCount ? cadenceSum / cadenceCount : 0;
+    r.lockedAtEnd = pacer.phaseLocked();
     if (verbose) {
         printf("  buffer %.2f ms, shift %.2f ms, locked %d\n",
                (pacer.timeline().bufferNs()) / 1e6, pacer.phaseShiftNs() / 1e6, pacer.phaseLocked());
@@ -427,6 +429,36 @@ int main() {
         s.mode = PacingMode::Balanced;
         Result r = run(s);
         report(s, r);
+    }
+    {
+        // Mi Box S Gen 3 60 Hz phase-locked mode: phase lock stays active on 60 fps / 60 Hz
+        const Scenario bases[] = {
+            {"mibox-60hz sweep: 60 Hz host, 60 Hz display", 60.0, 60, 60.0},
+            {"mibox-60hz sweep: 144 Hz host thinned, 60 Hz", 144.0, 60, 60.0},
+        };
+        for (Scenario s : bases) {
+            s.mode = PacingMode::MiBox60Hz;
+            s.jitterBuffer = JitterBuffer::MiBox60Hz;
+            s.durationS = 20.0;
+            Result worst;
+            double worstLatency = 0;
+            bool allLocked = true;
+            for (int i = 0; i < 20; i++) {
+                s.vsyncPhase = i / 20.0;
+                Result r = run(s);
+                allLocked = allLocked && r.lockedAtEnd;
+                worst.skipped = std::max(worst.skipped, r.skipped);
+                worst.heldShort = std::max(worst.heldShort, r.heldShort);
+                worst.heldLong = std::max(worst.heldLong, r.heldLong);
+                worstLatency = std::max(worstLatency, r.meanLatencyMs);
+            }
+            printf("%-44s worst of 20 phases: locked=%d skipped %d, short %d, long %d, mean latency %.1f ms\n",
+                   s.name, allLocked ? 1 : 0, worst.skipped, worst.heldShort, worst.heldLong, worstLatency);
+            check(allLocked, s.name, "phase lock should stay active at 60 fps / 60 Hz");
+            check(worst.skipped <= 1 && worst.heldShort <= 2 && worst.heldLong <= 2, s.name,
+                  "uneven frames at some phase");
+            check(worstLatency < 18.0, s.name, "latency exceeded single-vsync target");
+        }
     }
 
     printf(failures ? "\n%d check(s) failed\n" : "\nAll checks passed\n", failures);

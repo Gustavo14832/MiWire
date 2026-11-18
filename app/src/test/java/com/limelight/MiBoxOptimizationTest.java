@@ -12,6 +12,7 @@ import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
 import android.preference.PreferenceManager;
 
+import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.preferences.PreferenceConfiguration;
@@ -56,10 +57,14 @@ public class MiBoxOptimizationTest {
         assertEquals("60", prefs.getString("list_fps", ""));
         assertEquals(35000, prefs.getInt("seekbar_bitrate_kbps", 0));
         assertEquals("forceh265", prefs.getString("video_format", ""));
-        assertEquals("latency", prefs.getString("frame_pacing", ""));
-        assertEquals("fast", prefs.getString("vsync_mode", ""));
-        assertTrue(prefs.getBoolean("checkbox_async_decode", false));
-        assertTrue(prefs.getBoolean("checkbox_async_lfr", false));
+        assertEquals("vulkan", prefs.getString("video_renderer", ""));
+        assertEquals("low", prefs.getString("spatial_dithering", ""));
+        assertEquals("mibox-60hz", prefs.getString("frame_pacing", ""));
+        assertEquals("off", prefs.getString("vsync_mode", ""));
+        assertFalse(prefs.getBoolean("checkbox_async_decode", true));
+        assertFalse(prefs.getBoolean("checkbox_async_lfr", true));
+        assertFalse(prefs.getBoolean("checkbox_usb_driver", true));
+        assertFalse(prefs.getBoolean("checkbox_vibrate_fallback", true));
         assertEquals("lb_rb", prefs.getString("overlay_trigger_button", ""));
         assertFalse(prefs.getBoolean("checkbox_enable_floating_button", true));
         assertEquals(3, prefs.getInt("seekbar_deadzone", -1));
@@ -71,6 +76,54 @@ public class MiBoxOptimizationTest {
         PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
         assertEquals(50000, prefs.getInt("seekbar_bitrate_kbps", 0));
         assertEquals("120", prefs.getString("list_fps", ""));
+    }
+
+    @Test
+    public void tvDefaultsV1UpgradesCleanlyToV2() {
+        prefs.edit()
+                .putBoolean("mibox_tv_gaming_defaults_v1", true)
+                .putString("frame_pacing", "latency")
+                .putString("vsync_mode", "fast")
+                .putBoolean("checkbox_async_decode", true)
+                .putBoolean("checkbox_async_lfr", true)
+                .putInt("seekbar_bitrate_kbps", 45000)
+                .putString("list_fps", "60")
+                .commit();
+
+        PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
+
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v2", false));
+        assertEquals("vulkan", prefs.getString("video_renderer", ""));
+        assertEquals("low", prefs.getString("spatial_dithering", ""));
+        assertEquals("mibox-60hz", prefs.getString("frame_pacing", ""));
+        assertEquals("off", prefs.getString("vsync_mode", ""));
+        assertFalse(prefs.getBoolean("checkbox_async_decode", true));
+        assertFalse(prefs.getBoolean("checkbox_async_lfr", true));
+        assertFalse(prefs.getBoolean("checkbox_usb_driver", true));
+        assertFalse(prefs.getBoolean("checkbox_vibrate_fallback", true));
+        assertEquals(45000, prefs.getInt("seekbar_bitrate_kbps", 0));
+        assertEquals("60", prefs.getString("list_fps", ""));
+
+        // Repeated calls do not clobber explicit user choices
+        prefs.edit().putString("frame_pacing", "host-timed").putBoolean("checkbox_usb_driver", true).commit();
+        PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
+        assertEquals("host-timed", prefs.getString("frame_pacing", ""));
+        assertTrue(prefs.getBoolean("checkbox_usb_driver", false));
+    }
+
+    @Test
+    public void miboxFramePacingModeAndDirectSubmitAndAudioHelpers() {
+        assertTrue(PreferenceConfiguration.isHostTimedPacing(PreferenceConfiguration.FRAME_PACING_MIBOX_60HZ));
+        assertTrue(PreferenceConfiguration.isHostTimedPacing(PreferenceConfiguration.FRAME_PACING_HOST_TIMED));
+        assertFalse(PreferenceConfiguration.isHostTimedPacing(PreferenceConfiguration.FRAME_PACING_BALANCED));
+        assertEquals(1, PreferenceConfiguration.warpFactorFor("mibox-60hz"));
+
+        assertTrue(MediaCodecHelper.decoderCanDirectSubmit("c2.amlogic.hevc.decoder"));
+        assertTrue(MediaCodecHelper.decoderCanDirectSubmit("OMX.amlogic.hevc.decoder.awesome"));
+
+        assertTrue(AndroidAudioRenderer.shouldAttemptLowLatencyAudio(34, 44100, 48000, false));
+        assertFalse(AndroidAudioRenderer.shouldAttemptLowLatencyAudio(26, 44100, 48000, false));
+        assertFalse(AndroidAudioRenderer.shouldAttemptLowLatencyAudio(34, 48000, 48000, true));
     }
 
     @Test

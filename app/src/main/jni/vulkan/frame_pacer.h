@@ -19,6 +19,7 @@ enum class PacingMode : int {
     CapFps = 2,
     Smoothness = 3,
     HostTimed = 4,
+    MiBox60Hz = 5,
 };
 
 struct FrameTiming {
@@ -35,6 +36,7 @@ enum class JitterBuffer : int {
     Smooth = 2,
     LowestLatency = 3,  // Less buffer than LowLatency, which like it only evens out the host's
                         // timing when frames span more than one vsync
+    MiBox60Hz = 4,      // Calibrated 60 Hz phase-locked preset: 1.5 s window, 98% coverage, fast 2 s line decay
 };
 
 // Maps host frame timestamps onto the local clock.
@@ -133,6 +135,7 @@ public:
     FramePacer(PacingMode mode, int streamFps, int64_t vsyncPeriodNs, JitterBuffer jitterBuffer);
 
     PacingMode mode() const { return mode_; }
+    bool isHostTimed() const { return mode_ == PacingMode::HostTimed || mode_ == PacingMode::MiBox60Hz; }
 
     void setVsyncPeriod(int64_t periodNs);
     int64_t vsyncPeriodNs() const { return periodNs_; }

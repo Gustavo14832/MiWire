@@ -36,6 +36,7 @@ struct Scenario {
     int frames = 40000;
     double needMsAfter = -1;    // From halfway, if set: the compositor gets slower
     bool reportsMargin = true;  // Some devices may leave presentMargin at 0
+    bool preferSingleVsync = false;
     int slotVsyncs = 1;         // Vsyncs per frame (2 for 72 fps on 144 Hz)
     int slotVsyncsAfter = 0;    // From halfway, if set: the game's frame rate changes
     double hiccupEveryS = 0;    // If set: this often, the stream pauses for about 90 ms, and the
@@ -54,6 +55,9 @@ struct Result {
 
 Result run(const Scenario& s, bool verbose = true) {
     PresentScheduler scheduler;
+    if (s.preferSingleVsync) {
+        scheduler.preferSingleVsync(1'500'000);
+    }
     std::mt19937 rng(s.seed);
     std::normal_distribution<double> jitter(0.0, s.needJitterMs * 1e6);
     std::normal_distribution<double> commit(0.0, 0.08e6);
@@ -251,6 +255,22 @@ int main() {
         Result r = runAndReport(s);
         check(r.finalDelay == 2, s.name, "should go back to two vsyncs");
         check(r.finalGuardMs <= 3.5, s.name, "should go back to the guard from before lowering");
+    }
+    {
+        // Mi Box S Gen 3 60 Hz mode: starts at delay 1 even without presentMargin
+        Scenario s {"60 Hz MiBox preferSingleVsync without presentMargin", 60.0, 2.5};
+        s.reportsMargin = false;
+        s.preferSingleVsync = true;
+        Result r = runAndReport(s);
+        check(r.finalDelay == 1, s.name, "should start and remain at 1 vsync without presentMargin");
+    }
+    {
+        // Safety fallback: if compositor genuinely needs >16 ms, miss detection raises to 2 vsyncs
+        Scenario s {"60 Hz MiBox preferSingleVsync raises when compositor needs 17.5 ms", 60.0, 17.5};
+        s.reportsMargin = false;
+        s.preferSingleVsync = true;
+        Result r = runAndReport(s);
+        check(r.finalDelay == 2, s.name, "should raise back to 2 vsyncs when 1 vsync is genuinely missed");
     }
 
     printf(failures ? "\n%d check(s) failed\n" : "\nAll checks passed\n", failures);
