@@ -129,6 +129,8 @@ void LiInitializeStreamConfiguration(PSTREAM_CONFIGURATION streamConfig) {
 
     // 0 would turn FEC off, so leave it to the host unless asked
     streamConfig->fecPercentage = -1;
+    streamConfig->exactSlicesPerFrame = false;
+    streamConfig->clientRefreshRateUhz = 0;
 }
 
 void LiInitializeVideoCallbacks(PDECODER_RENDERER_CALLBACKS drCallbacks) {

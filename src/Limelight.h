@@ -109,6 +109,12 @@ typedef struct _STREAM_CONFIGURATION {
 
     // Enables client-to-host microphone streaming when negotiated with the host.
     bool enableMic;
+
+    // Ask Sunshine to preserve exact slices-per-frame encoding when enabled.
+    bool exactSlicesPerFrame;
+
+    // Client refresh rate in microhertz (e.g. 59940000 for 59.94 Hz), 0 if unset.
+    int clientRefreshRateUhz;
 } STREAM_CONFIGURATION, *PSTREAM_CONFIGURATION;
 
 // Use this function to zero the stream configuration when allocated on the stack or heap

@@ -447,6 +447,9 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
         }
         snprintf(payloadStr, sizeof(payloadStr), "%d", slicesPerFrame);
         err |= addAttributeString(&optionHead, "x-nv-video[0].videoEncoderSlicesPerFrame", payloadStr);
+        if (IS_SUNSHINE() && StreamConfig.exactSlicesPerFrame) {
+            err |= addAttributeString(&optionHead, "x-ss-video[0].exactSlicesPerFrame", "1");
+        }
 
         if (NegotiatedVideoFormat & VIDEO_FORMAT_MASK_PYROWAVE) {
             err |= addAttributeString(&optionHead, "x-nv-vqos[0].bitStreamFormat", "3");
@@ -501,6 +504,11 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
 
             snprintf(payloadStr, sizeof(payloadStr), "%d", StreamConfig.clientRefreshRateX100);
             err |= addAttributeString(&optionHead, "x-nv-video[0].clientRefreshRateX100", payloadStr);
+
+            if (IS_SUNSHINE() && StreamConfig.clientRefreshRateUhz > 0) {
+                snprintf(payloadStr, sizeof(payloadStr), "%d", StreamConfig.clientRefreshRateUhz);
+                err |= addAttributeString(&optionHead, "x-ss-video[0].clientRefreshRateUhz", payloadStr);
+            }
         }
 
         snprintf(payloadStr, sizeof(payloadStr), "%d", audioChannelCount);
