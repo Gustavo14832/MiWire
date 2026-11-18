@@ -37,10 +37,10 @@ static uint8_t currentPenButtonState;
 #define LI_WHEEL_DELTA 120
 
 // If we try to send more than one stylus or mouse motion event
-// per 500 us, wait briefly to batch with the next motion event while
+// per 2 ms (500 Hz cap), wait briefly to batch with the next motion event while
 // letting the first move leave immediately and flushing immediately
 // if an urgent input (click/button/key) enters the queue.
-#define MOUSE_BATCHING_INTERVAL_US 500
+#define MOUSE_BATCHING_INTERVAL_US 2000
 #define PEN_BATCHING_INTERVAL_MS 1
 
 // Don't batch up/down/cancel events
@@ -375,14 +375,13 @@ static void inputSendThreadProc(void* context) {
         else if (holder->packet.header.magic == relMouseMagicLE) {
             uint64_t nowUs = PltGetMicroseconds();
 
-            // First move leaves immediately; subsequent moves within 500 us wait briefly
+            // First move leaves immediately; subsequent moves within 2 ms wait briefly
             // unless an urgent event (click, button, or key) is waiting behind it.
             if (lastMousePacketTimeUs != 0 &&
                     nowUs < lastMousePacketTimeUs + MOUSE_BATCHING_INTERVAL_US &&
                     !hasUrgentInputQueued(relMouseMagicLE)) {
                 flushInputOnControlStream();
                 PltSleepUs((int)(lastMousePacketTimeUs + MOUSE_BATCHING_INTERVAL_US - nowUs));
-                nowUs = PltGetMicroseconds();
             }
 
             PltLockMutex(&batchedInputMutex);
@@ -424,8 +423,8 @@ static void inputSendThreadProc(void* context) {
                 // Don't hold the batching lock while we're doing network I/O
                 PltUnlockMutex(&batchedInputMutex);
 
-                // Encrypt and send the split packet (coalesce with any urgent queued packet)
-                if (!sendInputPacket(holder, more || LbqGetItemCount(&packetQueue) > 0)) {
+                // Encrypt and send the split packet immediately on the UDP control socket
+                if (!sendInputPacket(holder, more)) {
                     freePacketHolder(holder);
                     return;
                 }
@@ -438,7 +437,7 @@ static void inputSendThreadProc(void* context) {
 
             PltUnlockMutex(&batchedInputMutex);
 
-            lastMousePacketTimeUs = nowUs;
+            lastMousePacketTimeUs = PltGetMicroseconds();
 
             // We sent everything we needed in the loop above, so we can just free the
             // holder of the original packet and wait for another input event.
@@ -449,14 +448,13 @@ static void inputSendThreadProc(void* context) {
         else if (holder->packet.header.magic == LE32(MOUSE_MOVE_ABS_MAGIC)) {
             uint64_t nowUs = PltGetMicroseconds();
 
-            // First move leaves immediately; subsequent moves within 500 us wait briefly
+            // First move leaves immediately; subsequent moves within 2 ms wait briefly
             // unless an urgent event (click, button, or key) is waiting behind it.
             if (lastMousePacketTimeUs != 0 &&
                     nowUs < lastMousePacketTimeUs + MOUSE_BATCHING_INTERVAL_US &&
                     !hasUrgentInputQueued(relMouseMagicLE)) {
                 flushInputOnControlStream();
                 PltSleepUs((int)(lastMousePacketTimeUs + MOUSE_BATCHING_INTERVAL_US - nowUs));
-                nowUs = PltGetMicroseconds();
             }
 
             PltLockMutex(&batchedInputMutex);
@@ -478,7 +476,7 @@ static void inputSendThreadProc(void* context) {
 
             PltUnlockMutex(&batchedInputMutex);
 
-            lastMousePacketTimeUs = nowUs;
+            lastMousePacketTimeUs = PltGetMicroseconds();
         }
         // If it's a pen packet, we should only send the latest move or hover events
         else if (holder->packet.header.magic == LE32(SS_PEN_MAGIC) && TOUCH_EVENT_IS_BATCHABLE(holder->packet.pen.eventType)) {
@@ -620,8 +618,10 @@ static void inputSendThreadProc(void* context) {
             continue;
         }
 
-        // Encrypt and send the input packet
-        if (!sendInputPacket(holder, LbqGetItemCount(&packetQueue) > 0)) {
+        // Encrypt and send the input packet (flush absolute mouse updates immediately)
+        bool moreData = holder->packet.header.magic != LE32(MOUSE_MOVE_ABS_MAGIC) &&
+                        LbqGetItemCount(&packetQueue) > 0;
+        if (!sendInputPacket(holder, moreData)) {
             freePacketHolder(holder);
             return;
         }
