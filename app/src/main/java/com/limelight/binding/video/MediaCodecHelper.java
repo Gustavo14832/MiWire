@@ -53,6 +53,7 @@ public class MediaCodecHelper {
 
     private static boolean isLowEndSnapdragon = false;
     private static boolean isAdreno620 = false;
+    private static boolean isFireTvDevice = false;
     private static boolean initialized = false;
 
     static {
@@ -335,7 +336,9 @@ public class MediaCodecHelper {
         // I know the Fire TV 2 and 3 works, so I'll whitelist Amazon devices which seem to actually be tested.
         // We still have to check Build.MANUFACTURER to catch Amazon Fire tablets.
         if (context.getPackageManager().hasSystemFeature("amazon.hardware.fire_tv") ||
-                Build.MANUFACTURER.equalsIgnoreCase("Amazon")) {
+                Build.MANUFACTURER.equalsIgnoreCase("Amazon") ||
+                Build.MODEL.startsWith("AFT")) {
+            isFireTvDevice = true;
             // HEVC and RFI have been confirmed working on Fire TV 2, Fire TV Stick 2, Fire TV 4K Max,
             // Fire HD 8 2020, and Fire HD 8 2022 models.
             //
@@ -812,7 +815,27 @@ public class MediaCodecHelper {
         return isDecoderInList(refFrameInvalidationAvcPrefixes, decoderName);
     }
 
+    public static boolean shouldAllowHevcRfiForDecoder(String decoderName, boolean isFireOs) {
+        if (decoderName == null) {
+            return false;
+        }
+        String lower = decoderName.toLowerCase(Locale.ROOT);
+        if ((lower.startsWith("c2.amlogic.") || lower.startsWith("omx.amlogic.")
+                || lower.equals("c2.amlogic") || lower.equals("omx.amlogic")) && !isFireOs) {
+            return false;
+        }
+        return true;
+    }
+
     public static boolean decoderSupportsRefFrameInvalidationHevc(MediaCodecInfo decoderInfo) {
+        // Non-FireOS Amlogic Codec2/OMX HEVC decoders (e.g., Mi Box S Gen 3 c2.amlogic.hevc.decoder)
+        // advertise FEATURE_LowLatency, which would otherwise advertise RFI and let the host use
+        // up to 16 DPB reference frames instead of 1, adding decode latency and memory bandwidth.
+        if (!shouldAllowHevcRfiForDecoder(decoderInfo.getName(), isFireTvDevice)) {
+            LimeLog.info("Disabling HEVC RFI on Amlogic decoder to force single reference frame: " + decoderInfo.getName());
+            return false;
+        }
+
         // HEVC decoders seem to universally support RFI, but it can have huge latency penalties
         // for some decoders due to the number of references frames being > 1. Old Amlogic
         // decoders are known to have this problem.

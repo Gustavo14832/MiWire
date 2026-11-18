@@ -476,6 +476,13 @@
             android:title="@string/title_checkbox_prevent_packet_loss"
             android:summary="@string/summary_checkbox_prevent_packet_loss"
             android:defaultValue="false" />
+        <ListPreference
+            android:key="list_fec_percent"
+            android:title="@string/title_fec_percent"
+            android:summary="@string/summary_fec_percent"
+            android:entries="@array/fec_percent_names"
+            android:entryValues="@array/fec_percent_values"
+            android:defaultValue="-1" />
         <CheckBoxPreference
             android:key="checkbox_smart_clipboard_sync"
             android:title="@string/title_checkbox_smart_clipboard_sync"
@@ -544,6 +551,11 @@
             android:entryValues="@array/video_format_values"
             android:summary="@string/summary_video_format"
             android:defaultValue="auto" />
+        <CheckBoxPreference
+            android:key="checkbox_exact_slices"
+            android:title="@string/title_exact_slices"
+            android:summary="@string/summary_exact_slices"
+            android:defaultValue="false" />
         <ListPreference
             android:key="pyrowave_late_frames"
             android:title="@string/title_pyrowave_late_frames"

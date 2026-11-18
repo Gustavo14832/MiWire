@@ -30,6 +30,9 @@ public class StreamConfiguration {
     private boolean persistGamepadsAfterDisconnect;
     private boolean enableUltraLowLatency;
     private boolean enableMicrophone;
+    private int fecPercentage;
+    private boolean exactSlicesPerFrame;
+    private int clientRefreshRateUhz;
 
     // Which host display to stream from (Apollo/Vibepollo virtualDisplay launch argument)
     public static final int VIRTUAL_DISPLAY_HOST_DEFAULT = -1;
@@ -151,6 +154,21 @@ public class StreamConfiguration {
             return this;
         }
 
+        public StreamConfiguration.Builder setFecPercentage(int fecPercentage) {
+            config.fecPercentage = fecPercentage;
+            return this;
+        }
+
+        public StreamConfiguration.Builder setExactSlicesPerFrame(boolean exactSlicesPerFrame) {
+            config.exactSlicesPerFrame = exactSlicesPerFrame;
+            return this;
+        }
+
+        public StreamConfiguration.Builder setClientRefreshRateUhz(int refreshRateUhz) {
+            config.clientRefreshRateUhz = refreshRateUhz;
+            return this;
+        }
+
         public StreamConfiguration build() {
             return config;
         }
@@ -172,6 +190,9 @@ public class StreamConfiguration {
         this.supportedVideoFormats = MoonBridge.VIDEO_FORMAT_H264;
         this.attachedGamepadMask = 0;
         this.enableUltraLowLatency = false;
+        this.fecPercentage = -1;
+        this.exactSlicesPerFrame = false;
+        this.clientRefreshRateUhz = 0;
         this.virtualDisplay = VIRTUAL_DISPLAY_HOST_DEFAULT;
     }
     
@@ -262,5 +283,22 @@ public class StreamConfiguration {
 
     public int getVirtualDisplay() {
         return virtualDisplay;
+    }
+
+    public int getFecPercentage() {
+        return fecPercentage;
+    }
+
+    public boolean getExactSlicesPerFrame() {
+        return exactSlicesPerFrame;
+    }
+
+    public int getClientRefreshRateUhz() {
+        return clientRefreshRateUhz;
+    }
+
+    // Set once the display's refresh rate has been measured, before the connection starts
+    public void setClientRefreshRateUhz(int refreshRateUhz) {
+        clientRefreshRateUhz = refreshRateUhz;
     }
 }

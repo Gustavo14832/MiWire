@@ -156,6 +156,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
     private final SceManager sceManager;
     // DualSense trigger effects over Bluetooth, or null when that switch is off (Experimental)
     private final DualSenseBluetooth dualSense;
+    private final ControllerStateSender stateSender = new ControllerStateSender();
+    private final StickCenterStore stickCenterStore;
     private final Handler mainThreadHandler;
     private final HandlerThread backgroundHandlerThread;
     private final Handler backgroundThreadHandler;
@@ -184,6 +186,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         this.conn = conn;
         this.gestures = gestures;
         this.prefConfig = prefConfig;
+        this.stickCenterStore = new StickCenterStore(activityContext);
 		
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             this.deviceVibratorManager = (VibratorManager) activityContext.getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
@@ -569,6 +572,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
                     (byte) 0, (byte) 0,
                     (short) 0, (short) 0,
                     (short) 0, (short) 0);
+            stateSender.resetController(context.controllerNumber);
         }
     }
 
@@ -879,6 +883,12 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
 
         context.vendorId = dev.getVendorId();
         context.productId = dev.getProductId();
+        StickCenterStore.Calibration stickCalibration =
+                stickCenterStore.load(context.vendorId, context.productId, dev.getDescriptor());
+        context.lsCenterX = stickCalibration.lx;
+        context.lsCenterY = stickCalibration.ly;
+        context.rsCenterX = stickCalibration.rx;
+        context.rsCenterY = stickCalibration.ry;
 
         // These aren't always present in the Android key layout files, so they won't show up
         // in our normal InputDevice.hasKeys() probing.
@@ -1363,6 +1373,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
     }
 
     private void sendControllerInputPacket(GenericControllerContext originalContext) {
+        sendControllerInputPacket(originalContext, false);
+    }
+
+    private void sendControllerInputPacket(GenericControllerContext originalContext, boolean force) {
         assignControllerNumberIfNeeded(originalContext);
 
         // Take the context's controller number and fuse all inputs with the same number
@@ -1461,15 +1475,17 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
                 }
             }
 
-            conn.sendControllerInput(controllerNumber, getActiveControllerMask(),
-                    (short)0, (byte)0, (byte)0, (short)0, (short)0, (short)0, (short)0);
+            stateSender.sendIfNeeded(conn, controllerNumber, getActiveControllerMask(),
+                    (short)0, (byte)0, (byte)0, (short)0, (short)0, (short)0, (short)0,
+                    System.nanoTime(), force);
         }
         else {
-            conn.sendControllerInput(controllerNumber, getActiveControllerMask(),
+            stateSender.sendIfNeeded(conn, controllerNumber, getActiveControllerMask(),
                     inputMap,
                     leftTrigger, rightTrigger,
                     leftStickX, leftStickY,
-                    rightStickX, rightStickY);
+                    rightStickX, rightStickY,
+                    System.nanoTime(), force);
         }
 
         // Notify listener of input state change (e.g., for virtual controller visual feedback)
@@ -1747,6 +1763,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
 
     private void handleAxisSet(InputDeviceContext context, float lsX, float lsY, float rsX,
                                float rsY, float lt, float rt, float hatX, float hatY) {
+        lsX = StickCenterStore.applyCenterOffset(lsX, context.lsCenterX);
+        lsY = StickCenterStore.applyCenterOffset(lsY, context.lsCenterY);
+        rsX = StickCenterStore.applyCenterOffset(rsX, context.rsCenterX);
+        rsY = StickCenterStore.applyCenterOffset(rsY, context.rsCenterY);
 
         if (context.leftStickXAxis != -1 && context.leftStickYAxis != -1) {
             Vector2d leftStickVector = populateCachedVector(lsX, lsY);
@@ -2556,7 +2576,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             context.leftStickY = 0;
             context.rightStickX = 0;
             context.rightStickY = 0;
-            sendControllerInputPacket(context);
+            sendControllerInputPacket(context, true);
         }
 
         // Also reset the default context
@@ -2567,7 +2587,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         defaultContext.leftStickY = 0;
         defaultContext.rightStickX = 0;
         defaultContext.rightStickY = 0;
-        sendControllerInputPacket(defaultContext);
+        sendControllerInputPacket(defaultContext, true);
     }
 
 
@@ -3400,6 +3420,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
 
         public int rightStickXAxis = -1;
         public int rightStickYAxis = -1;
+        public float lsCenterX, lsCenterY, rsCenterX, rsCenterY;
 
         public int leftTriggerAxis = -1;
         public int rightTriggerAxis = -1;

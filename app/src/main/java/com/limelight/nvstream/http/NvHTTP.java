@@ -944,6 +944,8 @@ public class NvHTTP {
             // The exact frame rate for the host to run at, to line up with our display
             (context.isNvidiaServerSoftware || context.streamConfig.getClientRefreshRateX100() <= 0 ? "" :
                     "&clientRefreshRateX100=" + context.streamConfig.getClientRefreshRateX100()) +
+            (context.isNvidiaServerSoftware || context.streamConfig.getClientRefreshRateUhz() <= 0 ? "" :
+                    "&clientRefreshRateUhz=" + context.streamConfig.getClientRefreshRateUhz()) +
             virtualDisplayLaunchArgument(context.isNvidiaServerSoftware, context.streamConfig.getVirtualDisplay()) +
             MoonBridge.getLaunchUrlQueryParameters());
         if ((verb.equals("launch") && !getXmlString(xmlStr, "gamesession", true).equals("0") ||

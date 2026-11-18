@@ -139,6 +139,11 @@ Java_com_limelight_nvstream_jni_MoonBridge_interruptConnection(JNIEnv *env, jcla
     LiInterruptConnection();
 }
 
+JNIEXPORT void JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_requestIdrFrame(JNIEnv *env, jclass clazz) {
+    LiRequestIdrFrame();
+}
+
 JNIEXPORT jstring JNICALL
 Java_com_limelight_nvstream_jni_MoonBridge_getStageName(JNIEnv *env, jclass clazz, jint stage) {
     return (*env)->NewStringUTF(env, LiGetStageName(stage));

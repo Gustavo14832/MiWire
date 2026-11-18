@@ -131,6 +131,7 @@ class FramePacer {
 public:
     // Upper bound on maxQueued() in any mode
     static constexpr size_t kMaxQueuedFrames = 6;
+    static constexpr size_t kMiBoxMaxQueuedFrames = 5;
 
     FramePacer(PacingMode mode, int streamFps, int64_t vsyncPeriodNs, JitterBuffer jitterBuffer);
 
@@ -202,6 +203,9 @@ public:
     // Frames the pacer chose not to show
     uint64_t framesSkipped() const { return framesSkipped_; }
 
+    // Smoothed wait time (vsyncNs - arrivalNs) observed in MiBox60Hz monotonic lock mode
+    int64_t lastWaitNs() const { return lastWaitNs_; }
+
     // Frames still arriving when they should be ready are cut short then, where the decoder can
     // show what arrived (PyroWave), rather than shown late (LiSetPartialFrameDeadline()).
     //
@@ -260,6 +264,9 @@ private:
     int64_t vsyncIndex_ = 0;  // Vsyncs seen, counting ones whose callbacks we missed
     int64_t lastPresentVsyncNs_ = 0;
     uint64_t framesSkipped_ = 0;
+    int64_t lastWaitNs_ = 0;
+    int steadyQueueVsyncs_ = 0;
+    int highWaterVsyncs_ = 0;
 
     // HostTimed
     HostTimeline timeline_;

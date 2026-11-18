@@ -27,9 +27,25 @@ steps and the checksums for each version.
 - **Vulkan RCAS sharpening:** adds a 5-tap AMD FidelityFX Contrast-Adaptive Sharpening option in
   the Vulkan fragment shaders (`Off`, `Balanced`, `Crisp`), with a noise gate and explicit chroma
   reconstruction (`forceExplicitReconstruction`) when supported by the YCbCr sampler.
+- **FEC percentage & exact slices settings:** adds `list_fec_percent` (fixing a zero-initialization
+  bug in `callbacks.c` that previously sent `0` FEC instead of `-1` host default), `checkbox_exact_slices`
+  (`x-ss-video[0].exactSlicesPerFrame`, enabled on TV/Amlogic by default), and microhertz
+  `clientRefreshRateUhz` negotiation with Sunshine hosts.
+- **Controller deduplication & stick center calibration:** filters identical repeated controller HID
+  polling reports while keeping a 1 s keepalive heartbeat, and adds `StickCenterStore` rest-center
+  drift compensation.
 
 ### Changed
 
+- **Zero-skip 60 Hz V-Sync lock (`mibox-60hz`) & 2.0 ms ADPF tuning:** removes `presentAhead`
+  same-vsync overwrites in `mibox-60hz`, expands queue capacity to 5 frames, enforces monotonic FIFO
+  1-frame-per-vsync delivery on bursts and decode jitter, adds `PerfHint` tracking both render and
+  image-reader threads against a 2.0 ms CPU work target, and recalibrates decoder ADPF to 6.0 ms.
+- **Amlogic HEVC 1-reference-frame fix & decoder resilience:** disables HEVC RFI on non-FireOS
+  Amlogic decoders so hosts limit DPB reference frames to 1 instead of 16, sets 2 MB+ dynamic
+  HEVC input buffer sizing with runtime expansion, adds IDR auto-recovery on dropped frames plus a
+  3-stage output stall watchdog, elevates audio playback thread priority (`THREAD_PRIORITY_URGENT_AUDIO`),
+  and adds ARM64 `AT_HWCAP` AES detection.
 - **Amlogic Codec2 low-latency tuning:** bypasses Android's generic `low-latency` key on
   `c2.amlogic` decoders, applies vendor game-mode, boost, and priority options at an operating rate
   of 240 for 60 FPS streams, and enables HEVC and `omx.amlogic` direct submit with multi-buffer

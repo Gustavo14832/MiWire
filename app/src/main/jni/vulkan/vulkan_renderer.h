@@ -17,6 +17,7 @@
 #include "frame_pacer.h"
 #include "ndk_api.h"
 #include "pacer_trace.h"
+#include "perf_hint.h"
 #include "present_scheduler.h"
 #include "pyrowave_decoder.h"
 #include "vk_api.h"
@@ -359,7 +360,7 @@ private:
     bool stopped_ = false;
     std::mutex stopMutex_;
     AChoreographer* choreographer_ = nullptr;
-    APerformanceHintSession* hintSession_ = nullptr;
+    PerfHint perfHint_;
     bool refreshRateCallbackRegistered_ = false;
     std::atomic<bool> presentOnArrival_ {false};  // Mailbox swapchain in lowest latency mode
     // Held for any Vulkan work: the render thread's, and frames the image reader presents ahead

@@ -393,11 +393,16 @@ public class MoonBridge {
                                               byte[] riAesKey, byte[] riAesIv,
                                               int videoCapabilities,
                                               int colorSpace, int colorRange,
-                                              boolean enableMicrophone);
+                                              boolean enableMicrophone,
+                                              int fecPercentage,
+                                              boolean exactSlicesPerFrame,
+                                              int clientRefreshRateUhz);
 
     public static native void stopConnection();
 
     public static native void interruptConnection();
+
+    public static native void requestIdrFrame();
 
     // Returns 0 on success, -2 if the host doesn't support server commands
     public static native int sendExecServerCmd(int cmdId);

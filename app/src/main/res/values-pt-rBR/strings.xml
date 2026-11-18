@@ -9,8 +9,8 @@
     <string name="pcview_menu_header_offline">Indisponível</string>
     <string name="pcview_menu_header_unknown">Atualizando</string>
     <string name="pacing_smoothness">Preferir vídeo mais suave (pode aumentar significativamente a latência)</string>
-    <string name="pacing_mibox_60hz">Mi Box S Gen 3: 60 Hz travado em fase e menor delay (Vulkan)</string>
-    <string name="feel_mibox_60hz">Quadros travados em fase nos 60 Hz com alvo de 1 V-Sync e recuperação rápida de rede.</string>
+    <string name="pacing_mibox_60hz">Mi Box S Gen 3: 60 Hz Zero-Skip V-Sync travado (Vulkan)</string>
+    <string name="feel_mibox_60hz">Quadros entregues em ordem estrita a cada V-Sync de 60 Hz sem pular quadros em rajadas de rede.</string>
     <string name="summary_frame_pacing">Especifique o equilíbrio entre latência e suavidade do vídeo</string>
     <string name="title_checkbox_disable_warnings">Desabilitar mensagens de alerta</string>
     <string name="title_checkbox_enable_pip">Habilitar modo Picture-in-Picture</string>
@@ -245,4 +245,10 @@
     <string name="vulkan_sharpening_crisp">Nítido (CAS+)</string>
     <string name="title_vulkan_sharpening">Nitidez de imagem (Vulkan RCAS)</string>
     <string name="summary_vulkan_sharpening">Restaura detalhes finos suavizados pela compressão de vídeo sem halos artificiais (apenas renderizador Vulkan)</string>
+    <string name="title_fec_percent">Correção de erros (FEC)</string>
+    <string name="summary_fec_percent">Define a porcentagem de pacotes redundantes que o Sunshine envia para recuperar perdas de rede sem travar esperando um keyframe</string>
+    <string name="fec_percent_default">Padrão do host</string>
+    <string name="fec_percent_off">Desligado</string>
+    <string name="title_exact_slices">Fatias exatas por quadro (Slices)</string>
+    <string name="summary_exact_slices">Solicita ao Sunshine que respeite o número exato de fatias por quadro do decodificador (reduz engasgos no chip Amlogic)</string>
 </resources>

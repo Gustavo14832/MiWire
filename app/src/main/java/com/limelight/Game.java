@@ -724,13 +724,17 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             LimeLog.info("Warp: asking the host for " + chosenFrameRate + " FPS");
         }
 
-        // Use the "actual display refresh rate" preference for the X100 refresh rate. Without
+        // Use the "actual display refresh rate" preference for the X100 and uHz refresh rate. Without
         // one, it's measured once the display mode is set (see startConnection()).
         int refreshRateX100 = 0;
+        int refreshRateUhz = 0;
         if (prefConfig.actualDisplayRefreshRate != null && !prefConfig.actualDisplayRefreshRate.isBlank()) {
             float actualDisplayRefreshRateFloat = Float.parseFloat(prefConfig.actualDisplayRefreshRate);
             if (actualDisplayRefreshRateFloat > 0) {
                 refreshRateX100 = (int)(actualDisplayRefreshRateFloat * 100);
+                if (actualDisplayRefreshRateFloat < 2000f) {
+                    refreshRateUhz = (int) Math.round(actualDisplayRefreshRateFloat * 1_000_000.0);
+                }
             }
         }
         manualRefreshRateX100 = refreshRateX100 > 0;
@@ -756,12 +760,17 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         && PreferenceConfiguration.MICROPHONE_TARGET_HOST.equals(prefConfig.microphoneTarget))
                 .setColorSpace(decoderRenderer.getPreferredColorSpace())
                 .setColorRange(decoderRenderer.getPreferredColorRange())
-                .setPersistGamepadsAfterDisconnect(!prefConfig.multiController);
+                .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
+                .setFecPercentage(prefConfig.fecPercentage)
+                .setExactSlicesPerFrame(prefConfig.exactSlicesPerFrame);
 
         // Warp runs the host faster than the display on purpose, so it doesn't ask for the
         // display's exact rate
         if (refreshRateX100 > 0 && prefConfig.warpFactor == 1) {
             configBuilder.setClientRefreshRateX100(refreshRateX100);
+            if (refreshRateUhz > 0) {
+                configBuilder.setClientRefreshRateUhz(refreshRateUhz);
+            }
         }
 
         StreamConfiguration config = configBuilder.build();
@@ -3467,7 +3476,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             double hostRate = DisplayRefreshMeter.streamMatchedRate(measuredRefreshHz, streamConfig.getRefreshRate());
             if (hostRate > 0) {
                 streamConfig.setClientRefreshRateX100((int) Math.round(hostRate * 100));
-                LimeLog.info(String.format(Locale.ROOT, "Asking the host for %.2f FPS", hostRate));
+                if (hostRate < 2000.0) {
+                    streamConfig.setClientRefreshRateUhz((int) Math.round(hostRate * 1_000_000.0));
+                }
+                LimeLog.info(String.format(Locale.ROOT, "Asking the host for %.4f FPS", hostRate));
             }
         }
 

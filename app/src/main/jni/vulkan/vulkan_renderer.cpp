@@ -518,9 +518,10 @@ bool VulkanRenderer::init(ANativeWindow* output) {
         }
     }
 
-    presentAhead_ = hasDisplayTimingExt_ && pacer_.isHostTimed();
+    presentAhead_ = hasDisplayTimingExt_ && pacer_.mode() == PacingMode::HostTimed;
     pacer_.setPresentAhead(presentAhead_);
     pacer_.setPresentGuardNs(presentScheduler_.guardNs());
+    perfHint_.start(ndk_, PerfHint::kDefaultTargetNs);
 
     char configuration[256];
     snprintf(configuration, sizeof(configuration),
@@ -915,6 +916,7 @@ void VulkanRenderer::stop() {
         wake(kWakeQuit);
         renderThread_.join();
     }
+    perfHint_.stop();
 
     // The image reader may be presenting a frame: wait for it, and keep it from starting another
     std::lock_guard<std::mutex> renderLock(renderMutex_);
@@ -999,21 +1001,24 @@ std::string VulkanRenderer::pacingText() {
     std::string headline;
     std::string details;
     char text[96];
-    if (pacer_.isHostTimed() && pacer_.timeline().hasEstimate()) {
+    if (pacer_.mode() == PacingMode::MiBox60Hz) {
+        if (pacer_.lastWaitNs() > 0 || pacer_.timeline().hasEstimate()) {
+            snprintf(text, sizeof(text), "%.1f ms wait, %.2f Hz", pacer_.lastWaitNs() / 1e6,
+                     1e9 / static_cast<double>(pacer_.vsyncPeriodNs()));
+            headline = text;
+            snprintf(text, sizeof(text), "60Hz zero-skip lock (%d vsync%s/frame)",
+                     static_cast<int>(pacer_.slotVsyncs()), pacer_.slotVsyncs() == 1 ? "" : "s");
+            details = text;
+        }
+    }
+    else if (pacer_.isHostTimed() && pacer_.timeline().hasEstimate()) {
         // The display's measured refresh rate, to compare with the host's frame rate
         snprintf(text, sizeof(text), "%.1f ms buffer, %.2f Hz", (pacer_.timeline().bufferNs() + pacer_.scheduleDelayNs()) / 1e6,
                  1e9 / static_cast<double>(pacer_.vsyncPeriodNs()));
         headline = text;
         if (pacer_.phaseLocked()) {
-            if (pacer_.mode() == PacingMode::MiBox60Hz) {
-                snprintf(text, sizeof(text), "60Hz phase-locked (%d vsync%s/frame, %dv)",
-                         static_cast<int>(pacer_.slotVsyncs()), pacer_.slotVsyncs() == 1 ? "" : "s",
-                         presentScheduler_.delayVsyncs());
-            }
-            else {
-                snprintf(text, sizeof(text), "locked at %d vsync%s/frame", static_cast<int>(pacer_.slotVsyncs()),
-                         pacer_.slotVsyncs() == 1 ? "" : "s");
-            }
+            snprintf(text, sizeof(text), "locked at %d vsync%s/frame", static_cast<int>(pacer_.slotVsyncs()),
+                     pacer_.slotVsyncs() == 1 ? "" : "s");
             details = text;
         }
         else {
@@ -1059,6 +1064,7 @@ void VulkanRenderer::onImageAvailable() {
     if (!prioritized) {
         prioritized = true;
         raiseThreadPriority("image reader");
+        perfHint_.addThread();
     }
     for (;;) {
         {
@@ -1255,32 +1261,13 @@ void VulkanRenderer::renderThreadMain() {
         refreshRateCallbackRegistered_ = true;
     }
     ndk_->AChoreographer_postFrameCallback64(choreographer_, &VulkanRenderer::onVsyncThunk, this);
-
-    if (ndk_->APerformanceHint_getManager && ndk_->APerformanceHint_createSession &&
-            ndk_->APerformanceHint_reportActualWorkDuration && ndk_->APerformanceHint_closeSession) {
-        APerformanceHintManager* hintManager = ndk_->APerformanceHint_getManager();
-        if (hintManager) {
-            int32_t tids[1] = { static_cast<int32_t>(gettid()) };
-            const int64_t targetNs = std::max<int64_t>(1'000'000, pacer_.vsyncPeriodNs());
-            std::lock_guard<std::mutex> renderLock(renderMutex_);
-            hintSession_ = ndk_->APerformanceHint_createSession(hintManager, tids, 1, targetNs);
-            if (hintSession_) {
-                ALOGI("ADPF render hint session active (target %.2f ms)", targetNs / 1e6);
-            }
-        }
-    }
+    perfHint_.addThread();
 
     while (!quit_) {
         ALooper_pollOnce(-1, nullptr, nullptr, nullptr);
     }
 
-    {
-        std::lock_guard<std::mutex> renderLock(renderMutex_);
-        if (hintSession_ && ndk_->APerformanceHint_closeSession) {
-            ndk_->APerformanceHint_closeSession(hintSession_);
-            hintSession_ = nullptr;
-        }
-    }
+    perfHint_.stop();
     if (refreshRateCallbackRegistered_) {
         ndk_->AChoreographer_unregisterRefreshRateCallback(choreographer_, &VulkanRenderer::onRefreshRateThunk, this);
     }
@@ -1507,6 +1494,7 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
 
     const int slot = static_cast<int>(frameCounter_ % kFramesInFlight);
     // The fence is nearly always done by now, so ask before waiting on it
+    const int64_t fenceWaitStartNs = nowNs();
     VkResult result = vk_.vkGetFenceStatus ? vk_.vkGetFenceStatus(device_, fences_[slot]) : VK_NOT_READY;
     const bool fenceWaited = result != VK_SUCCESS;
     if (fenceWaited) {
@@ -1517,6 +1505,7 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
         return false;
     }
     const int64_t fencedNs = nowNs();
+    const int64_t fenceWaitDurNs = fenceWaited ? (fencedNs - fenceWaitStartNs) : 0;
     // Gives MediaCodec's image back to the reader (see onImageAvailable())
     slotFrames_[slot].reset();
     const int64_t releasedNs = nowNs();
@@ -1536,6 +1525,7 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
     }
     slotPresentIds_[slot] = 0;
 
+    const int64_t acquireStartNs = nowNs();
     uint32_t imageIndex = 0;
     result = vk_.vkAcquireNextImageKHR(device_, swapchain_, kAcquireTimeoutNs, imageAcquired_[slot],
                                        VK_NULL_HANDLE, &imageIndex);
@@ -1556,6 +1546,7 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
     }
 
     const int64_t acquiredNs = nowNs();
+    const int64_t acquireWaitDurNs = acquiredNs - acquireStartNs;
 
     // Where the picture is within the buffer, which the decoder may pad
     PushConstants pc {};
@@ -1791,10 +1782,8 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
     }
 
     evictImports();
-    if (hintSession_ && ndk_->APerformanceHint_reportActualWorkDuration) {
-        const int64_t durationNs = std::max<int64_t>(100'000, nowNs() - startNs);
-        ndk_->APerformanceHint_reportActualWorkDuration(hintSession_, durationNs);
-    }
+    const int64_t cpuWorkNs = (nowNs() - startNs) - fenceWaitDurNs - acquireWaitDurNs;
+    perfHint_.reportWork(cpuWorkNs);
     return true;
 }
 

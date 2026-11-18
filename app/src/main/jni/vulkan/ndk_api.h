@@ -52,6 +52,8 @@ struct NdkApi {
                                                                int64_t initialTargetWorkDurationNanos);
     int (*APerformanceHint_reportActualWorkDuration)(APerformanceHintSession* session,
                                                      int64_t actualDurationNanos);
+    int (*APerformanceHint_setThreads)(APerformanceHintSession* session,
+                                       const int32_t* threadIds, size_t size);
     void (*APerformanceHint_closeSession)(APerformanceHintSession* session);
 };
 

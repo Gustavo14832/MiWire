@@ -57,9 +57,11 @@ public final class SettingsImpact {
         IMPACT.put("list_audio_haptics", R.string.impact_audio_haptics);
         IMPACT.put("seekbar_deadzone", R.string.impact_deadzone);
         IMPACT.put("checkbox_prevent_packet_loss", R.string.impact_prevent_packet_loss);
+        IMPACT.put("list_fec_percent", R.string.impact_fec_percent);
         IMPACT.put("checkbox_reduce_refresh_rate", R.string.impact_reduce_refresh_rate);
         IMPACT.put("text_actual_display_refresh_rate", R.string.impact_actual_refresh_rate);
         IMPACT.put("video_format", R.string.impact_video_format);
+        IMPACT.put("checkbox_exact_slices", R.string.impact_exact_slices);
         IMPACT.put("pyrowave_late_frames", R.string.impact_pyrowave_late_frames);
         IMPACT.put("video_renderer", R.string.impact_video_renderer);
         IMPACT.put("checkbox_custom_vulkan_driver", R.string.impact_custom_vulkan_driver);

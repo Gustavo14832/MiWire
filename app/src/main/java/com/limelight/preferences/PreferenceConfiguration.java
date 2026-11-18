@@ -121,6 +121,8 @@ public class PreferenceConfiguration {
     private static final String TOUCH_SENSITIVITY_PREF_STRING = "seekbar_touch_sensitivity";
     private static final String PERF_OVERLAY_LITE_PREF_STRING = "checkbox_enable_perf_overlay_lite";
     private static final String PREVENT_PACKET_LOSS_PREF_STRING = "checkbox_prevent_packet_loss";
+    private static final String FEC_PERCENT_PREF_STRING = "list_fec_percent";
+    private static final String EXACT_SLICES_PREF_STRING = "checkbox_exact_slices";
     private static final String VIRTUAL_DISPLAY_MODE_PREF_STRING = "virtual_display_mode";
     private static final String VSYNC_MODE_PREF_STRING = "vsync_mode";
     private static final String SYNC_LFR_PREF_STRING = "checkbox_sync_lfr";
@@ -229,6 +231,7 @@ public class PreferenceConfiguration {
     static final String TV_GAMING_DEFAULTS_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v1";
     static final String TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v2";
     static final String TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v3";
+    static final String TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v4";
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -331,6 +334,8 @@ public class PreferenceConfiguration {
     public int touchSensitivity; // percent, applies to the trackpad touch modes
     public boolean enablePerfOverlayLite;
     public boolean preventPacketLoss;
+    public int fecPercentage = -1;
+    public boolean exactSlicesPerFrame;
     // "host" (send nothing), "virtual" or "primary": the virtualDisplay launch argument
     public String virtualDisplayMode;
     public int vsyncMode; // VSYNC_*
@@ -787,6 +792,21 @@ public class PreferenceConfiguration {
         }
     }
 
+    public static int parseFecPercentage(String value) {
+        if (value == null) {
+            return -1;
+        }
+        try {
+            int parsed = Integer.parseInt(value.trim());
+            if (parsed < 0) {
+                return -1;
+            }
+            return Math.min(255, parsed);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
     public static void resetStreamingSettings(Context context) {
         // We consider resolution, FPS, bitrate, HDR, and video format as "streaming settings" here
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
@@ -803,9 +823,12 @@ public class PreferenceConfiguration {
                 .remove(FRAME_PACING_PREF_STRING)
                 .remove(ENABLE_HDR_PREF_STRING)
                 .remove(FULL_RANGE_PREF_STRING)
+                .remove(EXACT_SLICES_PREF_STRING)
+                .remove(FEC_PERCENT_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING)
+                .remove(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING)
                 .apply();
     }
 
@@ -836,7 +859,8 @@ public class PreferenceConfiguration {
             SharedPreferences.Editor editor = prefs.edit()
                     .putBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, true)
                     .putBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, true);
+                    .putBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, true)
+                    .putBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, true);
             if (!prefs.contains(RESOLUTION_PREF_STRING)) {
                 editor.putString(RESOLUTION_PREF_STRING, RES_1080P);
             }
@@ -894,6 +918,9 @@ public class PreferenceConfiguration {
             if (!prefs.contains(SOPS_PREF_STRING)) {
                 editor.putBoolean(SOPS_PREF_STRING, false);
             }
+            if (!prefs.contains(EXACT_SLICES_PREF_STRING)) {
+                editor.putBoolean(EXACT_SLICES_PREF_STRING, true);
+            }
             editor.apply();
         }
         else if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, false)) {
@@ -933,6 +960,14 @@ public class PreferenceConfiguration {
             if (!prefs.contains(SPATIAL_DITHERING_PREF_STRING) ||
                     "low".equals(prefs.getString(SPATIAL_DITHERING_PREF_STRING, null))) {
                 editor.putString(SPATIAL_DITHERING_PREF_STRING, "high");
+            }
+            editor.apply();
+        }
+        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, false)) {
+            SharedPreferences.Editor editor = prefs.edit()
+                    .putBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, true);
+            if (!prefs.contains(EXACT_SLICES_PREF_STRING)) {
+                editor.putBoolean(EXACT_SLICES_PREF_STRING, true);
             }
             editor.apply();
         }
@@ -1208,6 +1243,8 @@ public class PreferenceConfiguration {
         config.touchSensitivity = prefs.getInt(TOUCH_SENSITIVITY_PREF_STRING, DEFAULT_TOUCH_SENSITIVITY);
         config.enablePerfOverlayLite = prefs.getBoolean(PERF_OVERLAY_LITE_PREF_STRING, false);
         config.preventPacketLoss = prefs.getBoolean(PREVENT_PACKET_LOSS_PREF_STRING, false);
+        config.fecPercentage = parseFecPercentage(prefs.getString(FEC_PERCENT_PREF_STRING, "-1"));
+        config.exactSlicesPerFrame = prefs.getBoolean(EXACT_SLICES_PREF_STRING, isTvOrAmlogicDevice(context));
         config.virtualDisplayMode = prefs.getString(VIRTUAL_DISPLAY_MODE_PREF_STRING, "host");
         config.applyGameOption(VSYNC_MODE_PREF_STRING, prefs.getString(VSYNC_MODE_PREF_STRING, "off"));
         config.syncLfr = prefs.getBoolean(SYNC_LFR_PREF_STRING, false);

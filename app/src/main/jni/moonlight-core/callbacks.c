@@ -14,6 +14,13 @@
 #include <android/log.h>
 
 #include <cpu-features.h>
+#if defined(__aarch64__)
+#include <sys/auxv.h>
+#include <asm/hwcap.h>
+#ifndef HWCAP_AES
+#define HWCAP_AES (1 << 3)
+#endif
+#endif
 
 // Matches MoonBridge.PARTIAL_KIND_*
 #define PARTIAL_KIND_NONE 0
@@ -775,6 +782,11 @@ hasFastAes() {
         case ANDROID_CPU_FAMILY_ARM:
             return !!(android_getCpuFeatures() & ANDROID_CPU_ARM_FEATURE_AES);
         case ANDROID_CPU_FAMILY_ARM64:
+#if defined(__aarch64__)
+            if ((getauxval(AT_HWCAP) & HWCAP_AES) != 0) {
+                return true;
+            }
+#endif
             return !!(android_getCpuFeatures() & ANDROID_CPU_ARM64_FEATURE_AES);
         case ANDROID_CPU_FAMILY_X86:
         case ANDROID_CPU_FAMILY_X86_64:
@@ -945,7 +957,10 @@ Java_com_limelight_nvstream_jni_MoonBridge_startConnection(JNIEnv *env, jclass c
                                                            jbyteArray riAesKey, jbyteArray riAesIv,
                                                            jint videoCapabilities,
                                                            jint colorSpace, jint colorRange,
-                                                           jboolean enableMicrophone) {
+                                                           jboolean enableMicrophone,
+                                                           jint fecPercentage,
+                                                           jboolean exactSlicesPerFrame,
+                                                           jint clientRefreshRateUhz) {
     SERVER_INFORMATION serverInfo = {
             .address = (*env)->GetStringUTFChars(env, address, 0),
             .serverInfoAppVersion = (*env)->GetStringUTFChars(env, appVersion, 0),
@@ -963,7 +978,10 @@ Java_com_limelight_nvstream_jni_MoonBridge_startConnection(JNIEnv *env, jclass c
             .audioConfiguration = audioConfiguration,
             .supportedVideoFormats = supportedVideoFormats,
             .clientRefreshRateX100 = clientRefreshRateX100,
+            .fecPercentage = fecPercentage,
             .enableMic = enableMicrophone,
+            .exactSlicesPerFrame = exactSlicesPerFrame ? true : false,
+            .clientRefreshRateUhz = clientRefreshRateUhz,
             .encryptionFlags = ENCFLG_AUDIO | (enableMicrophone ? ENCFLG_MICROPHONE : 0),
             .colorSpace = colorSpace,
             .colorRange = colorRange

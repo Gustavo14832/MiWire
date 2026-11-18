@@ -8,6 +8,7 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.audiofx.AudioEffect;
 import android.os.Build;
+import android.os.Process;
 
 import com.limelight.LimeLog;
 import com.limelight.nvstream.av.audio.AudioRenderer;
@@ -19,6 +20,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
     private final boolean enableAudioFx;
 
     private AudioTrack track;
+    private boolean audioThreadPriorityElevated;
 
     // Optional: turns the bass in the audio into vibration
     private final AudioHaptics haptics;
@@ -206,6 +208,13 @@ public class AndroidAudioRenderer implements AudioRenderer {
 
     @Override
     public void playDecodedAudio(short[] audioData) {
+        if (!audioThreadPriorityElevated) {
+            audioThreadPriorityElevated = true;
+            try {
+                Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
+            } catch (Throwable ignored) {
+            }
+        }
         if (haptics != null) {
             haptics.process(audioData);
         }
@@ -224,6 +233,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
 
     @Override
     public void start() {
+        audioThreadPriorityElevated = false;
         if (haptics != null) {
             haptics.start();
         }

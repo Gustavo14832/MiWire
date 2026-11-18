@@ -14,7 +14,11 @@ import android.preference.PreferenceManager;
 
 import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.input.ControllerHandler;
+import com.limelight.binding.input.ControllerStateSender;
+import com.limelight.binding.input.StickCenterStore;
+import com.limelight.binding.video.DecoderInputBufferSizing;
 import com.limelight.binding.video.MediaCodecHelper;
+import com.limelight.nvstream.StreamConfiguration;
 import com.limelight.preferences.PreferenceConfiguration;
 
 import org.junit.Before;
@@ -72,6 +76,8 @@ public class MiBoxOptimizationTest {
         assertEquals(3, prefs.getInt("seekbar_deadzone", -1));
         assertFalse(prefs.getBoolean("checkbox_gamepad_motion_sensors", true));
         assertFalse(prefs.getBoolean("checkbox_enable_sops", true));
+        assertTrue(prefs.getBoolean("checkbox_exact_slices", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v4", false));
 
         // User edits persist on subsequent calls
         prefs.edit()
@@ -102,7 +108,9 @@ public class MiBoxOptimizationTest {
         PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
 
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v2", false));
-        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v3", false));
+        assertEquals(1, prefs.getBoolean("mibox_tv_gaming_defaults_v3", false) ? 1 : 0);
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v4", false));
+        assertTrue(prefs.getBoolean("checkbox_exact_slices", false));
         assertEquals("vulkan", prefs.getString("video_renderer", ""));
         assertEquals("high", prefs.getString("spatial_dithering", ""));
         assertEquals("balanced", prefs.getString("vulkan_sharpening", ""));
@@ -134,7 +142,9 @@ public class MiBoxOptimizationTest {
 
         PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
 
-        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v3", false));
+        assertEquals(1, prefs.getBoolean("mibox_tv_gaming_defaults_v3", false) ? 1 : 0);
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v4", false));
+        assertTrue(prefs.getBoolean("checkbox_exact_slices", false));
         assertEquals("high", prefs.getString("spatial_dithering", ""));
         assertEquals("balanced", prefs.getString("vulkan_sharpening", ""));
         assertTrue(prefs.getBoolean("checkbox_full_range", false));
@@ -240,5 +250,97 @@ public class MiBoxOptimizationTest {
         assertFalse(Game.shouldApplyPreferredDisplayMode(34, "pixel", false, 1920, 1080, 1920, 1080));
         assertTrue(Game.isCloserExactRefreshMatch(60.0f, 59.94f, 60));
         assertFalse(Game.isCloserExactRefreshMatch(59.94f, 60.0f, 60));
+    }
+
+    @Test
+    public void amlogicHevcDisablesRfiToForceSingleReferenceFrameUnlessFireOs() {
+        assertFalse(MediaCodecHelper.shouldAllowHevcRfiForDecoder("c2.amlogic.hevc.decoder", false));
+        assertFalse(MediaCodecHelper.shouldAllowHevcRfiForDecoder("OMX.amlogic.hevc.decoder.awesome", false));
+        assertTrue(MediaCodecHelper.shouldAllowHevcRfiForDecoder("c2.amlogic.hevc.decoder", true));
+        assertTrue(MediaCodecHelper.shouldAllowHevcRfiForDecoder("c2.qti.hevc.decoder", false));
+
+        CodecProfileLevel profileLevel = new CodecProfileLevel();
+        profileLevel.profile = CodecProfileLevel.HEVCProfileMain;
+        profileLevel.level = CodecProfileLevel.HEVCMainTierLevel51;
+        CodecCapabilities caps = MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
+                .setMediaFormat(MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_HEVC, 1920, 1080))
+                .setIsEncoder(false)
+                .setProfileLevels(new CodecProfileLevel[] {profileLevel})
+                .setColorFormats(new int[] {CodecCapabilities.COLOR_FormatYUV420Flexible})
+                .setRequiredFeatures(new String[] {CodecCapabilities.FEATURE_LowLatency})
+                .build();
+        MediaCodecInfo amlogic = MediaCodecInfoBuilder.newBuilder()
+                .setName("c2.amlogic.hevc.decoder")
+                .setIsSoftwareOnly(false)
+                .setIsHardwareAccelerated(true)
+                .setCapabilities(caps)
+                .build();
+        assertFalse(MediaCodecHelper.decoderSupportsRefFrameInvalidationHevc(amlogic));
+    }
+
+    @Test
+    public void fecPercentageAndStreamConfigurationDefaults() {
+        assertEquals(-1, PreferenceConfiguration.parseFecPercentage(null));
+        assertEquals(-1, PreferenceConfiguration.parseFecPercentage("-1"));
+        assertEquals(0, PreferenceConfiguration.parseFecPercentage("0"));
+        assertEquals(20, PreferenceConfiguration.parseFecPercentage("20"));
+        assertEquals(255, PreferenceConfiguration.parseFecPercentage("999"));
+        assertEquals(-1, PreferenceConfiguration.parseFecPercentage("invalid"));
+
+        StreamConfiguration defaults = new StreamConfiguration.Builder().build();
+        assertEquals(-1, defaults.getFecPercentage());
+        assertFalse(defaults.getExactSlicesPerFrame());
+        assertEquals(0, defaults.getClientRefreshRateUhz());
+    }
+
+    @Test
+    public void decoderInputBufferSizingProvidesSafeHevcFloorAndExpands() {
+        int hevcSize = DecoderInputBufferSizing.initialInputBufferSize("video/hevc", 1920, 1080, 35000);
+        int avcSize = DecoderInputBufferSizing.initialInputBufferSize("video/avc", 1280, 720, 10000);
+        assertTrue(hevcSize >= DecoderInputBufferSizing.MIN_HEVC_INPUT_BYTES);
+        assertTrue(avcSize >= DecoderInputBufferSizing.MIN_AVC_AV1_INPUT_BYTES);
+
+        int expanded = DecoderInputBufferSizing.expandedInputBufferSize(hevcSize, hevcSize + 512 * 1024);
+        assertTrue(expanded >= hevcSize * 2);
+        assertEquals(-1, DecoderInputBufferSizing.expandedInputBufferSize(
+                DecoderInputBufferSizing.MAX_INPUT_BYTES, DecoderInputBufferSizing.MAX_INPUT_BYTES + 1));
+    }
+
+    @Test
+    public void controllerStateSenderDeduplicatesAndHonorsKeepaliveAndForce() {
+        RecordingConnection conn = new RecordingConnection(context);
+        ControllerStateSender sender = new ControllerStateSender();
+        long t0 = 10_000_000_000L;
+
+        assertTrue(sender.sendIfNeeded(conn, (short) 0, (short) 1, 0, (byte) 0, (byte) 0,
+                (short) 0, (short) 0, (short) 0, (short) 0, t0, false));
+        assertFalse(sender.sendIfNeeded(conn, (short) 0, (short) 1, 0, (byte) 0, (byte) 0,
+                (short) 0, (short) 0, (short) 0, (short) 0, t0 + 10_000_000L, false));
+        assertTrue(sender.sendIfNeeded(conn, (short) 0, (short) 1, 0x1000, (byte) 0, (byte) 0,
+                (short) 0, (short) 0, (short) 0, (short) 0, t0 + 10_000_000L, false));
+        assertFalse(sender.sendIfNeeded(conn, (short) 0, (short) 1, 0x1000, (byte) 0, (byte) 0,
+                (short) 0, (short) 0, (short) 0, (short) 0, t0 + 500_000_000L, false));
+        assertTrue(sender.sendIfNeeded(conn, (short) 0, (short) 1, 0x1000, (byte) 0, (byte) 0,
+                (short) 0, (short) 0, (short) 0, (short) 0, t0 + 10_000_000L + ControllerStateSender.KEEPALIVE_INTERVAL_NS, false));
+        assertTrue(sender.sendIfNeeded(conn, (short) 0, (short) 1, 0x1000, (byte) 0, (byte) 0,
+                (short) 0, (short) 0, (short) 0, (short) 0, t0 + 10_000_000L + ControllerStateSender.KEEPALIVE_INTERVAL_NS, true));
+        assertEquals(4, conn.sent.size());
+    }
+
+    @Test
+    public void stickCenterStoreRecentersDriftWhilePreservingFullTravel() {
+        assertEquals(0f, StickCenterStore.applyCenterOffset(0.08f, 0.08f), 1e-5f);
+        assertEquals(1f, StickCenterStore.applyCenterOffset(1f, 0.08f), 1e-5f);
+        assertEquals(-1f, StickCenterStore.applyCenterOffset(-1f, 0.08f), 1e-5f);
+        assertEquals(0f, StickCenterStore.applyCenterOffset(-0.10f, -0.10f), 1e-5f);
+        assertEquals(1f, StickCenterStore.applyCenterOffset(1f, -0.10f), 1e-5f);
+
+        StickCenterStore store = new StickCenterStore(context);
+        store.save(0x045e, 0x02ea, "usb-dongle", 0.05f, -0.04f, 0.40f, -0.02f);
+        StickCenterStore.Calibration loaded = store.load(0x045e, 0x02ea, "usb-dongle");
+        assertEquals(0.05f, loaded.lx, 1e-5f);
+        assertEquals(-0.04f, loaded.ly, 1e-5f);
+        assertEquals(StickCenterStore.MAX_OFFSET, loaded.rx, 1e-5f);
+        assertEquals(-0.02f, loaded.ry, 1e-5f);
     }
 }
