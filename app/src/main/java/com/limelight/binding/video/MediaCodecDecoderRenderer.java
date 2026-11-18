@@ -750,7 +750,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 vulkanRenderer == null && hostFrameTimeline == null;
         if (useAsyncCodec) {
             asyncCodec.setPreferLowerDelays(prefs.asyncLfr);
-            asyncCodec.attachIfNeeded(videoDecoder, Process.THREAD_PRIORITY_DISPLAY, asyncCallbacks, asyncOutputRelease);
+            asyncCodec.attachIfNeeded(videoDecoder, Process.THREAD_PRIORITY_URGENT_DISPLAY, asyncCallbacks, asyncOutputRelease);
             LimeLog.info("Async decode enabled" + (prefs.asyncLfr ? " with LFR" : ""));
         }
 
@@ -1300,7 +1300,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         }
 
         // We use a separate thread to avoid any main thread delays from delaying rendering
-        choreographerHandlerThread = new HandlerThread("Video - Choreographer", Process.THREAD_PRIORITY_DEFAULT + Process.THREAD_PRIORITY_MORE_FAVORABLE);
+        choreographerHandlerThread = new HandlerThread("Video - Choreographer", Process.THREAD_PRIORITY_URGENT_DISPLAY);
         choreographerHandlerThread.start();
 
         // Start the frame callbacks
@@ -1324,6 +1324,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         rendererThread = new Thread() {
             @Override
             public void run() {
+                Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_DISPLAY);
                 BufferInfo info = new BufferInfo();
                 while (!stopping) {
                     try {
@@ -2493,10 +2494,17 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private void applySurfaceFrameRate(android.view.Surface surface, float surfaceFrameRate) {
         if (surface == null) return;
         try {
-            // API 30+ supports Surface.setFrameRate; for older, attempt View-based call elsewhere.
-            if (android.os.Build.VERSION.SDK_INT >= 30) {
+            // API 31+ supports seamless-only fixed source frame rate switching; API 30 supports
+            // fixed source without the change strategy flag.
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                 surface.setFrameRate(surfaceFrameRate,
-                        android.view.Surface.FRAME_RATE_COMPATIBILITY_DEFAULT);
+                        android.view.Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
+                        android.view.Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
+                LimeLog.info("Applied Surface frame rate (S+): " + surfaceFrameRate + " Hz");
+            }
+            else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                surface.setFrameRate(surfaceFrameRate,
+                        android.view.Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
                 LimeLog.info("Applied Surface frame rate: " + surfaceFrameRate + " Hz");
             }
         } catch (Throwable t) {

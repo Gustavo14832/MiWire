@@ -225,8 +225,12 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         this.backgroundHandlerThread.start();
         this.backgroundThreadHandler = new Handler(backgroundHandlerThread.getLooper());
 
-        this.sceManager = new SceManager(activityContext);
-        this.sceManager.start();
+        if ("NVIDIA".equalsIgnoreCase(Build.MANUFACTURER)) {
+            this.sceManager = new SceManager(activityContext);
+            this.sceManager.start();
+        } else {
+            this.sceManager = null;
+        }
 
         this.dualSense = dualSense;
         if (this.dualSense != null) {
@@ -436,7 +440,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             stop();
         }
 
-        sceManager.stop();
+        if (sceManager != null) {
+            sceManager.stop();
+        }
         backgroundHandlerThread.quit();
     }
 
@@ -850,6 +856,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         }
     }
 
+    public static float sanitizeTriggerDeadzone(float hardwareFlat) {
+        if (hardwareFlat < 0.02f || hardwareFlat > 0.30f) {
+            return 0.02f;
+        }
+        return hardwareFlat;
+    }
+
     private InputDeviceContext createInputDeviceContextForDevice(InputDevice dev) {
         InputDeviceContext context = new InputDeviceContext();
         String devName = dev.getName();
@@ -1068,15 +1081,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             InputDevice.MotionRange ltRange = getMotionRangeForJoystickAxis(dev, context.leftTriggerAxis);
             InputDevice.MotionRange rtRange = getMotionRangeForJoystickAxis(dev, context.rightTriggerAxis);
 
-            // It's important to have a valid deadzone so controller packet batching works properly
-            context.triggerDeadzone = Math.max(Math.abs(ltRange.getFlat()), Math.abs(rtRange.getFlat()));
-
-            // For triggers without (valid) deadzones, we'll use 13% (around XInput's default)
-            if (context.triggerDeadzone < 0.13f ||
-                context.triggerDeadzone > 0.30f)
-            {
-                context.triggerDeadzone = 0.13f;
-            }
+            // For triggers without valid deadzones, use a 2% floor instead of 13% for crisp response
+            context.triggerDeadzone = sanitizeTriggerDeadzone(
+                    Math.max(Math.abs(ltRange.getFlat()), Math.abs(rtRange.getFlat())));
         }
 
         // The ADT-1 controller needs a similar fixup to the ASUS Gamepad
@@ -1244,8 +1251,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
     }
 
     // This must not be called on the main thread due to risk of ANRs!
+    // Returns true if a battery state source exists for periodic re-checks.
     @SuppressLint("InlinedApi")
-    private void sendControllerBatteryPacket(InputDeviceContext context) {
+    private boolean sendControllerBatteryPacket(InputDeviceContext context) {
         int currentBatteryStatus;
         float currentBatteryCapacity;
 
@@ -1254,7 +1262,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             currentBatteryStatus = context.inputDevice.getBatteryState().getStatus();
             currentBatteryCapacity = context.inputDevice.getBatteryState().getCapacity();
         }
-        else if (sceManager.isRecognizedDevice(context.inputDevice)) {
+        else if (sceManager != null && sceManager.isRecognizedDevice(context.inputDevice)) {
             // On the SHIELD Android TV, we can use a proprietary API to access battery/charge state.
             // We will convert it to the same form used by BatteryState to share code.
             int batteryPercentage = sceManager.getBatteryPercentage(context.inputDevice);
@@ -1305,7 +1313,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             }
         }
         else {
-            return;
+            return false;
         }
 
         if (currentBatteryStatus != context.lastReportedBatteryStatus ||
@@ -1335,7 +1343,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
                     break;
 
                 default:
-                    return;
+                    return false;
             }
 
             if (Float.isNaN(currentBatteryCapacity)) {
@@ -1350,6 +1358,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             context.lastReportedBatteryStatus = currentBatteryStatus;
             context.lastReportedBatteryCapacity = currentBatteryCapacity;
         }
+
+        return true;
     }
 
     private void sendControllerInputPacket(GenericControllerContext originalContext) {
@@ -2228,7 +2238,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
                     }
                 }
                 // On Shield devices, we can use their special API to rumble Shield controllers
-                else if (sceManager.rumble(deviceContext.inputDevice, deviceContext.lowFreqMotor, deviceContext.highFreqMotor)) {
+                else if (sceManager != null && sceManager.rumble(deviceContext.inputDevice, deviceContext.lowFreqMotor, deviceContext.highFreqMotor)) {
                     vibrated = true;
                 }
                 // If all else fails, we have to try the old Vibrator API
@@ -3438,10 +3448,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         public final Runnable batteryStateUpdateRunnable = new Runnable() {
             @Override
             public void run() {
-                sendControllerBatteryPacket(InputDeviceContext.this);
-
-                // Requeue the callback
-                backgroundThreadHandler.postDelayed(this, BATTERY_RECHECK_INTERVAL_MS);
+                if (sendControllerBatteryPacket(InputDeviceContext.this)) {
+                    // Requeue the callback only when a battery source is available
+                    backgroundThreadHandler.postDelayed(this, BATTERY_RECHECK_INTERVAL_MS);
+                }
             }
         };
 
@@ -3623,7 +3633,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             }
 
             // Shield controllers use special APIs for rumble and battery state
-            if (sceManager.isRecognizedDevice(inputDevice)) {
+            if (sceManager != null && sceManager.isRecognizedDevice(inputDevice)) {
                 capabilities |= MoonBridge.LI_CCAP_RUMBLE | MoonBridge.LI_CCAP_BATTERY_STATE;
             }
 

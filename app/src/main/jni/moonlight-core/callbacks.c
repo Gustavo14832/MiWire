@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <time.h>
 
 #include <Limelight.h>
@@ -50,6 +51,8 @@ static jmethodID BridgeClSetControllerLEDMethod;
 static jmethodID BridgeClSetAdaptiveTriggersMethod;
 static jbyteArray DecodedFrameBuffer;
 static jshortArray DecodedAudioBuffer;
+static bool VideoThreadPrioritySet;
+static bool AudioThreadPrioritySet;
 
 #define MIC_SAMPLE_RATE 48000
 #define MIC_CHANNEL_COUNT 1
@@ -298,6 +301,8 @@ int BridgeDrSetup(int videoFormat, int width, int height, int redrawRate, void* 
     JNIEnv* env = GetThreadEnv();
     int err;
 
+    VideoThreadPrioritySet = false;
+
     err = (*env)->CallStaticIntMethod(env, GlobalBridgeClass, BridgeDrSetupMethod, videoFormat, width, height, redrawRate);
     if ((*env)->ExceptionCheck(env)) {
         // This is called on a Java thread, so it's safe to return
@@ -307,8 +312,8 @@ int BridgeDrSetup(int videoFormat, int width, int height, int redrawRate, void* 
         return err;
     }
 
-    // Use a 32K frame buffer that will increase if needed
-    DecodedFrameBuffer = (*env)->NewGlobalRef(env, (*env)->NewByteArray(env, 32768));
+    // Pre-size buffer for high-bitrate 1080p60 HEVC IDR frames to avoid repeated reallocation
+    DecodedFrameBuffer = (*env)->NewGlobalRef(env, (*env)->NewByteArray(env, 524288));
 
     return 0;
 }
@@ -336,6 +341,11 @@ void BridgeDrCleanup(void) {
 int BridgeDrSubmitDecodeUnit(PDECODE_UNIT decodeUnit) {
     JNIEnv* env = GetThreadEnv();
     int ret;
+
+    if (!VideoThreadPrioritySet) {
+        VideoThreadPrioritySet = true;
+        setpriority(PRIO_PROCESS, 0, -8);
+    }
 
     // Increase the size of our frame data buffer if our frame won't fit
     if ((*env)->GetArrayLength(env, DecodedFrameBuffer) < decodeUnit->fullLength) {
@@ -486,6 +496,8 @@ int BridgeArInit(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusCon
     JNIEnv* env = GetThreadEnv();
     int err;
 
+    AudioThreadPrioritySet = false;
+
     err = (*env)->CallStaticIntMethod(env, GlobalBridgeClass, BridgeArInitMethod, audioConfiguration, opusConfig->sampleRate, opusConfig->samplesPerFrame);
     if ((*env)->ExceptionCheck(env)) {
         // This is called on a Java thread, so it's safe to return
@@ -535,6 +547,11 @@ void BridgeArCleanup() {
 
 void BridgeArDecodeAndPlaySample(char* sampleData, int sampleLength) {
     JNIEnv* env = GetThreadEnv();
+
+    if (!AudioThreadPrioritySet) {
+        AudioThreadPrioritySet = true;
+        setpriority(PRIO_PROCESS, 0, -8);
+    }
 
     jshort* decodedData = (*env)->GetPrimitiveArrayCritical(env, DecodedAudioBuffer, NULL);
 

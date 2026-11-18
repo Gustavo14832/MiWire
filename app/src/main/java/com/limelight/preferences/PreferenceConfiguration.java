@@ -218,6 +218,8 @@ public class PreferenceConfiguration {
     private static final int DEFAULT_TOUCH_SENSITIVITY = 100;
     private static final boolean DEFAULT_AUTO_RESUME_STREAM = false;
 
+    static final String TV_GAMING_DEFAULTS_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v1";
+
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
     public static final int FRAME_PACING_CAP_FPS = 2;
@@ -763,7 +765,75 @@ public class PreferenceConfiguration {
                 .remove(VIDEO_FORMAT_PREF_STRING)
                 .remove(ENABLE_HDR_PREF_STRING)
                 .remove(FULL_RANGE_PREF_STRING)
+                .remove(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING)
                 .apply();
+    }
+
+    /** Returns true when running on Android TV / Leanback or an Amlogic SoC (e.g. Mi Box S Gen 3). */
+    public static boolean isTvOrAmlogicDevice(Context context) {
+        if (context != null) {
+            PackageManager pm = context.getPackageManager();
+            if (pm != null && (pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
+                    pm.hasSystemFeature(PackageManager.FEATURE_TELEVISION))) {
+                return true;
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && "Amlogic".equalsIgnoreCase(Build.SOC_MANUFACTURER)) {
+            return true;
+        }
+        return "amlogic".equalsIgnoreCase(Build.HARDWARE);
+    }
+
+    /**
+     * Seeds out-of-the-box low-latency streaming defaults on Android TV / Amlogic boxes once,
+     * preserving any values the user already configured manually.
+     */
+    public static void seedTvGamingDefaultsIfNeeded(SharedPreferences prefs, boolean isTvOrAmlogic) {
+        if (!isTvOrAmlogic || prefs == null || prefs.getBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, false)) {
+            return;
+        }
+        SharedPreferences.Editor editor = prefs.edit()
+                .putBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, true);
+        if (!prefs.contains(RESOLUTION_PREF_STRING)) {
+            editor.putString(RESOLUTION_PREF_STRING, RES_1080P);
+        }
+        if (!prefs.contains(FPS_PREF_STRING)) {
+            editor.putString(FPS_PREF_STRING, "60");
+        }
+        if (!prefs.contains(BITRATE_PREF_STRING)) {
+            editor.putInt(BITRATE_PREF_STRING, 35000);
+        }
+        if (!prefs.contains(VIDEO_FORMAT_PREF_STRING)) {
+            editor.putString(VIDEO_FORMAT_PREF_STRING, "forceh265");
+        }
+        if (!prefs.contains(FRAME_PACING_PREF_STRING)) {
+            editor.putString(FRAME_PACING_PREF_STRING, "latency");
+        }
+        if (!prefs.contains(VSYNC_MODE_PREF_STRING)) {
+            editor.putString(VSYNC_MODE_PREF_STRING, "fast");
+        }
+        if (!prefs.contains(ASYNC_DECODE_PREF_STRING)) {
+            editor.putBoolean(ASYNC_DECODE_PREF_STRING, true);
+        }
+        if (!prefs.contains(ASYNC_LFR_PREF_STRING)) {
+            editor.putBoolean(ASYNC_LFR_PREF_STRING, true);
+        }
+        if (!prefs.contains(OVERLAY_TRIGGER_BUTTON_PREF_STRING)) {
+            editor.putString(OVERLAY_TRIGGER_BUTTON_PREF_STRING, "lb_rb");
+        }
+        if (!prefs.contains(ENABLE_FLOATING_BUTTON_PREF_STRING)) {
+            editor.putBoolean(ENABLE_FLOATING_BUTTON_PREF_STRING, false);
+        }
+        if (!prefs.contains(DEADZONE_PREF_STRING)) {
+            editor.putInt(DEADZONE_PREF_STRING, 3);
+        }
+        if (!prefs.contains(GAMEPAD_MOTION_SENSORS_PREF_STRING)) {
+            editor.putBoolean(GAMEPAD_MOTION_SENSORS_PREF_STRING, false);
+        }
+        if (!prefs.contains(SOPS_PREF_STRING)) {
+            editor.putBoolean(SOPS_PREF_STRING, false);
+        }
+        editor.apply();
     }
 
     public static void completeLanguagePreferenceMigration(Context context) {
@@ -826,6 +896,7 @@ public class PreferenceConfiguration {
 
     public static PreferenceConfiguration readPreferences(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        seedTvGamingDefaultsIfNeeded(prefs, isTvOrAmlogicDevice(context));
         PreferenceConfiguration config = new PreferenceConfiguration();
 
         // Migrate legacy preferences to the new locations

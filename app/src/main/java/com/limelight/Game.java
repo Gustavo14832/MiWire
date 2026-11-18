@@ -196,6 +196,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private DisplayRefreshMeter refreshMeter;
 
     private InputCaptureProvider inputCaptureProvider;
+    private final SubpixelMouseAccumulator mouseDeltaAccumulator = new SubpixelMouseAccumulator();
     private int modifierFlags = 0;
     // The keyboard keys the PC has been told are down, with the flags they went with, so opening
     // the menu can let go of them
@@ -457,6 +458,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     InputDevice.SOURCE_CLASS_POSITION | // Touchpads
                     InputDevice.SOURCE_CLASS_TRACKBALL // Mice (pointer capture)
             );
+            getWindow().getDecorView().requestUnbufferedDispatch(
+                    InputDevice.SOURCE_CLASS_BUTTON | // Keyboards
+                    InputDevice.SOURCE_CLASS_JOYSTICK | // Gamepads
+                    InputDevice.SOURCE_CLASS_POINTER | // Touchscreens and mice (w/o pointer capture)
+                    InputDevice.SOURCE_CLASS_POSITION | // Touchpads
+                    InputDevice.SOURCE_CLASS_TRACKBALL // Mice (pointer capture)
+            );
         }
 
         notificationOverlayView = findViewById(R.id.notificationOverlay);
@@ -498,22 +506,36 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             displayTransientMessage(getResources().getString(R.string.conn_metered));
         }
 
-        // Make sure Wi-Fi is fully powered up
-        WifiManager wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        try {
-            highPerfWifiLock = wifiMgr.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Moonlight High Perf Lock");
-            highPerfWifiLock.setReferenceCounted(false);
-            highPerfWifiLock.acquire();
+        // Only wake/lock the Wi-Fi radio when Wi-Fi is actually in use. Keeping Wi-Fi locked
+        // high-power on a wired Ethernet TV box creates unnecessary 2.4 GHz radio contention with
+        // wireless USB gamepad dongles.
+        boolean wiredEthernetOnly = false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            android.net.Network activeNet = connMgr.getActiveNetwork();
+            android.net.NetworkCapabilities netCaps = activeNet != null ? connMgr.getNetworkCapabilities(activeNet) : null;
+            wiredEthernetOnly = netCaps != null &&
+                    netCaps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) &&
+                    !netCaps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI);
+        }
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                lowLatencyWifiLock = wifiMgr.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "Moonlight Low Latency Lock");
-                lowLatencyWifiLock.setReferenceCounted(false);
-                lowLatencyWifiLock.acquire();
+        if (!wiredEthernetOnly) {
+            // Make sure Wi-Fi is fully powered up
+            WifiManager wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            try {
+                highPerfWifiLock = wifiMgr.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Moonlight High Perf Lock");
+                highPerfWifiLock.setReferenceCounted(false);
+                highPerfWifiLock.acquire();
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    lowLatencyWifiLock = wifiMgr.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "Moonlight Low Latency Lock");
+                    lowLatencyWifiLock.setReferenceCounted(false);
+                    lowLatencyWifiLock.acquire();
+                }
+            } catch (SecurityException e) {
+                // Some Samsung Galaxy S10+/S10e devices throw a SecurityException from
+                // WifiLock.acquire() even though we have android.permission.WAKE_LOCK in our manifest.
+                e.printStackTrace();
             }
-        } catch (SecurityException e) {
-            // Some Samsung Galaxy S10+/S10e devices throw a SecurityException from
-            // WifiLock.acquire() even though we have android.permission.WAKE_LOCK in our manifest.
-            e.printStackTrace();
         }
 
         appName = Game.this.getIntent().getStringExtra(EXTRA_APP_NAME);
@@ -1133,6 +1155,46 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 (prefConfig.framePacing == PreferenceConfiguration.FRAME_PACING_BALANCED && prefConfig.reduceRefreshRate);
     }
 
+    /** Accumulates sub-pixel relative pointer deltas so slow mouse motion never drops fractional movement. */
+    static final class SubpixelMouseAccumulator {
+        private float remainderX;
+        private float remainderY;
+
+        short consumeX(float deltaX) {
+            float total = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, remainderX + deltaX));
+            short whole = (short) total;
+            remainderX = total - whole;
+            return whole;
+        }
+
+        short consumeY(float deltaY) {
+            float total = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, remainderY + deltaY));
+            short whole = (short) total;
+            remainderY = total - whole;
+            return whole;
+        }
+
+        void reset() {
+            remainderX = 0f;
+            remainderY = 0f;
+        }
+    }
+
+    static boolean isCloserExactRefreshMatch(float candidateHz, float currentBestHz, int targetFps) {
+        return Math.round(candidateHz) == targetFps &&
+                Math.round(currentBestHz) == targetFps &&
+                Math.abs(candidateHz - targetFps) + 0.005f < Math.abs(currentBestHz - targetFps);
+    }
+
+    static boolean shouldApplyPreferredDisplayMode(int sdkInt, String deviceName, boolean isTv,
+                                                   int currentWidth, int currentHeight,
+                                                   int bestWidth, int bestHeight) {
+        return sdkInt < Build.VERSION_CODES.S ||
+                currentWidth != bestWidth ||
+                currentHeight != bestHeight ||
+                (isTv && !"sabrina".equalsIgnoreCase(deviceName));
+    }
+
     private float prepareDisplayForRendering() {
         Display display = getWindowManager().getDefaultDisplay();
         WindowManager.LayoutParams windowLayoutParams = getWindow().getAttributes();
@@ -1194,15 +1256,17 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
                     if (mayReduceRefreshRate()) {
                         // User asked for the lowest possible refresh rate, so don't raise it if we
-                        // have a good match already
-                        if (candidate.getRefreshRate() > bestMode.getRefreshRate()) {
+                        // have a good match already (unless the candidate matches target FPS closer, e.g. 60.000 over 59.94)
+                        if (candidate.getRefreshRate() > bestMode.getRefreshRate() &&
+                                !isCloserExactRefreshMatch(candidate.getRefreshRate(), bestMode.getRefreshRate(), prefConfig.fps)) {
                             continue;
                         }
                     }
                     else {
                         // User asked for the highest possible refresh rate, so don't reduce it if we
-                        // have a good match already
-                        if (refreshRateReduced) {
+                        // have a good match already (unless the candidate matches target FPS closer)
+                        if (refreshRateReduced &&
+                                !isCloserExactRefreshMatch(candidate.getRefreshRate(), bestMode.getRefreshRate(), prefConfig.fps)) {
                             continue;
                         }
                     }
@@ -1230,12 +1294,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
             // Only apply new window layout parameters if we've actually changed the display mode
             if (display.getMode().getModeId() != bestMode.getModeId()) {
-                // If we only changed refresh rate and we're on an OS that supports Surface.setFrameRate()
-                // use that instead of using preferredDisplayModeId to avoid the possibility of triggering
-                // bugs that can cause the system to switch from 4K60 to 4K24 on Chromecast 4K.
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-                        display.getMode().getPhysicalWidth() != bestMode.getPhysicalWidth() ||
-                        display.getMode().getPhysicalHeight() != bestMode.getPhysicalHeight()) {
+                // Force preferredDisplayModeId on Android TV devices (other than legacy sabrina)
+                // so Android 14 boxes switch cleanly from 59.94 Hz / 50 Hz to exact 60.000 Hz.
+                if (shouldApplyPreferredDisplayMode(Build.VERSION.SDK_INT, Build.DEVICE, isAndroidTV,
+                        display.getMode().getPhysicalWidth(), display.getMode().getPhysicalHeight(),
+                        bestMode.getPhysicalWidth(), bestMode.getPhysicalHeight())) {
                     // Apply the display mode change
                     windowLayoutParams.preferredDisplayModeId = bestMode.getModeId();
                     getWindow().setAttributes(windowLayoutParams);
@@ -1549,6 +1612,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
         else {
             inputCaptureProvider.disableCapture();
+            mouseDeltaAccumulator.reset();
         }
 
         // Grab/ungrab system keyboard shortcuts
@@ -2325,9 +2389,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 // dealing with a stylus without hover support, our position might be
                 // significantly different than before.
                 if (inputCaptureProvider.eventHasRelativeMouseAxes(event)) {
-                    // Send the deltas straight from the motion event
-                    short deltaX = (short)inputCaptureProvider.getRelativeAxisX(event);
-                    short deltaY = (short)inputCaptureProvider.getRelativeAxisY(event);
+                    // Preserve sub-pixel relative mouse deltas across events
+                    short deltaX = mouseDeltaAccumulator.consumeX(inputCaptureProvider.getRelativeAxisX(event));
+                    short deltaY = mouseDeltaAccumulator.consumeY(inputCaptureProvider.getRelativeAxisY(event));
 
                     if (deltaX != 0 || deltaY != 0) {
                         if (prefConfig.absoluteMouseMode) {

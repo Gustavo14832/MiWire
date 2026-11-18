@@ -25,6 +25,19 @@ steps and the checksums for each version.
   while a physical keyboard is connected. Turn it on there to use it. From LavArtemis, credited to
   Lavagnou.
 
+### Changed
+
+- **Amlogic Codec2 low-latency tuning:** bypasses Android's generic `low-latency` key on
+  `c2.amlogic` decoders and applies vendor game-mode, boost, and priority options.
+- **Android TV / Mi Box gaming defaults:** seeds 1080p60 HEVC, async decode with LFR, Fast V-Sync,
+  LB+RB overlay trigger, 3% stick deadzone, and disables motion sensors, SOPS, and the floating
+  button on Android TV and Amlogic devices.
+- **Sub-pixel mouse accumulator and trigger deadzone:** preserves fractional relative mouse deltas
+  across events and lowers the minimum analog trigger deadzone floor to 2%.
+- **System and audio tuning:** enables performance Game Mode, removes `gwpAsanMode`, skips Wi-Fi
+  locks when using wired Ethernet only, raises video/audio worker thread priorities, and bounds
+  pending audio backlog to 30 ms.
+
 ## [0.3.0] - 2026-11-16
 
 ### Added
