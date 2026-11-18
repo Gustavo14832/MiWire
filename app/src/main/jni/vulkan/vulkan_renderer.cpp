@@ -495,7 +495,7 @@ bool VulkanRenderer::init(ANativeWindow* output) {
     }
 
     if (pacer_.mode() == PacingMode::MiBox60Hz) {
-        presentScheduler_.fix(1, 1'500'000);
+        presentScheduler_.preferSingleVsync(2'000'000);
     }
 
     // To try a present delay or guard rather than the ones learned (PresentScheduler):

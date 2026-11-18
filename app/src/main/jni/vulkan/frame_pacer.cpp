@@ -81,9 +81,9 @@ HostTimeline::HostTimeline(JitterBuffer jitterBuffer) : jitterBuffer_(jitterBuff
             decayDivisor_ = 4096;
             break;
         case JitterBuffer::MiBox60Hz:
-            windowNs_ = 2'000'000'000;
-            coverage_ = 0.95;
-            decayDivisor_ = 32;
+            windowNs_ = 2'500'000'000;
+            coverage_ = 0.99;
+            decayDivisor_ = 48;
             break;
         case JitterBuffer::Balanced:
         default:
@@ -114,6 +114,7 @@ void HostTimeline::reset() {
 void HostTimeline::restartWindow(int64_t minWindowNs, int64_t minDecayDivisor) {
     window_.clear();
     minQueue_.clear();
+    offsetNs_ = 0;
     windowNs_ = std::max(baseWindowNs_, minWindowNs);
     decayDivisor_ = std::max(baseDecayDivisor_, minDecayDivisor);
 }
@@ -203,7 +204,7 @@ void HostTimeline::addSample(int64_t scheduledPtsNs, int64_t arrivalNs) {
 
     // Take more delay right away when frames start arriving later, and give it back slowly
     // so one quiet stretch doesn't leave us exposed to the next burst of jitter
-    if (target > offsetNs_) {
+    if (offsetNs_ == 0 || target > offsetNs_) {
         offsetNs_ = target;
     }
     else {
