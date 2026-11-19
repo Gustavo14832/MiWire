@@ -53,9 +53,9 @@ Java_com_limelight_binding_video_VulkanRendererBridge_nativeProbePyrowave(JNIEnv
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_limelight_binding_video_VulkanRendererBridge_nativeCreate(
         JNIEnv* env, jclass, jobject outputSurface, jint streamWidth, jint streamHeight, jint streamFps,
-        jint framePacing, jint jitterBuffer, jint ditherMode, jint colorspace, jboolean fullRange, jboolean tenBit,
-        jboolean pyrowave, jboolean pyrowaveCenterChroma, jint pyrowaveLateFrames, jfloat displayRefreshHz,
-        jstring traceDirectory) {
+        jint framePacing, jint jitterBuffer, jint ditherMode, jint sharpenMode, jint colorspace,
+        jboolean fullRange, jboolean tenBit, jboolean pyrowave, jboolean pyrowaveCenterChroma,
+        jint pyrowaveLateFrames, jfloat displayRefreshHz, jstring traceDirectory) {
     ANativeWindow* output = ANativeWindow_fromSurface(env, outputSurface);
     if (!output) {
         return 0;
@@ -68,6 +68,7 @@ Java_com_limelight_binding_video_VulkanRendererBridge_nativeCreate(
     config.framePacing = framePacing;
     config.jitterBuffer = jitterBuffer;
     config.ditherMode = ditherMode;
+    config.sharpenMode = sharpenMode;
     config.colorspace = colorspace;
     config.fullRange = fullRange;
     config.tenBit = tenBit;

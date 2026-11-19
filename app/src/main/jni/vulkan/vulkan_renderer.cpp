@@ -9,6 +9,7 @@
 #include <ctime>
 #include <poll.h>
 #include <sys/eventfd.h>
+#include <sys/prctl.h>
 #include <sys/resource.h>
 #include <unistd.h>
 #include <android/log.h>
@@ -35,6 +36,7 @@ namespace {
         float params[4];
         float params2[4];
         float ycbcr[4];
+        float texel[4];
     };
 
     constexpr float kOutputPassthrough = 0.0f;
@@ -95,6 +97,7 @@ namespace {
     void raiseThreadPriority(const char* name) {
         // ANDROID_PRIORITY_URGENT_DISPLAY, then ANDROID_PRIORITY_DISPLAY
         const pid_t tid = gettid();
+        prctl(PR_SET_TIMERSLACK, 1UL, 0UL, 0UL, 0UL);
         if (setpriority(PRIO_PROCESS, tid, -8) != 0 && setpriority(PRIO_PROCESS, tid, -4) != 0) {
             ALOGW("Could not raise the %s thread's priority", name);
             return;
@@ -169,7 +172,7 @@ bool VulkanRenderer::ConversionKey::operator==(const ConversionKey& other) const
            components.r == other.components.r && components.g == other.components.g &&
            components.b == other.components.b && components.a == other.components.a &&
            xChromaOffset == other.xChromaOffset && yChromaOffset == other.yChromaOffset &&
-           filter == other.filter;
+           filter == other.filter && forceExplicitReconstruction == other.forceExplicitReconstruction;
 }
 
 VkInstance VulkanRenderer::createVkInstance(VkApi& vk, bool pyrowave, bool* hasColorspaceExt, InstanceSetup& setup) {
@@ -491,6 +494,10 @@ bool VulkanRenderer::init(ANativeWindow* output) {
         return false;
     }
 
+    if (pacer_.mode() == PacingMode::MiBox60Hz) {
+        presentScheduler_.preferSingleVsync(2'000'000);
+    }
+
     // To try a present delay or guard rather than the ones learned (PresentScheduler):
     // adb shell setprop debug.moonlight.present_delay 1 (vsyncs), and
     // adb shell setprop debug.moonlight.present_guard_us 6000. Empty or 0 delay learns as usual.
@@ -511,9 +518,10 @@ bool VulkanRenderer::init(ANativeWindow* output) {
         }
     }
 
-    presentAhead_ = hasDisplayTimingExt_ && pacer_.mode() == PacingMode::HostTimed;
+    presentAhead_ = hasDisplayTimingExt_ && pacer_.isHostTimed();
     pacer_.setPresentAhead(presentAhead_);
     pacer_.setPresentGuardNs(presentScheduler_.guardNs());
+    perfHint_.start(ndk_, PerfHint::kDefaultTargetNs);
 
     char configuration[256];
     snprintf(configuration, sizeof(configuration),
@@ -908,6 +916,7 @@ void VulkanRenderer::stop() {
         wake(kWakeQuit);
         renderThread_.join();
     }
+    perfHint_.stop();
 
     // The image reader may be presenting a frame: wait for it, and keep it from starting another
     std::lock_guard<std::mutex> renderLock(renderMutex_);
@@ -986,25 +995,75 @@ std::string VulkanRenderer::rendererText() {
     return text;
 }
 
+void VulkanRenderer::recordPresentTimestampLocked(int64_t presentNs, int64_t hostPtsNs) {
+    if (presentNs <= 0) {
+        return;
+    }
+    const int64_t streamIntervalNs = 1'000'000'000LL / std::max(config_.streamFps, 1);
+    const bool hostIdlePause = hostPtsNs > 0 && lastRecordedHostPtsNs_ > 0 &&
+            (hostPtsNs - lastRecordedHostPtsNs_) > streamIntervalNs * 5 / 2;
+    if (!hostIdlePause && lastRecordedPresentNs_ > 0 && presentNs > lastRecordedPresentNs_) {
+        const int64_t deltaNs = presentNs - lastRecordedPresentNs_;
+        if (deltaNs >= 1'000'000 && deltaNs < 1'000'000'000) {
+            presentDeltasNs_[presentDeltaWrite_] = deltaNs;
+            presentDeltaWrite_ = (presentDeltaWrite_ + 1) % kPresentDeltaWindow;
+            if (presentDeltaCount_ < kPresentDeltaWindow) {
+                presentDeltaCount_++;
+            }
+        }
+    }
+    if (presentNs > lastRecordedPresentNs_) {
+        lastRecordedPresentNs_ = presentNs;
+    }
+    if (hostPtsNs > 0 && hostPtsNs > lastRecordedHostPtsNs_) {
+        lastRecordedHostPtsNs_ = hostPtsNs;
+    }
+}
+
 std::string VulkanRenderer::pacingText() {
     std::lock_guard<std::mutex> lock(mutex_);
 
     std::string headline;
     std::string details;
     char text[96];
-    if (pacer_.mode() == PacingMode::HostTimed && pacer_.timeline().hasEstimate()) {
+    if (pacer_.isHostTimed() && pacer_.timeline().hasEstimate()) {
         // The display's measured refresh rate, to compare with the host's frame rate
         snprintf(text, sizeof(text), "%.1f ms buffer, %.2f Hz", (pacer_.timeline().bufferNs() + pacer_.scheduleDelayNs()) / 1e6,
                  1e9 / static_cast<double>(pacer_.vsyncPeriodNs()));
         headline = text;
         if (pacer_.phaseLocked()) {
-            snprintf(text, sizeof(text), "locked at %d vsync%s/frame", static_cast<int>(pacer_.slotVsyncs()),
-                     pacer_.slotVsyncs() == 1 ? "" : "s");
+            if (pacer_.mode() == PacingMode::MiBox60Hz) {
+                snprintf(text, sizeof(text), "60Hz phase-locked (%d vsync%s/frame, %dv)",
+                         static_cast<int>(pacer_.slotVsyncs()), pacer_.slotVsyncs() == 1 ? "" : "s",
+                         presentScheduler_.delayVsyncs());
+            }
+            else {
+                snprintf(text, sizeof(text), "locked at %d vsync%s/frame", static_cast<int>(pacer_.slotVsyncs()),
+                         pacer_.slotVsyncs() == 1 ? "" : "s");
+            }
+            details = text;
+        }
+        else if (pacer_.mode() == PacingMode::MiBox60Hz) {
+            snprintf(text, sizeof(text), "60Hz low-latency (%d vsync/frame, %dv)",
+                     static_cast<int>(pacer_.slotVsyncs()), presentScheduler_.delayVsyncs());
             details = text;
         }
         else {
             details = "unlocked";
         }
+    }
+    if (presentDeltaCount_ >= 16) {
+        std::vector<int64_t> sorted(presentDeltasNs_.begin(), presentDeltasNs_.begin() + presentDeltaCount_);
+        std::sort(sorted.begin(), sorted.end());
+        const size_t n = sorted.size();
+        const double p50 = sorted[n * 50 / 100] / 1e6;
+        const double p95 = sorted[std::min(n - 1, n * 95 / 100)] / 1e6;
+        const double p99 = sorted[std::min(n - 1, n * 99 / 100)] / 1e6;
+        snprintf(text, sizeof(text), "p50/95/99 %.1f/%.1f/%.1f ms", p50, p95, p99);
+        if (!headline.empty()) {
+            headline += " \u00b7 ";
+        }
+        headline += text;
     }
     // Frames skipped recently. A running total since the stream started says little about
     // how it's going now.
@@ -1045,6 +1104,7 @@ void VulkanRenderer::onImageAvailable() {
     if (!prioritized) {
         prioritized = true;
         raiseThreadPriority("image reader");
+        perfHint_.addThread();
     }
     for (;;) {
         {
@@ -1241,11 +1301,13 @@ void VulkanRenderer::renderThreadMain() {
         refreshRateCallbackRegistered_ = true;
     }
     ndk_->AChoreographer_postFrameCallback64(choreographer_, &VulkanRenderer::onVsyncThunk, this);
+    perfHint_.addThread();
 
     while (!quit_) {
         ALooper_pollOnce(-1, nullptr, nullptr, nullptr);
     }
 
+    perfHint_.stop();
     if (refreshRateCallbackRegistered_) {
         ndk_->AChoreographer_unregisterRefreshRateCallback(choreographer_, &VulkanRenderer::onRefreshRateThunk, this);
     }
@@ -1306,6 +1368,10 @@ void VulkanRenderer::onWake() {
         }
         if (frame && renderFrame(frame)) {
             presentedFrames_++;
+            if (!hasDisplayTimingExt_) {
+                std::lock_guard<std::mutex> lock(mutex_);
+                recordPresentTimestampLocked(nowNs(), frame->timing.hostPtsNs);
+            }
         }
     }
     else if ((flags & kWakeHdr) && current_ && renderFrame(current_)) {
@@ -1388,6 +1454,10 @@ void VulkanRenderer::onVsync(int64_t frameTimeNanos) {
     if (frame) {
         if (renderFrame(frame, presentId)) {
             presentedFrames_++;
+            if (!hasDisplayTimingExt_) {
+                std::lock_guard<std::mutex> lock(mutex_);
+                recordPresentTimestampLocked(nowNs(), frame->timing.hostPtsNs);
+            }
         }
     }
     else if (swapchainDirty_ && current_) {
@@ -1441,6 +1511,10 @@ void VulkanRenderer::presentAhead() {
         }
         if (renderFrame(frame, presentId, showVsyncNs, true, commitNs)) {
             presentedFrames_++;
+            if (!hasDisplayTimingExt_) {
+                std::lock_guard<std::mutex> lock(mutex_);
+                recordPresentTimestampLocked(nowNs(), frame->timing.hostPtsNs);
+            }
         }
     }
 }
@@ -1472,6 +1546,7 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
 
     const int slot = static_cast<int>(frameCounter_ % kFramesInFlight);
     // The fence is nearly always done by now, so ask before waiting on it
+    const int64_t fenceWaitStartNs = nowNs();
     VkResult result = vk_.vkGetFenceStatus ? vk_.vkGetFenceStatus(device_, fences_[slot]) : VK_NOT_READY;
     const bool fenceWaited = result != VK_SUCCESS;
     if (fenceWaited) {
@@ -1482,6 +1557,7 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
         return false;
     }
     const int64_t fencedNs = nowNs();
+    const int64_t fenceWaitDurNs = fenceWaited ? (fencedNs - fenceWaitStartNs) : 0;
     // Gives MediaCodec's image back to the reader (see onImageAvailable())
     slotFrames_[slot].reset();
     const int64_t releasedNs = nowNs();
@@ -1501,6 +1577,7 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
     }
     slotPresentIds_[slot] = 0;
 
+    const int64_t acquireStartNs = nowNs();
     uint32_t imageIndex = 0;
     result = vk_.vkAcquireNextImageKHR(device_, swapchain_, kAcquireTimeoutNs, imageAcquired_[slot],
                                        VK_NULL_HANDLE, &imageIndex);
@@ -1521,6 +1598,7 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
     }
 
     const int64_t acquiredNs = nowNs();
+    const int64_t acquireWaitDurNs = acquiredNs - acquireStartNs;
 
     // Where the picture is within the buffer, which the decoder may pad
     PushConstants pc {};
@@ -1562,6 +1640,10 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
     pc.params[3] = contentPeakNits;
     pc.params2[0] = kSdrWhiteNits;
     pc.params2[1] = static_cast<float>(std::max(quarterTurns(preTransform_), 0));
+    pc.texel[0] = bufferWidth > 0.0f ? 1.0f / bufferWidth : 0.0f;
+    pc.texel[1] = bufferHeight > 0.0f ? 1.0f / bufferHeight : 0.0f;
+    pc.texel[2] = config_.sharpenMode == 2 ? 0.18f : (config_.sharpenMode == 1 ? 0.13f : 0.0f);
+    pc.texel[3] = 0.0f;
     if (planar) {
         // PyroWave is always full range, in the colorspace we asked for, or BT.2020 for HDR
         const int colorspace = hdrActive_ ? 2 : config_.colorspace;
@@ -1704,7 +1786,8 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
         // (waiting for a swapchain image). Measured from here, the guard learned was a third of
         // what commits needed.
         pendingPresents_[presentId] = {vsyncNs, presentScheduler_.delayVsyncs(), ahead,
-                                       ahead ? vsyncNs - (commitNs != 0 ? commitNs : nowNs()) : 0};
+                                       ahead ? vsyncNs - (commitNs != 0 ? commitNs : nowNs()) : 0,
+                                       frame->timing.hostPtsNs};
         if (pendingPresents_.size() > 256) {
             // Reports lost across a swapchain rebuild never arrive
             while (!pendingPresents_.empty() && pendingPresents_.begin()->first + 128 < presentId) {
@@ -1752,6 +1835,8 @@ bool VulkanRenderer::renderFrame(const FramePtr& frame, uint64_t presentId, int6
     }
 
     evictImports();
+    const int64_t cpuWorkNs = (nowNs() - startNs) - fenceWaitDurNs - acquireWaitDurNs;
+    perfHint_.reportWork(cpuWorkNs);
     return true;
 }
 
@@ -1767,6 +1852,7 @@ void VulkanRenderer::collectPresentTimings() {
     if (vk_.vkGetPastPresentationTimingGOOGLE(device_, swapchain_, &count, timings.data()) < 0) {
         return;
     }
+    std::vector<int64_t> hostPtsByIndex(count, 0);
     for (uint32_t i = 0; i < count; i++) {
         const VkPastPresentationTimingGOOGLE& t = timings[i];
 
@@ -1781,6 +1867,9 @@ void VulkanRenderer::collectPresentTimings() {
         }
 
         auto pending = pendingPresents_.find(t.presentID);
+        if (pending != pendingPresents_.end()) {
+            hostPtsByIndex[i] = pending->second.hostPtsNs;
+        }
         if (pending != pendingPresents_.end() && pending->second.ahead && !pending->second.replaced) {
             presentScheduler_.onAheadOutcome(pending->second.slackNs, pending->second.vsyncNs,
                                              pending->second.delayVsyncs, true,
@@ -1813,6 +1902,9 @@ void VulkanRenderer::collectPresentTimings() {
     for (uint32_t i = 0; i < count; i++) {
         const VkPastPresentationTimingGOOGLE& t = timings[i];
         if (t.presentID != 0) {
+            if (t.actualPresentTime > 0) {
+                recordPresentTimestampLocked(static_cast<int64_t>(t.actualPresentTime), hostPtsByIndex[i]);
+            }
             trace_.presented(t.presentID, static_cast<int64_t>(t.actualPresentTime),
                              static_cast<int64_t>(t.earliestPresentTime), static_cast<int64_t>(t.presentMargin));
         }
@@ -1895,7 +1987,7 @@ bool VulkanRenderer::createSwapchain() {
             ALOGW("Surface has no HDR10 format; tone mapping HDR to SDR");
         }
     }
-    if (!found && (config_.tenBit || hdrActive_)) {
+    if (!found && (config_.ditherMode > 0 || config_.tenBit || hdrActive_)) {
         found = findFormat(VK_FORMAT_A2B10G10R10_UNORM_PACK32, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, &chosen);
     }
     if (!found) {
@@ -2057,9 +2149,10 @@ bool VulkanRenderer::createSwapchain() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         char description[128];
-        snprintf(description, sizeof(description), "%s%s",
+        snprintf(description, sizeof(description), "%s%s%s",
                  outputPq_ ? "HDR10" : (outputBits_ == 10 ? "10-bit SDR" : "8-bit SDR"),
-                 (hdrActive_ && !outputPq_) ? " (tone mapped)" : "");
+                 (hdrActive_ && !outputPq_) ? " (tone mapped)" : "",
+                 config_.sharpenMode == 2 ? " \u00b7 CAS+" : (config_.sharpenMode == 1 ? " \u00b7 CAS" : ""));
         outputDescription_ = description;
     }
 
@@ -2130,7 +2223,7 @@ bool VulkanRenderer::ensureConversion(const ConversionKey& key) {
         info.xChromaOffset = key.xChromaOffset;
         info.yChromaOffset = key.yChromaOffset;
         info.chromaFilter = key.filter;
-        info.forceExplicitReconstruction = VK_FALSE;
+        info.forceExplicitReconstruction = key.forceExplicitReconstruction;
         VkResult result = vk_.vkCreateSamplerYcbcrConversion(device_, &info, nullptr, &conversion_);
         if (result != VK_SUCCESS) {
             ALOGE("vkCreateSamplerYcbcrConversion failed: %d", result);
@@ -2334,6 +2427,10 @@ VulkanRenderer::ImportedBuffer* VulkanRenderer::importBuffer(AHardwareBuffer* bu
         key.yChromaOffset = formatProps.suggestedYChromaOffset;
         key.filter = (!key.ycbcr || (formatProps.formatFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT))
                      ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+        key.forceExplicitReconstruction =
+                (key.ycbcr && (formatProps.formatFeatures &
+                        VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT))
+                ? VK_TRUE : VK_FALSE;
 
         // We know how the host encoded the stream, so use that instead of what the buffer
         // suggests. Sunshine sends HDR as BT.2020.

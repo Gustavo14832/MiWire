@@ -19,6 +19,7 @@ enum class PacingMode : int {
     CapFps = 2,
     Smoothness = 3,
     HostTimed = 4,
+    MiBox60Hz = 5,
 };
 
 struct FrameTiming {
@@ -35,6 +36,7 @@ enum class JitterBuffer : int {
     Smooth = 2,
     LowestLatency = 3,  // Less buffer than LowLatency, which like it only evens out the host's
                         // timing when frames span more than one vsync
+    MiBox60Hz = 4,      // Calibrated 60 Hz low-latency preset: 2 s window, 95% coverage, fast 0.5 s recovery
 };
 
 // Maps host frame timestamps onto the local clock.
@@ -53,7 +55,7 @@ public:
 
     // Checks a frame's host timestamp against the last one. Returns false if it broke the
     // timeline (the stream restarted or timestamps jumped) and the estimate was reset.
-    bool checkContinuity(int64_t hostPtsNs);
+    bool checkContinuity(int64_t hostPtsNs, int64_t arrivalNs = 0);
 
     // Records a decoded frame, measured against the host time it's scheduled from (its host
     // timestamp, or its place on the line the pacer fits to them)
@@ -75,7 +77,7 @@ public:
     int64_t minTransitNs() const;
 
     // How long the scheduled time is after the smallest transit time
-    int64_t bufferNs() const { return hasEstimate() ? offsetNs_ - minTransitNs() : 0; }
+    int64_t bufferNs() const { return (hasEstimate() && !minQueue_.empty()) ? (offsetNs_ - minTransitNs()) : 0; }
 
     JitterBuffer jitterBuffer() const { return jitterBuffer_; }
 
@@ -133,6 +135,7 @@ public:
     FramePacer(PacingMode mode, int streamFps, int64_t vsyncPeriodNs, JitterBuffer jitterBuffer);
 
     PacingMode mode() const { return mode_; }
+    bool isHostTimed() const { return mode_ == PacingMode::HostTimed || mode_ == PacingMode::MiBox60Hz; }
 
     void setVsyncPeriod(int64_t periodNs);
     int64_t vsyncPeriodNs() const { return periodNs_; }

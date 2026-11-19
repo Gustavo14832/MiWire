@@ -2,6 +2,7 @@
 
 #include <android/native_window.h>
 #include <android/hardware_buffer.h>
+#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
@@ -17,6 +18,7 @@
 #include "frame_pacer.h"
 #include "ndk_api.h"
 #include "pacer_trace.h"
+#include "perf_hint.h"
 #include "present_scheduler.h"
 #include "pyrowave_decoder.h"
 #include "vk_api.h"
@@ -30,6 +32,7 @@ struct RendererConfig {
     int framePacing = 0;       // PreferenceConfiguration.FRAME_PACING_*
     int jitterBuffer = 1;      // PreferenceConfiguration.JITTER_BUFFER_*
     int ditherMode = 0;        // 0 = off, 1 = low, 2 = high
+    int sharpenMode = 0;       // 0 = off, 1 = balanced, 2 = crisp
     int colorspace = 1;        // MoonBridge.COLORSPACE_*
     bool fullRange = false;
     bool tenBit = false;       // The stream is 10-bit
@@ -155,6 +158,7 @@ private:
         VkChromaLocation xChromaOffset = VK_CHROMA_LOCATION_COSITED_EVEN;
         VkChromaLocation yChromaOffset = VK_CHROMA_LOCATION_COSITED_EVEN;
         VkFilter filter = VK_FILTER_NEAREST;
+        VkBool32 forceExplicitReconstruction = VK_FALSE;
 
         bool operator==(const ConversionKey& other) const;
     };
@@ -269,6 +273,7 @@ private:
         int delayVsyncs;
         bool ahead;
         int64_t slackNs;  // How long before its vsync a frame presented ahead was presented
+        int64_t hostPtsNs = 0;
         bool replaced = false;  // Another frame was presented for the same vsync
     };
 
@@ -357,6 +362,7 @@ private:
     bool stopped_ = false;
     std::mutex stopMutex_;
     AChoreographer* choreographer_ = nullptr;
+    PerfHint perfHint_;
     bool refreshRateCallbackRegistered_ = false;
     std::atomic<bool> presentOnArrival_ {false};  // Mailbox swapchain in lowest latency mode
     // Held for any Vulkan work: the render thread's, and frames the image reader presents ahead
@@ -402,6 +408,13 @@ private:
         uint64_t total;
     };
     std::deque<SkipSample> skipSamples_;
+    static constexpr size_t kPresentDeltaWindow = 512;
+    void recordPresentTimestampLocked(int64_t presentNs, int64_t hostPtsNs = 0);
+    std::array<int64_t, kPresentDeltaWindow> presentDeltasNs_ {};
+    size_t presentDeltaWrite_ = 0;
+    size_t presentDeltaCount_ = 0;
+    int64_t lastRecordedPresentNs_ = 0;
+    int64_t lastRecordedHostPtsNs_ = 0;
     bool hdrEnabled_ = false;
     bool hdrChanged_ = false;
     HdrMetadata hdrMetadata_;

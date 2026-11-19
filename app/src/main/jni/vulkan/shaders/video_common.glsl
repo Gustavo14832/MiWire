@@ -8,10 +8,37 @@ layout(push_constant) uniform PushConstants {
     vec4 params;   // x = dither amplitude, y = frame counter, z = output mode, w = content peak nits
     vec4 params2;  // x = SDR reference white nits, y = quarter turns clockwise to pre-rotate by
     vec4 ycbcr;    // Planar video: x = Kr, y = Kb, z = chroma midpoint, w = chroma U offset
+    vec4 texel;    // x = 1/bufferWidth, y = 1/bufferHeight, z = RCAS sharpen peak (0 = off), w = reserved
 } pc;
 
 const float OUTPUT_PASSTHROUGH = 0.0;
 const float OUTPUT_PQ_TO_SDR = 1.0;
+
+// AMD FidelityFX Robust Contrast-Adaptive Sharpening (5-tap cross) with anti-ringing clamp
+// and a subtle noise gate so compression grain is not amplified.
+vec3 applyRcas(vec3 e, vec3 b, vec3 d, vec3 f, vec3 h, float peak) {
+    vec3 ec = clamp(e, 0.0, 1.0);
+    vec3 bc = clamp(b, 0.0, 1.0);
+    vec3 dc = clamp(d, 0.0, 1.0);
+    vec3 fc = clamp(f, 0.0, 1.0);
+    vec3 hc = clamp(h, 0.0, 1.0);
+
+    vec3 mn4 = min(min(bc, dc), min(fc, hc));
+    vec3 mx4 = max(max(bc, dc), max(fc, hc));
+    vec3 mn = min(mn4, ec);
+    vec3 mx = max(mx4, ec);
+
+    vec3 ampMin = mn / max(4.0 * mx4, vec3(1e-4));
+    vec3 ampMax = (1.0 - mx) / max(4.0 * (1.0 - mn4), vec3(1e-4));
+    vec3 amp = min(ampMin, ampMax);
+    float maxAmp = min(min(amp.r, amp.g), amp.b);
+
+    float contrast = dot(mx - mn, vec3(0.2126, 0.7152, 0.0722));
+    float noiseGate = smoothstep(0.008, 0.03, contrast);
+
+    float w = -min(peak, maxAmp) * noiseGate;
+    return clamp((ec + w * (bc + dc + fc + hc)) / (1.0 + 4.0 * w), 0.0, 1.0);
+}
 
 // Interleaved gradient noise (Jimenez 2014). Its energy sits at high spatial frequencies
 // like blue noise, so the dither reads as fine grain rather than blotches.

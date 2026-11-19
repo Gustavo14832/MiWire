@@ -163,6 +163,17 @@
         <item>high</item>
     </string-array>
 
+    <string-array name="vulkan_sharpening_names">
+        <item>@string/vulkan_sharpening_off</item>
+        <item>@string/vulkan_sharpening_balanced</item>
+        <item>@string/vulkan_sharpening_crisp</item>
+    </string-array>
+    <string-array name="vulkan_sharpening_values" translatable="false">
+        <item>off</item>
+        <item>balanced</item>
+        <item>crisp</item>
+    </string-array>
+
     <string-array name="video_frame_pacing_names">
         <item>@string/pacing_latency</item>
         <item>@string/pacing_balanced</item>
@@ -171,6 +182,7 @@
         <item>@string/pacing_host_timed</item>
         <item>@string/pacing_warp</item>
         <item>@string/pacing_warp2</item>
+        <item>@string/pacing_mibox_60hz</item>
     </string-array>
     <string-array name="video_frame_pacing_values" translatable="false">
         <item>latency</item>
@@ -180,6 +192,7 @@
         <item>host-timed</item>
         <item>warp</item>
         <item>warp2</item>
+        <item>mibox-60hz</item>
     </string-array>
 
     <!-- Starwire: hiding the PC's cursor in the video -->
@@ -379,5 +392,30 @@
         <item>@string/editor_then_disconnect</item>
         <item>@string/editor_then_quit</item>
         <item>@string/editor_then_sleep</item>
+    </string-array>
+
+    <string-array name="fec_percent_names">
+        <item>@string/fec_percent_default</item>
+        <item>@string/fec_percent_off</item>
+        <item>5%</item>
+        <item>10%</item>
+        <item>15%</item>
+        <item>20%</item>
+        <item>25%</item>
+        <item>30%</item>
+        <item>40%</item>
+        <item>50%</item>
+    </string-array>
+    <string-array name="fec_percent_values" translatable="false">
+        <item>-1</item>
+        <item>0</item>
+        <item>5</item>
+        <item>10</item>
+        <item>15</item>
+        <item>20</item>
+        <item>25</item>
+        <item>30</item>
+        <item>40</item>
+        <item>50</item>
     </string-array>
 </resources>

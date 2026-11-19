@@ -53,6 +53,7 @@ public class MediaCodecHelper {
 
     private static boolean isLowEndSnapdragon = false;
     private static boolean isAdreno620 = false;
+    private static boolean isFireTvDevice = false;
     private static boolean initialized = false;
 
     static {
@@ -68,6 +69,7 @@ public class MediaCodecHelper {
         directSubmitPrefixes.add("omx.TI");
         directSubmitPrefixes.add("omx.arc");
         directSubmitPrefixes.add("omx.nvidia");
+        directSubmitPrefixes.add("omx.amlogic");
 
         // All Codec2 decoders
         directSubmitPrefixes.add("c2.");
@@ -75,6 +77,7 @@ public class MediaCodecHelper {
 
     static {
         refFrameInvalidationAvcPrefixes = new LinkedList<>();
+        refFrameInvalidationAvcPrefixes.add("c2.amlogic");
 
         refFrameInvalidationHevcPrefixes = new LinkedList<>();
         refFrameInvalidationHevcPrefixes.add("omx.exynos");
@@ -225,6 +228,8 @@ public class MediaCodecHelper {
         knownVendorLowLatencyOptions.add("vendor.hisi-ext-low-latency-video-dec.video-scene-for-low-latency-req");
         knownVendorLowLatencyOptions.add("vendor.rtc-ext-dec-low-latency.enable");
         knownVendorLowLatencyOptions.add("vendor.low-latency.enable");
+        knownVendorLowLatencyOptions.add("vendor.amlogic.low-latency");
+        knownVendorLowLatencyOptions.add("vendor.amlogic.vdec.low-latency");
     }
 
     static {
@@ -331,7 +336,9 @@ public class MediaCodecHelper {
         // I know the Fire TV 2 and 3 works, so I'll whitelist Amazon devices which seem to actually be tested.
         // We still have to check Build.MANUFACTURER to catch Amazon Fire tablets.
         if (context.getPackageManager().hasSystemFeature("amazon.hardware.fire_tv") ||
-                Build.MANUFACTURER.equalsIgnoreCase("Amazon")) {
+                Build.MANUFACTURER.equalsIgnoreCase("Amazon") ||
+                Build.MODEL.startsWith("AFT")) {
+            isFireTvDevice = true;
             // HEVC and RFI have been confirmed working on Fire TV 2, Fire TV Stick 2, Fire TV 4K Max,
             // Fire HD 8 2020, and Fire HD 8 2022 models.
             //
@@ -500,6 +507,19 @@ public class MediaCodecHelper {
         return false;
     }
 
+    /** Returns true if the decoder is an Amlogic OMX or Codec2 hardware decoder. */
+    public static boolean isAmlogicDecoder(String decoderName) {
+        return decoderName != null && isDecoderInList(amlogicDecoderPrefixes, decoderName);
+    }
+
+    /**
+     * Amlogic Codec2 decoders (e.g. c2.amlogic.hevc.decoder on Android 14) stall or reorder
+     * frames when Android's generic low-latency key is applied before or after start().
+     */
+    public static boolean shouldSkipPostStartLowLatency(String decoderName) {
+        return decoderName != null && decoderName.toLowerCase(Locale.ENGLISH).startsWith("c2.amlogic");
+    }
+
     private static boolean decoderSupportsMaxOperatingRate(String decoderName) {
         // Operate at maximum rate to lower latency as much as possible on
         // some Qualcomm platforms. We could also set KEY_PRIORITY to 0 (realtime)
@@ -516,7 +536,7 @@ public class MediaCodecHelper {
                             isDecoderInList(refFrameInvalidationHevcPrefixes, decoderName) ||
                             isDecoderInList(refFrameInvalidationAvcPrefixes, decoderName)
 
-                ) && !isAdreno620;
+                ) && !isAdreno620 && !isDecoderInList(amlogicDecoderPrefixes, decoderName);
     }
 
     public static boolean setDecoderLowLatencyOptions(MediaFormat videoFormat, MediaCodecInfo decoderInfo, boolean ultraLowLatency, int tryNumber) {
@@ -524,10 +544,15 @@ public class MediaCodecHelper {
         // the first MediaFormat that doesn't fail in configure().
 
         boolean setNewOption = false;
+        boolean isAmlogic = isAmlogicDecoder(decoderInfo.getName());
+        boolean isC2Amlogic = shouldSkipPostStartLowLatency(decoderInfo.getName());
 
         if (tryNumber < 1) {
             // Official Android 11+ low latency option (KEY_LOW_LATENCY).
-            setNewOption |= safeSet(videoFormat, "low-latency", 1, tryNumber, true);
+            // Skip on c2.amlogic decoders where Android's generic low-latency key causes stalls.
+            if (!isC2Amlogic) {
+                setNewOption |= safeSet(videoFormat, "low-latency", 1, tryNumber, true);
+            }
 
             // Google Codec2 decoders (Tensor hardware and AOSP software) honor operating rate
             // and priority even alongside low-latency mode. Set them here so they're included
@@ -569,7 +594,8 @@ public class MediaCodecHelper {
 
             // If this decoder officially supports FEATURE_LowLatency, we will just use that alone
             // for try 0. Otherwise, we'll include it as best effort with other options.
-            if (!ultraLowLatency && decoderSupportsAndroidRLowLatency(decoderInfo, videoFormat.getString(MediaFormat.KEY_MIME))) {
+            // Amlogic needs vendor options applied even when FEATURE_LowLatency is advertised.
+            if (!isAmlogic && !ultraLowLatency && decoderSupportsAndroidRLowLatency(decoderInfo, videoFormat.getString(MediaFormat.KEY_MIME))) {
                 return true;
             }
         }
@@ -685,12 +711,21 @@ public class MediaCodecHelper {
                     setNewOption |= safeSet(videoFormat, "vendor.sec-dec-output.delay", 0, tryNumber, true); // Minimal output delay
                 }
             }
-            else if (isDecoderInList(amlogicDecoderPrefixes, decoderInfo.getName())) {
+            else if (isAmlogic) {
                 if (tryNumber < 4) {
+                    int fps = 60;
+                    if (videoFormat.containsKey(MediaFormat.KEY_FRAME_RATE)) {
+                        fps = videoFormat.getInteger(MediaFormat.KEY_FRAME_RATE);
+                    }
+                    int amlOperatingRate = Math.max(240, Math.min(fps * 2, 480));
+                    setNewOption |= safeSet(videoFormat, MediaFormat.KEY_OPERATING_RATE, amlOperatingRate, tryNumber, false);
+                    setNewOption |= safeSet(videoFormat, MediaFormat.KEY_PRIORITY, 0, tryNumber, false);
                     // Amlogic low latency vendor extensions
                     // https://github.com/codewalkerster/android_vendor_amlogic_common_prebuilt_libstagefrighthw/commit/41fefc4e035c476d58491324a5fe7666bfc2989e
                     setNewOption |= safeSet(videoFormat, "vendor.low-latency.enable", 1, tryNumber, false);
                     setNewOption |= safeSet(videoFormat, "vendor.amlogic.low-latency", 1, tryNumber, false);
+                    setNewOption |= safeSet(videoFormat, "vendor.amlogic.vdec.low-latency", 1, tryNumber, false);
+                    setNewOption |= safeSet(videoFormat, "vendor.vdec.low-latency", 1, tryNumber, false);
                     setNewOption |= safeSet(videoFormat, "vendor.media.omx.gamemode", 1, tryNumber, false);
                     setNewOption |= safeSet(videoFormat, "vendor.amlogic.vdec.boost", 1, tryNumber, false);
                 }
@@ -780,7 +815,26 @@ public class MediaCodecHelper {
         return isDecoderInList(refFrameInvalidationAvcPrefixes, decoderName);
     }
 
+    public static boolean shouldAllowHevcRfiForDecoder(String decoderName, boolean isFireOs) {
+        if (decoderName == null) {
+            return false;
+        }
+        String lower = decoderName.toLowerCase(Locale.ROOT);
+        if ((lower.startsWith("omx.amlogic.") || lower.equals("omx.amlogic")) && !isFireOs) {
+            return false;
+        }
+        return true;
+    }
+
     public static boolean decoderSupportsRefFrameInvalidationHevc(MediaCodecInfo decoderInfo) {
+        // Legacy OMX Amlogic decoders can buffer extra DPB references under RFI, whereas modern
+        // Codec2 decoders (e.g., Mi Box S Gen 3 c2.amlogic.hevc.decoder) with FEATURE_LowLatency
+        // support single-reference RFI cleanly.
+        if (!shouldAllowHevcRfiForDecoder(decoderInfo.getName(), isFireTvDevice)) {
+            LimeLog.info("Disabling HEVC RFI on legacy OMX Amlogic decoder: " + decoderInfo.getName());
+            return false;
+        }
+
         // HEVC decoders seem to universally support RFI, but it can have huge latency penalties
         // for some decoders due to the number of references frames being > 1. Old Amlogic
         // decoders are known to have this problem.
@@ -1142,6 +1196,10 @@ public class MediaCodecHelper {
             return;
         }
         try {
+            if (shouldSkipPostStartLowLatency(codec.getName())) {
+                LimeLog.info("Skipping post-start PARAMETER_KEY_LOW_LATENCY on " + codec.getName());
+                return;
+            }
             Bundle params = new Bundle();
             params.putInt(MediaCodec.PARAMETER_KEY_LOW_LATENCY, 1);
             codec.setParameters(params);

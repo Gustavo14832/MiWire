@@ -9,6 +9,8 @@
     <string name="pcview_menu_header_offline">Indisponível</string>
     <string name="pcview_menu_header_unknown">Atualizando</string>
     <string name="pacing_smoothness">Preferir vídeo mais suave (pode aumentar significativamente a latência)</string>
+    <string name="pacing_mibox_60hz">Mi Box S Gen 3: 60 Hz travado em fase e menor delay (Vulkan)</string>
+    <string name="feel_mibox_60hz">Quadros travados em fase nos 60 Hz com renderização antecipada Vulkan e proteção contra saltos de quadro.</string>
     <string name="summary_frame_pacing">Especifique o equilíbrio entre latência e suavidade do vídeo</string>
     <string name="title_checkbox_disable_warnings">Desabilitar mensagens de alerta</string>
     <string name="title_checkbox_enable_pip">Habilitar modo Picture-in-Picture</string>
@@ -238,4 +240,23 @@
     <string name="error_code_prefix">Código de erro:</string>
     <string name="fps_suffix_fps">FPS</string>
     <string name="pcview_menu_eol">Fim do serviço NVIDIA GameStream</string>
+    <string name="vulkan_sharpening_off">Desligado</string>
+    <string name="vulkan_sharpening_balanced">Equilibrado (CAS)</string>
+    <string name="vulkan_sharpening_crisp">Nítido (CAS+)</string>
+    <string name="title_vulkan_sharpening">Nitidez de imagem (Vulkan RCAS)</string>
+    <string name="summary_vulkan_sharpening">Restaura detalhes finos suavizados pela compressão de vídeo sem halos artificiais (apenas renderizador Vulkan)</string>
+    <string name="title_fec_percent">Correção de erros (FEC)</string>
+    <string name="summary_fec_percent">Define a porcentagem de pacotes redundantes que o Sunshine envia para recuperar perdas de rede sem travar esperando um keyframe</string>
+    <string name="fec_percent_default">Padrão do host</string>
+    <string name="fec_percent_off">Desligado</string>
+    <string name="title_exact_slices">Fatias exatas por quadro (Slices)</string>
+    <string name="summary_exact_slices">Solicita ao Sunshine que respeite o número exato de fatias por quadro do decodificador (reduz engasgos no chip Amlogic)</string>
+    <string name="title_max_pending_audio_ms">Limite máximo de fila de áudio</string>
+    <string name="summary_max_pending_audio_ms">Descarta pacotes de áudio atrasados quando a fila ultrapassa este limite para evitar atraso acumulado no som</string>
+    <string name="suffix_max_pending_audio_ms">" ms"</string>
+    <string name="title_sustained_performance">Modo de desempenho sustentado</string>
+    <string name="summary_sustained_performance">Solicita clocks estáveis ao sistema em sessões longas para evitar oscilações térmicas (Android 7+)</string>
+    <string name="thermal_throttling_warning">O dispositivo está superaquecendo e pode reduzir o desempenho do vídeo</string>
+    <string name="impact_max_pending_audio_ms">Valores menores reduzem o atraso máximo do áudio, mas podem causar pequenos cortes em picos de rede.</string>
+    <string name="impact_sustained_performance">Estabiliza a temperatura em sessões longas; alguns aparelhos reduzem o clock máximo.</string>
 </resources>

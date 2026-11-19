@@ -61,6 +61,13 @@ namespace {
         loadSymbol("AChoreographer_unregisterRefreshRateCallback",
                    api.AChoreographer_unregisterRefreshRateCallback, false);
 
+        loadSymbol("APerformanceHint_getManager", api.APerformanceHint_getManager, false);
+        loadSymbol("APerformanceHint_createSession", api.APerformanceHint_createSession, false);
+        loadSymbol("APerformanceHint_reportActualWorkDuration",
+                   api.APerformanceHint_reportActualWorkDuration, false);
+        loadSymbol("APerformanceHint_setThreads", api.APerformanceHint_setThreads, false);
+        loadSymbol("APerformanceHint_closeSession", api.APerformanceHint_closeSession, false);
+
         // The libraries stay loaded for the life of the process
         apiLoaded = ok;
     }

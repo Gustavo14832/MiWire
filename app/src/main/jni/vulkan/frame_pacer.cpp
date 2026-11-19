@@ -26,6 +26,8 @@ namespace {
     // stretches left the frames at the start of each one late
     constexpr int64_t kLineDecayDivisor = 1024;
     constexpr size_t kSlotDeltaWindow = 63;
+    constexpr int64_t kMiBoxMinPhaseSpanNs = 1'000'000'000;
+    constexpr double kMiBoxPhaseMargin = 0.14;
 
     // Vsyncs the period is measured over
     constexpr size_t kVsyncWindow = 480;
@@ -78,6 +80,11 @@ HostTimeline::HostTimeline(JitterBuffer jitterBuffer) : jitterBuffer_(jitterBuff
             coverage_ = 0.999;
             decayDivisor_ = 4096;
             break;
+        case JitterBuffer::MiBox60Hz:
+            windowNs_ = 2'500'000'000;
+            coverage_ = 0.99;
+            decayDivisor_ = 48;
+            break;
         case JitterBuffer::Balanced:
         default:
             windowNs_ = 3'000'000'000;
@@ -107,15 +114,29 @@ void HostTimeline::reset() {
 void HostTimeline::restartWindow(int64_t minWindowNs, int64_t minDecayDivisor) {
     window_.clear();
     minQueue_.clear();
+    offsetNs_ = 0;
     windowNs_ = std::max(baseWindowNs_, minWindowNs);
     decayDivisor_ = std::max(baseDecayDivisor_, minDecayDivisor);
 }
 
-bool HostTimeline::checkContinuity(int64_t hostPtsNs) {
+bool HostTimeline::checkContinuity(int64_t hostPtsNs, int64_t arrivalNs) {
     bool continuous = true;
-    if (started_ && (hostPtsNs < lastPtsNs_ - kMaxPtsBackstepNs || hostPtsNs > lastPtsNs_ + kMaxPtsGapNs)) {
-        reset();
-        continuous = false;
+    if (started_) {
+        if (hostPtsNs < lastPtsNs_ - kMaxPtsBackstepNs) {
+            reset();
+            continuous = false;
+        }
+        else if (hostPtsNs > lastPtsNs_ + kMaxPtsGapNs) {
+            if (arrivalNs > 0 && warmedUp_ && std::llabs((arrivalNs - hostPtsNs) - offsetNs_) < 500'000'000) {
+                // Static-screen pause on the same stream: keep warmed-up offsetNs_ intact
+                // so resuming motion does not starve the jitter buffer and cause skips.
+                continuous = false;
+            }
+            else {
+                reset();
+                continuous = false;
+            }
+        }
     }
     lastPtsNs_ = hostPtsNs;
     return continuous;
@@ -178,12 +199,17 @@ void HostTimeline::addSample(int64_t scheduledPtsNs, int64_t arrivalNs) {
         const double coverage = std::min(coverage_, 1.0 - 2.0 / n);
         index = static_cast<size_t>(std::ceil(coverage * (n - 1)));
     }
+    else if (warmedUp_ && jitterBuffer_ == JitterBuffer::MiBox60Hz) {
+        // When already settled, quiet stretches (typing, static desktop) have few samples.
+        // Don't let a single one-off idle wakeup frame inflate target to the max cap.
+        index = (scratch_.size() - 1) / 2;
+    }
     std::nth_element(scratch_.begin(), scratch_.begin() + index, scratch_.end());
     const int64_t target = scratch_[index];
 
     // Take more delay right away when frames start arriving later, and give it back slowly
     // so one quiet stretch doesn't leave us exposed to the next burst of jitter
-    if (target > offsetNs_) {
+    if (offsetNs_ == 0 || target > offsetNs_) {
         offsetNs_ = target;
     }
     else {
@@ -199,10 +225,15 @@ FramePacer::FramePacer(PacingMode mode, int streamFps, int64_t vsyncPeriodNs, Ji
     : mode_(mode),
       streamIntervalNs_(1'000'000'000LL / std::max(streamFps, 1)),
       periodNs_(vsyncPeriodNs > 0 ? vsyncPeriodNs : 16'666'667),
-      timeline_(jitterBuffer) {
+      timeline_(mode == PacingMode::MiBox60Hz ? JitterBuffer::MiBox60Hz : jitterBuffer) {
     // Frames waiting out the buffer sit in the caller's queue (maxQueued()), which also holds
     // the frame due next and one being shown
-    timeline_.setMaxBufferNs(static_cast<int64_t>(kMaxQueuedFrames - 3) * streamIntervalNs_);
+    if (mode == PacingMode::MiBox60Hz) {
+        timeline_.setMaxBufferNs(10'000'000);
+    }
+    else {
+        timeline_.setMaxBufferNs(static_cast<int64_t>(kMaxQueuedFrames - 3) * streamIntervalNs_);
+    }
 }
 
 void FramePacer::setVsyncPeriod(int64_t periodNs) {
@@ -258,7 +289,8 @@ size_t FramePacer::maxQueued() const {
             return 1;
         case PacingMode::Balanced:
             return 2;
-        case PacingMode::HostTimed: {
+        case PacingMode::HostTimed:
+        case PacingMode::MiBox60Hz: {
             // Enough to hold every frame inside the buffer we schedule with, plus one slot
             const int64_t held = timeline_.bufferNs() + scheduleDelayNs() + slotPeriodNs();
             const size_t frames = static_cast<size_t>(held / std::max<int64_t>(streamIntervalNs_, 1)) + 2;
@@ -282,12 +314,12 @@ void FramePacer::resetPhase() {
 }
 
 void FramePacer::onFrameArrived(FrameTiming& frame) {
-    if (mode_ != PacingMode::HostTimed) {
+    if (!isHostTimed()) {
         frame.targetNs = frame.arrivalNs;
         return;
     }
 
-    if (!timeline_.checkContinuity(frame.hostPtsNs)) {
+    if (!timeline_.checkContinuity(frame.hostPtsNs, frame.arrivalNs)) {
         ptsDeltas_.clear();
         lastPtsNs_ = 0;
         resetPhase();
@@ -305,7 +337,8 @@ void FramePacer::onFrameArrived(FrameTiming& frame) {
 void FramePacer::scheduleFrom(FrameTiming& frame, int64_t measuredPtsNs, bool onLine, int64_t scheduledPtsNs) {
     if (onLine != transitOnLine_) {
         transitOnLine_ = onLine;
-        timeline_.restartWindow(0, onLine ? kLineDecayDivisor : 0);
+        const int64_t lineDecay = timeline_.jitterBuffer() == JitterBuffer::MiBox60Hz ? 0 : kLineDecayDivisor;
+        timeline_.restartWindow(0, onLine ? lineDecay : 0);
     }
     timeline_.addSample(measuredPtsNs, frame.arrivalNs);
     frame.targetNs = scheduledPtsNs + timeline_.offsetNs();
@@ -315,6 +348,15 @@ void FramePacer::scheduleFrom(FrameTiming& frame, int64_t measuredPtsNs, bool on
 // This is the game's frame rate, which can be below the stream's: a game capped at 71.82 fps
 // is two vsyncs a frame on a 143.64 Hz panel, whatever the stream is set to.
 void FramePacer::updateSlot(const FrameTiming& frame) {
+    if (mode_ == PacingMode::MiBox60Hz) {
+        lastPtsNs_ = frame.hostPtsNs;
+        if (slotVsyncs_ != 1) {
+            slotVsyncs_ = 1;
+            timeline_.setSlotVsyncs(1);
+            resetPhase();
+        }
+        return;
+    }
     if (lastPtsNs_ != 0) {
         const int64_t delta = frame.hostPtsNs - lastPtsNs_;
         if (delta > 0 && delta < 1'000'000'000) {
@@ -390,22 +432,24 @@ void FramePacer::updateSlot(const FrameTiming& frame) {
 // If the timestamps don't fit a line (the game's frame rate varies), frames are shown at their
 // own host timestamps.
 void FramePacer::updatePhase(FrameTiming& frame) {
+    const int64_t slotPeriod = slotPeriodNs();
+
     if (lastVsyncNs_ == 0) {
         scheduleFrom(frame, frame.hostPtsNs, false, frame.hostPtsNs);
         return;
     }
 
-    const int64_t slotPeriod = slotPeriodNs();
-
     // At a frame a vsync, locking only evens out the host's own timing, which on a Pixel 10 Pro
     // at 120 fps cost about 3 ms more delay for 15-60% fewer uneven frames (measured when the
-    // schedule covered the latest host timestamp on top of the buffer). Low latency and Lowest latency take the delay off. With a
+    // schedule covered the latest host timestamp on top of the buffer). Low latency, Lowest
+    // latency, and MiBox60Hz take the delay off. With a
     // frame every few vsyncs, both lock: unlocked, frames change on whichever vsync their own
     // timestamp lands before, and when that sits near a vsync, the slightest jitter shows one a
     // vsync early or late. At 60 fps on a 120 Hz Pixel 10 Pro, unlocked Lowest latency showed
     // about one frame in a hundred for one vsync or three instead of two.
     if (slotVsyncs_ == 1 && (timeline_.jitterBuffer() == JitterBuffer::LowLatency ||
-                             timeline_.jitterBuffer() == JitterBuffer::LowestLatency)) {
+                             timeline_.jitterBuffer() == JitterBuffer::LowestLatency ||
+                             timeline_.jitterBuffer() == JitterBuffer::MiBox60Hz)) {
         phaseSamples_.clear();
         phaseLocked_ = false;
         shiftNs_ = 0;
@@ -437,7 +481,8 @@ void FramePacer::updatePhase(FrameTiming& frame) {
         scheduleFrom(frame, frame.hostPtsNs, false, frame.hostPtsNs);
     };
 
-    if (frame.arrivalNs - phaseSamples_.front().timeNs < kMinPhaseSpanNs) {
+    const int64_t minPhaseSpanNs = mode_ == PacingMode::MiBox60Hz ? kMiBoxMinPhaseSpanNs : kMinPhaseSpanNs;
+    if (frame.arrivalNs - phaseSamples_.front().timeNs < minPhaseSpanNs) {
         unlock();
         return;
     }
@@ -522,7 +567,8 @@ void FramePacer::updatePhase(FrameTiming& frame) {
     // presents cross a host refresh). The schedule is carried from frame to frame so that
     // refitting the line doesn't move it.
     const bool againstLine = timeline_.jitterBuffer() == JitterBuffer::Balanced ||
-                             timeline_.jitterBuffer() == JitterBuffer::Smooth;
+                             timeline_.jitterBuffer() == JitterBuffer::Smooth ||
+                             timeline_.jitterBuffer() == JitterBuffer::MiBox60Hz;
     const double x = static_cast<double>(frameIndex_ - first.frameIndex);
     const double line = static_cast<double>(first.hostPtsNs) + interval * x;
     double scheduled = againstLine ? line : line + latest;
@@ -530,6 +576,9 @@ void FramePacer::updatePhase(FrameTiming& frame) {
         const double carried = scheduledPtsNs_ + interval * static_cast<double>(frameIndex_ - scheduledIndex_);
         if (scheduled < carried) {
             scheduled = std::max(scheduled, carried - static_cast<double>(slotPeriod) * kLateDecayPerFrame);
+            if (againstLine) {
+                scheduled = std::min(scheduled, line + static_cast<double>(slotPeriod) * 0.25);
+            }
         }
     }
     else {
@@ -549,10 +598,11 @@ void FramePacer::updatePhase(FrameTiming& frame) {
 
     // Where the schedule sits within the slot, as a narrow arc that allows for the fit
     // wobbling as frames enter and leave the window
+    const int64_t effectiveTargetNs = frame.targetNs + presentGuardNs();
     const int64_t slotStartNs = lastVsyncNs_ - (vsyncIndex_ % slotVsyncs_) * periodNs_;
     const double width = kScheduleWidth;
-    const double start = wrapCycles(static_cast<double>(frame.targetNs - slotStartNs) / slotPeriod - width / 2);
-    const double margin = kPhaseMargin;
+    const double start = wrapCycles(static_cast<double>(effectiveTargetNs - slotStartNs) / slotPeriod - width / 2);
+    const double margin = mode_ == PacingMode::MiBox60Hz ? kMiBoxPhaseMargin : kPhaseMargin;
 
     // With the slot starting `parity` vsyncs later, the delay that clears the arc from the
     // vsyncs where frames change, and how long the last frame in the arc then waits
@@ -589,7 +639,7 @@ void FramePacer::updatePhase(FrameTiming& frame) {
     // meant to gain a vsync could skip a frame and then hold another one long.
     auto shownAt = [&](int64_t parity, double shift) {
         const double x = static_cast<double>(vsyncIndex_) +
-                (static_cast<double>(frame.targetNs - lastVsyncNs_) + shift * slotPeriod) / periodNs_;
+                (static_cast<double>(effectiveTargetNs - lastVsyncNs_) + shift * slotPeriod) / periodNs_;
         int64_t n = static_cast<int64_t>(std::ceil(x - 1e-6));
         while (((n - parity) % slotVsyncs_ + slotVsyncs_) % slotVsyncs_ != 0) {
             n++;
@@ -673,7 +723,8 @@ int FramePacer::onVsync(int64_t vsyncNs, const FrameTiming* frames, size_t count
             choice = count > 0 ? 0 : -1;
             break;
 
-        case PacingMode::HostTimed: {
+        case PacingMode::HostTimed:
+        case PacingMode::MiBox60Hz: {
             if (count == 0) {
                 break;
             }
@@ -688,7 +739,7 @@ int FramePacer::onVsync(int64_t vsyncNs, const FrameTiming* frames, size_t count
                 break;
             }
 
-            const int64_t tolerance = periodNs_ / 4;
+            const int64_t tolerance = mode_ == PacingMode::MiBox60Hz ? (periodNs_ * 3 / 8) : (periodNs_ / 4);
             int newestDue = -1;
             for (size_t i = 0; i < count; i++) {
                 if (frames[i].targetNs + shiftNs_ + presentGuardNs() <= vsyncNs) {
@@ -746,7 +797,7 @@ int FramePacer::onVsync(int64_t vsyncNs, const FrameTiming* frames, size_t count
 }
 
 int64_t FramePacer::frameVsyncNs(const FrameTiming& frame, bool committable) const {
-    if (mode_ != PacingMode::HostTimed || lastVsyncNs_ == 0) {
+    if (!isHostTimed() || lastVsyncNs_ == 0) {
         return 0;
     }
 
@@ -776,13 +827,18 @@ int64_t FramePacer::frameVsyncNs(const FrameTiming& frame, bool committable) con
     // slightest jitter: one frame replacing another at a vsync, then a vsync without a new frame.
     // Keep one frame per slot through that jitter; only a frame well off the slot moves.
     if (lastPresentVsyncNs_ != 0 && !(phaseLocked_ && slotVsyncs_ > 1)) {
-        const int64_t tolerance = periodNs_ / 4;
+        const int64_t tolerance = mode_ == PacingMode::MiBox60Hz ? (periodNs_ * 3 / 8) : (periodNs_ / 4);
         const int64_t planned = lastVsyncNs_ + (index - vsyncIndex_) * periodNs_;
         // The slot after the last frame committed, if it hasn't passed
         const int64_t nextSlot = lastPresentVsyncNs_ + slotVsyncs_ * periodNs_;
         const int64_t nextSlotIndex = vsyncIndex_ + (nextSlot - lastVsyncNs_ + periodNs_ / 2) / periodNs_;
         if (nextSlot > lastVsyncNs_ + periodNs_ / 2) {
-            if (planned <= lastPresentVsyncNs_ + periodNs_ / 2 && due > lastPresentVsyncNs_ - tolerance) {
+            if (mode_ == PacingMode::MiBox60Hz && planned <= lastPresentVsyncNs_ + periodNs_ / 2) {
+                // For 60 Hz 1:1 pacing, if the next VSync slot has not passed, present the new
+                // frame at the next slot rather than replacing and dropping the current one.
+                index = nextSlotIndex;
+            }
+            else if (planned <= lastPresentVsyncNs_ + periodNs_ / 2 && due > lastPresentVsyncNs_ - tolerance) {
                 // Only just due at the vsync the last frame was committed to: the next slot
                 // rather than replacing that frame
                 index = nextSlotIndex;
@@ -834,7 +890,7 @@ void FramePacer::addReadyCost(int64_t costNs) {
 bool FramePacer::partialDeadlineOffsetNs(const FrameTiming& frame, int64_t* offsetNs, int64_t* readyByNs,
                                          int64_t* readyCostNs) const {
     // Not through the warm-up: with no buffer then, nearly every frame would be cut
-    if (mode_ != PacingMode::HostTimed || !timeline_.warmedUp() || readyCosts_.size() < kPartialMinReadySamples) {
+    if (!isHostTimed() || !timeline_.warmedUp() || readyCosts_.size() < kPartialMinReadySamples) {
         return false;
     }
 

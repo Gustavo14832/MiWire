@@ -332,6 +332,12 @@
     <string name="summary_enable_hdr">Stream HDR / 10-bit SDR when the game and PC GPU support it. Requires a GPU with HEVC Main 10 encoding support.</string>
     <string name="title_full_range">Force full range video (Experimental)</string>
     <string name="summary_full_range">This will cause loss of detail in light and dark areas if your device doesn\'t properly display full range video content.</string>
+    <string name="title_max_pending_audio_ms">Max pending audio backlog</string>
+    <string name="summary_max_pending_audio_ms">Drop audio packets once the playback queue exceeds this limit to prevent growing audio delay</string>
+    <string name="suffix_max_pending_audio_ms">" ms"</string>
+    <string name="title_sustained_performance">Sustained performance mode</string>
+    <string name="summary_sustained_performance">Request consistent clock levels during long sessions instead of bursty thermal boosting (Android 7+)</string>
+    <string name="thermal_throttling_warning">Device is overheating and may throttle video decoding or frame pacing</string>
     <string name="title_enable_perf_overlay">Show performance stats while streaming</string>
     <string name="summary_enable_perf_overlay">Display real-time stream performance information while streaming</string>
     <string name="title_enable_post_stream_toast">Show latency message after streaming</string>
@@ -405,6 +411,12 @@
     <string name="title_spatial_dithering">Spatial Dithering</string>
     <string name="summary_spatial_dithering">Adds fine moving noise that hides color banding, most visible in HDR gradients (Vulkan renderer only)</string>
 
+    <string name="vulkan_sharpening_off">Off</string>
+    <string name="vulkan_sharpening_balanced">Balanced (CAS)</string>
+    <string name="vulkan_sharpening_crisp">Crisp (CAS+)</string>
+    <string name="title_vulkan_sharpening">Image sharpening (Vulkan RCAS)</string>
+    <string name="summary_vulkan_sharpening">Restores fine detail softened by video compression without ringing artifacts (Vulkan renderer only)</string>
+
     <string name="title_frame_pacing">Video frame pacing</string>
     <string name="summary_frame_pacing">Specify how to balance video latency and smoothness</string>
     <string name="pacing_latency">Prefer lowest latency</string>
@@ -418,6 +430,7 @@
     <string name="jitter_buffer_balanced">Balanced (Recommended)</string>
     <string name="jitter_buffer_smooth">Smooth</string>
     <string name="pacing_host_timed">Sync to host frame timing (best with the Vulkan renderer)</string>
+    <string name="pacing_mibox_60hz">Mi Box S Gen 3: 60 Hz phase-locked low latency (Vulkan)</string>
 
     <string name="title_analog_scrolling">Use an analog stick to scroll</string>
     <string name="summary_analog_scrolling">Select an analog stick to scroll when in mouse emulation mode</string>
@@ -568,6 +581,12 @@
     <string name="summary_checkbox_enable_perf_overlay_lite">One short line at the top: data rate, ping, decode time, dropped frames and FPS</string>
     <string name="title_checkbox_prevent_packet_loss">Prevent packet loss</string>
     <string name="summary_checkbox_prevent_packet_loss">Keeps the Wi-Fi connection busy with a tiny packet every 20 ms, so devices that drop packets in Wi-Fi power saving stay awake. Uses slightly more battery.</string>
+    <string name="title_fec_percent">Forward Error Correction (FEC)</string>
+    <string name="summary_fec_percent">Override how many redundancy packets Sunshine sends to recover lost UDP packets without waiting for an I-frame</string>
+    <string name="fec_percent_default">Host default</string>
+    <string name="fec_percent_off">Off</string>
+    <string name="title_exact_slices">Exact slices per frame</string>
+    <string name="summary_exact_slices">Ask Sunshine to honor the exact decoder slice count per frame (reduces decode stalls on Amlogic chips)</string>
     <string name="title_virtual_display_mode">Virtual display</string>
     <string name="summary_virtual_display_mode">Apollo and Vibepollo can make a screen just for this device, at the stream\'s resolution and frame rate. Host default leaves it to the PC\'s own setting.</string>
     <string name="virtual_display_mode_host">Host default</string>
@@ -728,6 +747,7 @@
     <string name="feel_cap_fps">Like Balanced, with the PC sending no more frames than this screen shows.</string>
     <string name="feel_smoothness">Every frame is shown in order, so motion is the smoothest, but the delay can grow a lot.</string>
     <string name="feel_host_timed">Frames are shown on the PC\'s own timing. Steady motion, best with the Vulkan renderer.</string>
+    <string name="feel_mibox_60hz">Frames are phase-locked to each 60 Hz refresh with a 1-vsync target and short jitter recovery.</string>
     <string name="feel_warp">The PC sends twice the frames and the newest one is always shown. Lower delay, but the tablet, PC and network work harder.</string>
     <string name="feel_warp2">The PC sends four times the frames and the newest one is always shown. The lowest delay, with the most work for the tablet, PC and network.</string>
     <string name="feel_vsync">V-Sync stops tearing but can add up to one frame of delay.</string>
@@ -921,15 +941,20 @@
     <string name="impact_audio_haptics">Uses some battery. No change to the stream.</string>
     <string name="impact_deadzone">Lower feels more responsive, but worn sticks may drift.</string>
     <string name="impact_prevent_packet_loss">For devices whose Wi-Fi naps between packets. Slightly more battery.</string>
+    <string name="impact_fec_percent">Higher protects better against packet loss at a small bandwidth cost. Host default is recommended.</string>
     <string name="impact_reduce_refresh_rate">Saves battery but adds some latency.</string>
     <string name="impact_actual_refresh_rate">A wrong value makes pacing stutter. 0 measures it for you.</string>
     <string name="impact_video_format">HEVC and AV1 look better at the same bitrate. Older devices can take longer to decode them.</string>
+    <string name="impact_exact_slices">Can reduce decode hiccups on Amlogic decoders. Minimal bandwidth impact.</string>
     <string name="impact_pyrowave_late_frames">Accepting more blur keeps the stream smooth when frames arrive late.</string>
     <string name="impact_video_renderer">Vulkan paces frames more evenly for a small GPU cost. Direct has the least overhead.</string>
     <string name="impact_custom_vulkan_driver">Experimental and not yet tried with a real Turnip driver. A bad driver can close Starwire.</string>
     <string name="impact_spatial_dithering">Small GPU cost. No change to latency.</string>
+    <string name="impact_vulkan_sharpening">Small GPU cost. No change to latency.</string>
     <string name="impact_hdr">Uses 10-bit video, which needs hardware HEVC or AV1 decoding. Slower devices may take longer per frame.</string>
     <string name="impact_perf_overlay">Very small. Lite mode draws less.</string>
+    <string name="impact_max_pending_audio_ms">Lower values cap audio lag sooner, at a higher risk of brief audio crackles during network spikes.</string>
+    <string name="impact_sustained_performance">Can stabilize thermal behavior during long sessions; some devices lower peak boost clocks.</string>
 
     <!-- Game screen: the slim bar that takes over once the header has scrolled away -->
     <string name="cg_back_to_top">Show the selected game</string>

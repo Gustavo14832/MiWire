@@ -7,6 +7,7 @@ import android.os.Build;
 import android.preference.PreferenceManager;
 import android.view.Display;
 
+import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.audio.VbanSender;
 import com.limelight.binding.input.dualsense.TriggerPreset;
 import com.limelight.binding.input.dualsense.TriggerStrength;
@@ -31,6 +32,12 @@ public class PreferenceConfiguration {
         OFF,
         LOW,
         HIGH,
+    }
+
+    public enum VulkanSharpeningOption {
+        OFF,
+        BALANCED,
+        CRISP,
     }
 
     public enum AnalogStickForScrolling {
@@ -115,6 +122,10 @@ public class PreferenceConfiguration {
     private static final String TOUCH_SENSITIVITY_PREF_STRING = "seekbar_touch_sensitivity";
     private static final String PERF_OVERLAY_LITE_PREF_STRING = "checkbox_enable_perf_overlay_lite";
     private static final String PREVENT_PACKET_LOSS_PREF_STRING = "checkbox_prevent_packet_loss";
+    private static final String FEC_PERCENT_PREF_STRING = "list_fec_percent";
+    private static final String EXACT_SLICES_PREF_STRING = "checkbox_exact_slices";
+    private static final String MAX_PENDING_AUDIO_MS_PREF_STRING = "seekbar_max_pending_audio_ms";
+    private static final String SUSTAINED_PERFORMANCE_PREF_STRING = "checkbox_sustained_performance";
     private static final String VIRTUAL_DISPLAY_MODE_PREF_STRING = "virtual_display_mode";
     private static final String VSYNC_MODE_PREF_STRING = "vsync_mode";
     private static final String SYNC_LFR_PREF_STRING = "checkbox_sync_lfr";
@@ -134,6 +145,7 @@ public class PreferenceConfiguration {
     private static final String AUTO_RESUME_STREAM_PREF_STRING = "checkbox_auto_resume_stream";
     private static final String VIDEO_RENDERER_PREF_STRING = "video_renderer";
     private static final String SPATIAL_DITHERING_PREF_STRING = "spatial_dithering";
+    static final String VULKAN_SHARPENING_PREF_STRING = "vulkan_sharpening";
     private static final String JITTER_BUFFER_PREF_STRING = "jitter_buffer";
     private static final String PYROWAVE_LATE_FRAMES_PREF_STRING = "pyrowave_late_frames";
     static final String CUSTOM_VULKAN_DRIVER_PREF_STRING = "checkbox_custom_vulkan_driver";
@@ -160,6 +172,7 @@ public class PreferenceConfiguration {
     private static final String DEFAULT_VIDEO_FORMAT = "auto";
     private static final String DEFAULT_VIDEO_RENDERER = "auto";
     private static final String DEFAULT_SPATIAL_DITHERING = "off";
+    private static final String DEFAULT_VULKAN_SHARPENING = "off";
     private static final String DEFAULT_JITTER_BUFFER = "balanced";
     private static final String DEFAULT_PYROWAVE_LATE_FRAMES = "balanced";
     private static final boolean DEFAULT_CUSTOM_VULKAN_DRIVER = false;
@@ -218,11 +231,22 @@ public class PreferenceConfiguration {
     private static final int DEFAULT_TOUCH_SENSITIVITY = 100;
     private static final boolean DEFAULT_AUTO_RESUME_STREAM = false;
 
+    static final String TV_GAMING_DEFAULTS_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v1";
+    static final String TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v2";
+    static final String TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v3";
+    static final String TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v4";
+    static final String TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v5";
+
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
     public static final int FRAME_PACING_CAP_FPS = 2;
     public static final int FRAME_PACING_MAX_SMOOTHNESS = 3;
     public static final int FRAME_PACING_HOST_TIMED = 4;
+    public static final int FRAME_PACING_MIBOX_60HZ = 5;
+
+    public static boolean isHostTimedPacing(int framePacing) {
+        return framePacing == FRAME_PACING_HOST_TIMED || framePacing == FRAME_PACING_MIBOX_60HZ;
+    }
 
     // Delay added to ride out network jitter in the host frame timing pacing mode
     public static final int JITTER_BUFFER_LOW_LATENCY = 0;
@@ -253,6 +277,7 @@ public class PreferenceConfiguration {
     public FormatOption videoFormat;
     public VideoRendererOption videoRenderer;
     public SpatialDitheringOption spatialDithering;
+    public VulkanSharpeningOption vulkanSharpening;
     public int deadzonePercentage;
     public int oscOpacity;
     public boolean stretchVideo, enableSops, playHostAudio, disableWarnings;
@@ -313,6 +338,10 @@ public class PreferenceConfiguration {
     public int touchSensitivity; // percent, applies to the trackpad touch modes
     public boolean enablePerfOverlayLite;
     public boolean preventPacketLoss;
+    public int fecPercentage = -1;
+    public boolean exactSlicesPerFrame;
+    public int maxPendingAudioMs = 30;
+    public boolean enableSustainedPerformance;
     // "host" (send nothing), "virtual" or "primary": the virtualDisplay launch argument
     public String virtualDisplayMode;
     public int vsyncMode; // VSYNC_*
@@ -588,6 +617,21 @@ public class PreferenceConfiguration {
         }
     }
 
+    private static VulkanSharpeningOption getVulkanSharpeningValue(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+
+        String str = prefs.getString(VULKAN_SHARPENING_PREF_STRING, DEFAULT_VULKAN_SHARPENING);
+        if (str.equals("balanced")) {
+            return VulkanSharpeningOption.BALANCED;
+        }
+        else if (str.equals("crisp")) {
+            return VulkanSharpeningOption.CRISP;
+        }
+        else {
+            return VulkanSharpeningOption.OFF;
+        }
+    }
+
     private static int getPyrowaveLateFramesValue(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
 
@@ -656,6 +700,9 @@ public class PreferenceConfiguration {
         }
         else if (str.equals("host-timed")) {
             return FRAME_PACING_HOST_TIMED;
+        }
+        else if (str.equals("mibox-60hz")) {
+            return FRAME_PACING_MIBOX_60HZ;
         }
         else if (str.equals("warp") || str.equals("warp2")) {
             // Warp Drive and Warp 2 present like Prefer lowest latency; see warpFactorFor()
@@ -751,6 +798,21 @@ public class PreferenceConfiguration {
         }
     }
 
+    public static int parseFecPercentage(String value) {
+        if (value == null) {
+            return -1;
+        }
+        try {
+            int parsed = Integer.parseInt(value.trim());
+            if (parsed < 0) {
+                return -1;
+            }
+            return Math.min(255, parsed);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
     public static void resetStreamingSettings(Context context) {
         // We consider resolution, FPS, bitrate, HDR, and video format as "streaming settings" here
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
@@ -761,9 +823,173 @@ public class PreferenceConfiguration {
                 .remove(RESOLUTION_PREF_STRING)
                 .remove(FPS_PREF_STRING)
                 .remove(VIDEO_FORMAT_PREF_STRING)
+                .remove(VIDEO_RENDERER_PREF_STRING)
+                .remove(SPATIAL_DITHERING_PREF_STRING)
+                .remove(VULKAN_SHARPENING_PREF_STRING)
+                .remove(FRAME_PACING_PREF_STRING)
                 .remove(ENABLE_HDR_PREF_STRING)
                 .remove(FULL_RANGE_PREF_STRING)
+                .remove(EXACT_SLICES_PREF_STRING)
+                .remove(FEC_PERCENT_PREF_STRING)
+                .remove(MAX_PENDING_AUDIO_MS_PREF_STRING)
+                .remove(SUSTAINED_PERFORMANCE_PREF_STRING)
+                .remove(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING)
+                .remove(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING)
+                .remove(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING)
+                .remove(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING)
+                .remove(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING)
                 .apply();
+    }
+
+    /** Returns true when running on Android TV / Leanback or an Amlogic SoC (e.g. Mi Box S Gen 3). */
+    public static boolean isTvOrAmlogicDevice(Context context) {
+        if (context != null) {
+            PackageManager pm = context.getPackageManager();
+            if (pm != null && (pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
+                    pm.hasSystemFeature(PackageManager.FEATURE_TELEVISION))) {
+                return true;
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && "Amlogic".equalsIgnoreCase(Build.SOC_MANUFACTURER)) {
+            return true;
+        }
+        return "amlogic".equalsIgnoreCase(Build.HARDWARE);
+    }
+
+    /**
+     * Seeds out-of-the-box low-latency streaming defaults on Android TV / Amlogic boxes once,
+     * preserving any values the user already configured manually.
+     */
+    public static void seedTvGamingDefaultsIfNeeded(SharedPreferences prefs, boolean isTvOrAmlogic) {
+        if (!isTvOrAmlogic || prefs == null) {
+            return;
+        }
+        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, false)) {
+            SharedPreferences.Editor editor = prefs.edit()
+                    .putBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, true)
+                    .putBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, true)
+                    .putBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, true)
+                    .putBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, true)
+                    .putBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, true);
+            if (!prefs.contains(RESOLUTION_PREF_STRING)) {
+                editor.putString(RESOLUTION_PREF_STRING, RES_1080P);
+            }
+            if (!prefs.contains(FPS_PREF_STRING)) {
+                editor.putString(FPS_PREF_STRING, "60");
+            }
+            if (!prefs.contains(BITRATE_PREF_STRING)) {
+                editor.putInt(BITRATE_PREF_STRING, 35000);
+            }
+            if (!prefs.contains(VIDEO_FORMAT_PREF_STRING)) {
+                editor.putString(VIDEO_FORMAT_PREF_STRING, "forceh265");
+            }
+            if (!prefs.contains(VIDEO_RENDERER_PREF_STRING)) {
+                editor.putString(VIDEO_RENDERER_PREF_STRING, "vulkan");
+            }
+            if (!prefs.contains(SPATIAL_DITHERING_PREF_STRING)) {
+                editor.putString(SPATIAL_DITHERING_PREF_STRING, "high");
+            }
+            if (!prefs.contains(VULKAN_SHARPENING_PREF_STRING)) {
+                editor.putString(VULKAN_SHARPENING_PREF_STRING, "balanced");
+            }
+            if (!prefs.contains(FULL_RANGE_PREF_STRING)) {
+                editor.putBoolean(FULL_RANGE_PREF_STRING, true);
+            }
+            if (!prefs.contains(FRAME_PACING_PREF_STRING)) {
+                editor.putString(FRAME_PACING_PREF_STRING, "mibox-60hz");
+            }
+            if (!prefs.contains(VSYNC_MODE_PREF_STRING)) {
+                editor.putString(VSYNC_MODE_PREF_STRING, "off");
+            }
+            if (!prefs.contains(ASYNC_DECODE_PREF_STRING)) {
+                editor.putBoolean(ASYNC_DECODE_PREF_STRING, false);
+            }
+            if (!prefs.contains(ASYNC_LFR_PREF_STRING)) {
+                editor.putBoolean(ASYNC_LFR_PREF_STRING, false);
+            }
+            if (!prefs.contains(USB_DRIVER_PREF_SRING)) {
+                editor.putBoolean(USB_DRIVER_PREF_SRING, false);
+            }
+            if (!prefs.contains(VIBRATE_FALLBACK_PREF_STRING)) {
+                editor.putBoolean(VIBRATE_FALLBACK_PREF_STRING, false);
+            }
+            if (!prefs.contains(OVERLAY_TRIGGER_BUTTON_PREF_STRING)) {
+                editor.putString(OVERLAY_TRIGGER_BUTTON_PREF_STRING, "lb_rb");
+            }
+            if (!prefs.contains(ENABLE_FLOATING_BUTTON_PREF_STRING)) {
+                editor.putBoolean(ENABLE_FLOATING_BUTTON_PREF_STRING, false);
+            }
+            if (!prefs.contains(DEADZONE_PREF_STRING)) {
+                editor.putInt(DEADZONE_PREF_STRING, 3);
+            }
+            if (!prefs.contains(GAMEPAD_MOTION_SENSORS_PREF_STRING)) {
+                editor.putBoolean(GAMEPAD_MOTION_SENSORS_PREF_STRING, false);
+            }
+            if (!prefs.contains(SOPS_PREF_STRING)) {
+                editor.putBoolean(SOPS_PREF_STRING, false);
+            }
+            if (!prefs.contains(EXACT_SLICES_PREF_STRING)) {
+                editor.putBoolean(EXACT_SLICES_PREF_STRING, false);
+            }
+            if (!prefs.contains(MAX_PENDING_AUDIO_MS_PREF_STRING)) {
+                editor.putInt(MAX_PENDING_AUDIO_MS_PREF_STRING, 20);
+            }
+            editor.apply();
+        }
+        else if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, false)) {
+            SharedPreferences.Editor editor = prefs.edit()
+                    .putBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, true);
+            if (!prefs.contains(VIDEO_RENDERER_PREF_STRING)) {
+                editor.putString(VIDEO_RENDERER_PREF_STRING, "vulkan");
+            }
+            if (!prefs.contains(SPATIAL_DITHERING_PREF_STRING)) {
+                editor.putString(SPATIAL_DITHERING_PREF_STRING, "high");
+            }
+            if (!prefs.contains(USB_DRIVER_PREF_SRING)) {
+                editor.putBoolean(USB_DRIVER_PREF_SRING, false);
+            }
+            if (!prefs.contains(VIBRATE_FALLBACK_PREF_STRING)) {
+                editor.putBoolean(VIBRATE_FALLBACK_PREF_STRING, false);
+            }
+            if ("latency".equals(prefs.getString(FRAME_PACING_PREF_STRING, null))) {
+                editor.putString(FRAME_PACING_PREF_STRING, "mibox-60hz");
+            }
+            if ("fast".equals(prefs.getString(VSYNC_MODE_PREF_STRING, null))) {
+                editor.putString(VSYNC_MODE_PREF_STRING, "off");
+            }
+            editor.putBoolean(ASYNC_DECODE_PREF_STRING, false);
+            editor.putBoolean(ASYNC_LFR_PREF_STRING, false);
+            editor.apply();
+        }
+        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, false)) {
+            SharedPreferences.Editor editor = prefs.edit()
+                    .putBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, true);
+            if (!prefs.contains(VULKAN_SHARPENING_PREF_STRING)) {
+                editor.putString(VULKAN_SHARPENING_PREF_STRING, "balanced");
+            }
+            if (!prefs.contains(FULL_RANGE_PREF_STRING)) {
+                editor.putBoolean(FULL_RANGE_PREF_STRING, true);
+            }
+            if (!prefs.contains(SPATIAL_DITHERING_PREF_STRING) ||
+                    "low".equals(prefs.getString(SPATIAL_DITHERING_PREF_STRING, null))) {
+                editor.putString(SPATIAL_DITHERING_PREF_STRING, "high");
+            }
+            editor.apply();
+        }
+        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, false)) {
+            prefs.edit()
+                    .putBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, true)
+                    .apply();
+        }
+        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, false)) {
+            SharedPreferences.Editor editor = prefs.edit()
+                    .putBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, true)
+                    .putBoolean(EXACT_SLICES_PREF_STRING, false);
+            if (!prefs.contains(MAX_PENDING_AUDIO_MS_PREF_STRING)) {
+                editor.putInt(MAX_PENDING_AUDIO_MS_PREF_STRING, 20);
+            }
+            editor.apply();
+        }
     }
 
     public static void completeLanguagePreferenceMigration(Context context) {
@@ -826,6 +1052,7 @@ public class PreferenceConfiguration {
 
     public static PreferenceConfiguration readPreferences(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        seedTvGamingDefaultsIfNeeded(prefs, isTvOrAmlogicDevice(context));
         PreferenceConfiguration config = new PreferenceConfiguration();
 
         // Migrate legacy preferences to the new locations
@@ -967,6 +1194,7 @@ public class PreferenceConfiguration {
         config.videoFormat = getVideoFormatValue(context);
         config.videoRenderer = getVideoRendererValue(context);
         config.spatialDithering = getSpatialDitheringValue(context);
+        config.vulkanSharpening = getVulkanSharpeningValue(context);
         config.framePacing = getFramePacingValue(context);
         config.warpFactor = warpFactorFor(prefs.getString(FRAME_PACING_PREF_STRING, DEFAULT_FRAME_PACING));
         config.jitterBuffer = getJitterBufferValue(context);
@@ -1034,6 +1262,11 @@ public class PreferenceConfiguration {
         config.touchSensitivity = prefs.getInt(TOUCH_SENSITIVITY_PREF_STRING, DEFAULT_TOUCH_SENSITIVITY);
         config.enablePerfOverlayLite = prefs.getBoolean(PERF_OVERLAY_LITE_PREF_STRING, false);
         config.preventPacketLoss = prefs.getBoolean(PREVENT_PACKET_LOSS_PREF_STRING, false);
+        config.fecPercentage = parseFecPercentage(prefs.getString(FEC_PERCENT_PREF_STRING, "-1"));
+        config.exactSlicesPerFrame = prefs.getBoolean(EXACT_SLICES_PREF_STRING, false);
+        config.maxPendingAudioMs = AndroidAudioRenderer.clampMaxPendingAudioMs(
+                prefs.getInt(MAX_PENDING_AUDIO_MS_PREF_STRING, AndroidAudioRenderer.DEFAULT_MAX_PENDING_AUDIO_MS));
+        config.enableSustainedPerformance = prefs.getBoolean(SUSTAINED_PERFORMANCE_PREF_STRING, false);
         config.virtualDisplayMode = prefs.getString(VIRTUAL_DISPLAY_MODE_PREF_STRING, "host");
         config.applyGameOption(VSYNC_MODE_PREF_STRING, prefs.getString(VSYNC_MODE_PREF_STRING, "off"));
         config.syncLfr = prefs.getBoolean(SYNC_LFR_PREF_STRING, false);
