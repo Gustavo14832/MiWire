@@ -199,6 +199,11 @@ void HostTimeline::addSample(int64_t scheduledPtsNs, int64_t arrivalNs) {
         const double coverage = std::min(coverage_, 1.0 - 2.0 / n);
         index = static_cast<size_t>(std::ceil(coverage * (n - 1)));
     }
+    else if (warmedUp_ && jitterBuffer_ == JitterBuffer::MiBox60Hz) {
+        // When already settled, quiet stretches (typing, static desktop) have few samples.
+        // Don't let a single one-off idle wakeup frame inflate target to the max cap.
+        index = (scratch_.size() - 1) / 2;
+    }
     std::nth_element(scratch_.begin(), scratch_.begin() + index, scratch_.end());
     const int64_t target = scratch_[index];
 
@@ -223,7 +228,12 @@ FramePacer::FramePacer(PacingMode mode, int streamFps, int64_t vsyncPeriodNs, Ji
       timeline_(mode == PacingMode::MiBox60Hz ? JitterBuffer::MiBox60Hz : jitterBuffer) {
     // Frames waiting out the buffer sit in the caller's queue (maxQueued()), which also holds
     // the frame due next and one being shown
-    timeline_.setMaxBufferNs(static_cast<int64_t>(kMaxQueuedFrames - 3) * streamIntervalNs_);
+    if (mode == PacingMode::MiBox60Hz) {
+        timeline_.setMaxBufferNs(10'000'000);
+    }
+    else {
+        timeline_.setMaxBufferNs(static_cast<int64_t>(kMaxQueuedFrames - 3) * streamIntervalNs_);
+    }
 }
 
 void FramePacer::setVsyncPeriod(int64_t periodNs) {
@@ -823,7 +833,12 @@ int64_t FramePacer::frameVsyncNs(const FrameTiming& frame, bool committable) con
         const int64_t nextSlot = lastPresentVsyncNs_ + slotVsyncs_ * periodNs_;
         const int64_t nextSlotIndex = vsyncIndex_ + (nextSlot - lastVsyncNs_ + periodNs_ / 2) / periodNs_;
         if (nextSlot > lastVsyncNs_ + periodNs_ / 2) {
-            if (planned <= lastPresentVsyncNs_ + periodNs_ / 2 && due > lastPresentVsyncNs_ - tolerance) {
+            if (mode_ == PacingMode::MiBox60Hz && planned <= lastPresentVsyncNs_ + periodNs_ / 2) {
+                // For 60 Hz 1:1 pacing, if the next VSync slot has not passed, present the new
+                // frame at the next slot rather than replacing and dropping the current one.
+                index = nextSlotIndex;
+            }
+            else if (planned <= lastPresentVsyncNs_ + periodNs_ / 2 && due > lastPresentVsyncNs_ - tolerance) {
                 // Only just due at the vsync the last frame was committed to: the next slot
                 // rather than replacing that frame
                 index = nextSlotIndex;
