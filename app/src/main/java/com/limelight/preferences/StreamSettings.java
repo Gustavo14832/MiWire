@@ -909,7 +909,7 @@ public class StreamSettings extends Activity {
             sourcePref.setSummary(getString(R.string.summary_about_source, BuildConfig.VERSION_NAME));
             sourcePref.setOnPreferenceClickListener(preference -> {
                 HelpLauncher.launchUrl(getActivity(),
-                        "https://github.com/SicarioGaming/Starwire/tree/v" + BuildConfig.VERSION_NAME);
+                        "https://github.com/Gustavo14832/Starwire/tree/v" + BuildConfig.VERSION_NAME);
                 return true;
             });
 

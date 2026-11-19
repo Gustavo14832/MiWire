@@ -3,11 +3,12 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FF0A0918"
+    android:background="#FF0D0F12"
     android:clipChildren="false"
-    tools:context=".preferences.StreamSettings">
+    tools:context=".preferences.StreamSettings"
+    tools:ignore="Overdraw">
 
-    <!-- The soft teal light in the corner -->
+    <!-- The soft amber/orange ambient light in the corner -->
     <View
         android:layout_width="700dp"
         android:layout_height="700dp"
@@ -16,7 +17,7 @@
         android:layout_marginBottom="-400dp"
         android:alpha="0.35"
         android:background="@drawable/cg_glow"
-        android:backgroundTint="#FF7C3AED"
+        android:backgroundTint="#FFFF6700"
         android:importantForAccessibility="no" />
 
     <!-- Stars and nebula over the glow -->

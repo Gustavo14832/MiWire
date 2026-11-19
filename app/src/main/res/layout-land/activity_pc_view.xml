@@ -5,10 +5,11 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    android:background="#FF0A0918"
+    android:background="#FF0D0F12"
     android:clipChildren="false"
     android:clipToPadding="false"
-    tools:context=".PcView" >
+    tools:context=".PcView"
+    tools:ignore="Overdraw" >
 
     <!-- Cover Glow: the soft teal light behind the PC list -->
     <View
@@ -20,7 +21,7 @@
         android:layout_marginEnd="-220dp"
         android:alpha="0.4"
         android:background="@drawable/cg_glow"
-        android:backgroundTint="#FF7C3AED"
+        android:backgroundTint="#FFFF6700"
         android:importantForAccessibility="no" />
 
     <!-- Stars and nebula over the glow -->
@@ -68,7 +69,8 @@
                 android:id="@+id/pcs_loading"
                 android:layout_width="75dp"
                 android:layout_height="75dp"
-                android:indeterminate="true"/>
+                android:indeterminate="true"
+                android:indeterminateTint="#FFFF6700"/>
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

@@ -160,9 +160,9 @@ public class PreferenceConfiguration {
     static final String DEFAULT_RESOLUTION = "1280x720";
     static final String DEFAULT_FPS = "60";
     private static final boolean DEFAULT_ENABLE_ULTRA_LOW_LATENCY = false;
-    private static final boolean DEFAULT_STRETCH = false;
+    private static final boolean DEFAULT_STRETCH = true;
     private static final boolean DEFAULT_SOPS = true;
-    private static final boolean DEFAULT_DISABLE_TOASTS = false;
+    private static final boolean DEFAULT_DISABLE_TOASTS = true;
     private static final boolean DEFAULT_HOST_AUDIO = false;
     private static final int DEFAULT_DEADZONE = 7;
     private static final int DEFAULT_OPACITY = 90;
@@ -213,12 +213,12 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_LATENCY_TOAST = false;
     private static final String DEFAULT_FRAME_PACING = "balanced";
     private static final boolean DEFAULT_ABSOLUTE_MOUSE_MODE = false;
-    private static final boolean DEFAULT_ENABLE_AUDIO_FX = false;
+    private static final boolean DEFAULT_ENABLE_AUDIO_FX = true;
     private static final boolean DEFAULT_REDUCE_REFRESH_RATE = false;
     private static final String DEFAULT_ACTUAL_DISPLAY_REFRESH_RATE = "";
     private static final boolean DEFAULT_FULL_RANGE = false;
     private static final boolean DEFAULT_GAMEPAD_TOUCHPAD_AS_MOUSE = false;
-    private static final boolean DEFAULT_GAMEPAD_MOTION_SENSORS = true;
+    private static final boolean DEFAULT_GAMEPAD_MOTION_SENSORS = false;
     private static final boolean DEFAULT_GAMEPAD_MOTION_FALLBACK = false;
     private static final boolean DEFAULT_DUALSENSE_EFFECTS = false;
     private static final String DEFAULT_OVERLAY_TRIGGER_BUTTON = "select";
@@ -236,6 +236,7 @@ public class PreferenceConfiguration {
     static final String TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v3";
     static final String TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v4";
     static final String TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v5";
+    static final String TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v6";
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -533,23 +534,7 @@ public class PreferenceConfiguration {
     }
 
     public static boolean getDefaultSmallMode(Context context) {
-        PackageManager manager = context.getPackageManager();
-        if (manager != null) {
-            // TVs shouldn't use small mode by default
-            if (manager.hasSystemFeature(PackageManager.FEATURE_TELEVISION)) {
-                return false;
-            }
-
-            // API 21 uses LEANBACK instead of TELEVISION
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-                if (manager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
-                    return false;
-                }
-            }
-        }
-
-        // Use small mode on anything smaller than a 7" tablet
-        return context.getResources().getConfiguration().smallestScreenWidthDp < 500;
+        return true;
     }
 
     public static int getDefaultBitrate(Context context) {
@@ -838,6 +823,7 @@ public class PreferenceConfiguration {
                 .remove(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING)
+                .remove(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING)
                 .apply();
     }
 
@@ -870,7 +856,8 @@ public class PreferenceConfiguration {
                     .putBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, true)
                     .putBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, true)
                     .putBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, true);
+                    .putBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, true)
+                    .putBoolean(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING, true);
             if (!prefs.contains(RESOLUTION_PREF_STRING)) {
                 editor.putString(RESOLUTION_PREF_STRING, RES_1080P);
             }
@@ -934,6 +921,39 @@ public class PreferenceConfiguration {
             if (!prefs.contains(MAX_PENDING_AUDIO_MS_PREF_STRING)) {
                 editor.putInt(MAX_PENDING_AUDIO_MS_PREF_STRING, 20);
             }
+            if (!prefs.contains(STRETCH_PREF_STRING)) {
+                editor.putBoolean(STRETCH_PREF_STRING, true);
+            }
+            if (!prefs.contains(ENABLE_AUDIO_FX_PREF_STRING)) {
+                editor.putBoolean(ENABLE_AUDIO_FX_PREF_STRING, true);
+            }
+            if (!prefs.contains(BACK_AS_META_PREF_STRING)) {
+                editor.putBoolean(BACK_AS_META_PREF_STRING, true);
+            }
+            if (!prefs.contains(SMALL_ICONS_PREF_STRING)) {
+                editor.putBoolean(SMALL_ICONS_PREF_STRING, true);
+            }
+            if (!prefs.contains(DISABLE_TOASTS_PREF_STRING)) {
+                editor.putBoolean(DISABLE_TOASTS_PREF_STRING, true);
+            }
+            if (!prefs.contains(BACK_OPENS_MENU_PREF_STRING)) {
+                editor.putBoolean(BACK_OPENS_MENU_PREF_STRING, false);
+            }
+            if (!prefs.contains(TOUCHSCREEN_TRACKPAD_PREF_STRING)) {
+                editor.putBoolean(TOUCHSCREEN_TRACKPAD_PREF_STRING, false);
+            }
+            if (!prefs.contains("checkbox_pinch_to_zoom")) {
+                editor.putBoolean("checkbox_pinch_to_zoom", false);
+            }
+            if (!prefs.contains(KEYBOARD_VIBRATE_PREF_STRING)) {
+                editor.putBoolean(KEYBOARD_VIBRATE_PREF_STRING, false);
+            }
+            if (!prefs.contains(VIBRATE_OSC_PREF_STRING)) {
+                editor.putBoolean(VIBRATE_OSC_PREF_STRING, false);
+            }
+            if (!prefs.contains(GAMEPAD_MOTION_FALLBACK_PREF_STRING)) {
+                editor.putBoolean(GAMEPAD_MOTION_FALLBACK_PREF_STRING, false);
+            }
             editor.apply();
         }
         else if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, false)) {
@@ -989,6 +1009,25 @@ public class PreferenceConfiguration {
                 editor.putInt(MAX_PENDING_AUDIO_MS_PREF_STRING, 20);
             }
             editor.apply();
+        }
+        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING, false)) {
+            prefs.edit()
+                    .putBoolean(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING, true)
+                    .putBoolean(STRETCH_PREF_STRING, true)
+                    .putBoolean(ENABLE_AUDIO_FX_PREF_STRING, true)
+                    .putBoolean(BACK_AS_META_PREF_STRING, true)
+                    .putBoolean(SMALL_ICONS_PREF_STRING, true)
+                    .putBoolean(DISABLE_TOASTS_PREF_STRING, true)
+                    .putBoolean(GAMEPAD_MOTION_SENSORS_PREF_STRING, false)
+                    .putBoolean(ENABLE_FLOATING_BUTTON_PREF_STRING, false)
+                    .putBoolean(BACK_OPENS_MENU_PREF_STRING, false)
+                    .putBoolean(TOUCHSCREEN_TRACKPAD_PREF_STRING, false)
+                    .putBoolean("checkbox_pinch_to_zoom", false)
+                    .putBoolean(KEYBOARD_VIBRATE_PREF_STRING, false)
+                    .putBoolean(VIBRATE_OSC_PREF_STRING, false)
+                    .putBoolean(VIBRATE_FALLBACK_PREF_STRING, false)
+                    .putBoolean(GAMEPAD_MOTION_FALLBACK_PREF_STRING, false)
+                    .apply();
         }
     }
 

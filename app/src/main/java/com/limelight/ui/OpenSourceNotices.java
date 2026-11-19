@@ -65,9 +65,9 @@ public final class OpenSourceNotices {
     private static final String USBIP = "libmoonlight_usbip.so";
 
     public static final Component[] ALL = {
-            new Component(APP, "Starwire", BuildConfig.VERSION_NAME, "GPL-3.0",
-                    "SicarioGaming", "GPL-3.0.txt",
-                    "https://github.com/SicarioGaming/Starwire",
+            new Component(APP, "MiWire", BuildConfig.VERSION_NAME, "GPL-3.0",
+                    "SicarioGaming & Gustavo14832", "GPL-3.0.txt",
+                    "https://github.com/Gustavo14832/Starwire",
                     RENDERER, "libevdev_reader.so"),
             new Component(APP, "Moonlight Android", null, "GPL-3.0",
                     "Cameron Gutman and the Moonlight contributors, with the forks in Credits",

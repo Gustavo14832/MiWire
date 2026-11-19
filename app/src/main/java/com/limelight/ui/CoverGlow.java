@@ -13,8 +13,8 @@ import android.os.Build;
  * background and frosted panels, keeping white text readable on both.
  */
 public final class CoverGlow {
-    // Violet, used before a cover has loaded or when a cover has no colour
-    public static final int DEFAULT_TINT = 0xFF7C3AED;
+    // Xiaomi Gaming Orange, used before a cover has loaded or when a cover has no colour
+    public static final int DEFAULT_TINT = 0xFFFF6700;
 
     private CoverGlow() {}
 

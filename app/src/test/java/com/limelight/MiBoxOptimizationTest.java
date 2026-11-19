@@ -81,6 +81,17 @@ public class MiBoxOptimizationTest {
         assertFalse(prefs.getBoolean("checkbox_exact_slices", true));
         assertEquals(20, prefs.getInt("seekbar_max_pending_audio_ms", 0));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
+        assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
+        assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
+        assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
+        assertTrue(prefs.getBoolean("checkbox_small_icon_mode", false));
+        assertTrue(prefs.getBoolean("checkbox_disable_warnings", false));
+        assertFalse(prefs.getBoolean("checkbox_enable_floating_button", true));
+        assertFalse(prefs.getBoolean("checkbox_back_opens_menu", true));
+        assertFalse(prefs.getBoolean("checkbox_touchscreen_trackpad", true));
+        assertFalse(prefs.getBoolean("checkbox_pinch_to_zoom", true));
+        assertFalse(prefs.getBoolean("checkbox_keyboard_vibrate", true));
 
         // User edits persist on subsequent calls
         prefs.edit()
@@ -114,6 +125,12 @@ public class MiBoxOptimizationTest {
         assertEquals(1, prefs.getBoolean("mibox_tv_gaming_defaults_v3", false) ? 1 : 0);
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v4", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
+        assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
+        assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
+        assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
+        assertTrue(prefs.getBoolean("checkbox_small_icon_mode", false));
+        assertTrue(prefs.getBoolean("checkbox_disable_warnings", false));
         assertFalse(prefs.getBoolean("checkbox_exact_slices", true));
         assertEquals(20, prefs.getInt("seekbar_max_pending_audio_ms", 0));
         assertEquals("vulkan", prefs.getString("video_renderer", ""));
@@ -150,6 +167,12 @@ public class MiBoxOptimizationTest {
         assertEquals(1, prefs.getBoolean("mibox_tv_gaming_defaults_v3", false) ? 1 : 0);
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v4", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
+        assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
+        assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
+        assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
+        assertTrue(prefs.getBoolean("checkbox_small_icon_mode", false));
+        assertTrue(prefs.getBoolean("checkbox_disable_warnings", false));
         assertFalse(prefs.getBoolean("checkbox_exact_slices", true));
         assertEquals(20, prefs.getInt("seekbar_max_pending_audio_ms", 0));
         assertEquals("high", prefs.getString("spatial_dithering", ""));
@@ -272,6 +295,12 @@ public class MiBoxOptimizationTest {
         PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
 
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
+        assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
+        assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
+        assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
+        assertTrue(prefs.getBoolean("checkbox_small_icon_mode", false));
+        assertTrue(prefs.getBoolean("checkbox_disable_warnings", false));
         assertFalse(prefs.getBoolean("checkbox_exact_slices", true));
         assertEquals(20, prefs.getInt("seekbar_max_pending_audio_ms", 0));
 

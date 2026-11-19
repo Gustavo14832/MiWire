@@ -720,6 +720,7 @@
     <string name="cg_section_pc">PC</string>
     <string name="cg_section_app">App</string>
     <string name="cg_section_advanced">Advanced</string>
+    <string name="cg_section_about">About</string>
 
     <!-- Cover Glow settings: the "Predicted impact" panel -->
     <string name="feel_title">Predicted impact</string>

@@ -128,12 +128,12 @@ public final class CoverGlowSettings {
             {R.string.category_host_settings, R.string.cg_section_pc},
             {R.string.category_ui_settings, R.string.cg_section_app},
             {R.string.category_advanced_settings, R.string.cg_section_advanced},
+            {R.string.category_about, R.string.cg_section_about},
     };
 
-    /** The plain-language name for a section heading, or null (only written in English). */
+    /** The plain-language name for a section heading, or null when not matched. */
     static String friendlyName(Context context, CharSequence title) {
-        Locale locale = context.getResources().getConfiguration().locale;
-        if (locale == null || !"en".equals(locale.getLanguage())) {
+        if (title == null) {
             return null;
         }
         for (int[] pair : FRIENDLY_NAMES) {
@@ -221,7 +221,7 @@ public final class CoverGlowSettings {
             name.setText(activity.getString(R.string.feel_factor_row, factor.name, factor.value));
             name.setTextColor(0xFFFFFFFF);
             name.setTextSize(13);
-            name.setMaxLines(2);
+            name.setMaxLines(3);
             row.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
             TextView effect = new TextView(activity);
@@ -327,13 +327,20 @@ public final class CoverGlowSettings {
         credit.animate().alpha(1f).setDuration(250).start();
     }
 
-    /** "Audio Settings" reads as "Audio" on a pill. */
+    /** "Audio Settings" reads as "Audio" on a pill, "Configurações de Áudio" reads as "Áudio". */
     static String shortName(CharSequence title) {
         String name = title.toString().trim();
+        String lower = name.toLowerCase();
         String suffix = " settings";
-        if (name.length() > suffix.length()
-                && name.toLowerCase().endsWith(suffix)) {
+        if (lower.endsWith(suffix) && name.length() > suffix.length()) {
             name = name.substring(0, name.length() - suffix.length());
+        } else if (lower.startsWith("configurações de ") && name.length() > 17) {
+            name = name.substring(17);
+        } else if (lower.startsWith("configurações ") && name.length() > 14) {
+            name = name.substring(14);
+        }
+        if (name.length() > 0) {
+            name = Character.toUpperCase(name.charAt(0)) + name.substring(1);
         }
         return name;
     }
