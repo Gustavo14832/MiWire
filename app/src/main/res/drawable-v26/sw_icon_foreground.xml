@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Starwire icon: an event-horizon ring in the app's rainbow around a dark void, a tilted orbit
+<!-- MiWire icon: an event-horizon ring in orange flame around a dark void, a tilted orbit
      for the "link", and a bright star on the rim. Kept inside the adaptive icon's 66dp safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
@@ -7,7 +7,7 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Soft glow behind the ring -->
+    <!-- Soft orange glow behind the ring -->
     <path android:pathData="M54,22a32,32 0,1 1,0 64a32,32 0,1 1,0 -64z">
         <aapt:attr name="android:fillColor">
             <gradient
@@ -15,8 +15,8 @@
                 android:centerX="54"
                 android:centerY="54"
                 android:gradientRadius="32"
-                android:startColor="#667C3AED"
-                android:endColor="#007C3AED" />
+                android:startColor="#66FF6700"
+                android:endColor="#00FF6700" />
         </aapt:attr>
     </path>
     <!-- The orbit, tilted -->
@@ -27,13 +27,13 @@
         <path
             android:pathData="M23,54a31,9.5 0,1 0,62 0a31,9.5 0,1 0,-62 0z"
             android:strokeWidth="1.8"
-            android:strokeColor="#B3C4B5FD" />
+            android:strokeColor="#99FF9800" />
     </group>
     <!-- The void -->
     <path
-        android:fillColor="#FF05040F"
+        android:fillColor="#FF0D0F12"
         android:pathData="M54,36a18,18 0,1 1,0 36a18,18 0,1 1,0 -36z" />
-    <!-- The ring -->
+    <!-- The ring — orange flame sweep -->
     <path
         android:pathData="M54,33a21,21 0,1 1,0 42a21,21 0,1 1,0 -42z"
         android:strokeWidth="5.5">
@@ -42,11 +42,11 @@
                 android:type="sweep"
                 android:centerX="54"
                 android:centerY="54">
-                <item android:offset="0" android:color="#FF0894FF" />
-                <item android:offset="0.25" android:color="#FFC959DD" />
-                <item android:offset="0.5" android:color="#FFFF2E54" />
-                <item android:offset="0.75" android:color="#FFFF9004" />
-                <item android:offset="1" android:color="#FF0894FF" />
+                <item android:offset="0"    android:color="#FFFF5722" />
+                <item android:offset="0.25" android:color="#FFFF9800" />
+                <item android:offset="0.5"  android:color="#FFFFC107" />
+                <item android:offset="0.75" android:color="#FFFF6D00" />
+                <item android:offset="1"    android:color="#FFFF5722" />
             </gradient>
         </aapt:attr>
     </path>

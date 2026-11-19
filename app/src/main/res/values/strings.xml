@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Shortcut strings -->
     <string name="scut_deleted_pc">PC deleted</string>
@@ -26,12 +26,12 @@
 
     <!-- Network test strings -->
     <string name="nettest_title_waiting">Testing Network Connection</string>
-    <string name="nettest_text_waiting">Starwire is testing your network connection to determine if any required ports are blocked.\n\nThis may take a few seconds…</string>
+    <string name="nettest_text_waiting">MiWire is testing your network connection to determine if any required ports are blocked.\n\nThis may take a few seconds…</string>
     <string name="nettest_title_done">Network Test Complete</string>
-    <string name="nettest_text_success">Your network does not appear to be blocking Starwire. If you still have trouble connecting, check your PC\'s firewall settings.\n\nIf you are trying to stream over the Internet, install the Moonlight Internet Hosting Tool on your PC and run the included Internet Streaming Tester to check your PC\'s Internet connection.</string>
+    <string name="nettest_text_success">Your network does not appear to be blocking MiWire. If you still have trouble connecting, check your PC\'s firewall settings.\n\nIf you are trying to stream over the Internet, install the Moonlight Internet Hosting Tool on your PC and run the included Internet Streaming Tester to check your PC\'s Internet connection.</string>
     <string name="nettest_text_inconclusive">The network test could not be performed because none of the Moonlight project\'s connection testing servers were reachable. Check your Internet connection or try again later.</string>
-    <string name="nettest_text_failure">Your device\'s current network connection seems to be blocking Starwire. Streaming over the Internet may not work while connected to this network.\n\nThe following network ports were blocked:\n</string>
-    <string name="nettest_text_blocked">Your device\'s current network connection is blocking Starwire. Streaming over the Internet may not work while connected to this network.</string>
+    <string name="nettest_text_failure">Your device\'s current network connection seems to be blocking MiWire. Streaming over the Internet may not work while connected to this network.\n\nThe following network ports were blocked:\n</string>
+    <string name="nettest_text_blocked">Your device\'s current network connection is blocking MiWire. Streaming over the Internet may not work while connected to this network.</string>
 
     <!-- Pair messages -->
     <string name="pairing">Pairing…</string>
@@ -67,7 +67,7 @@
 	    Using remote desktop software can also cause this error. Try rebooting your machine or reinstalling GFE.
     </string>
     <string name="title_decoding_error">Video Decoder Crashed</string>
-    <string name="message_decoding_error">Starwire has crashed due to an incompatibility with this device\'s video decoder. Try adjusting the streaming settings if the crashes continue.</string>
+    <string name="message_decoding_error">MiWire has crashed due to an incompatibility with this device\'s video decoder. Try adjusting the streaming settings if the crashes continue.</string>
     <string name="title_decoding_reset">Video Settings Reset</string>
     <string name="message_decoding_reset">Your device\'s video decoder continues to crash at your selected streaming settings. Your streaming settings have been reset to default.</string>
     <string name="error_usb_prohibited">USB access is prohibited by your device administrator. Check your Knox or MDM settings.</string>
@@ -193,14 +193,14 @@
     <string name="summary_seekbar_vibrate_fallback_strength">Amplify or reduce the vibration intensity on your device</string>
     <string name="suffix_seekbar_vibrate_fallback_strength">%</string>
     <string name="title_seekbar_deadzone">Adjust analog stick deadzone</string>
-    <string name="summary_seekbar_deadzone">Note: Some games can enforce a larger deadzone than what Starwire is configured to use.</string>
+    <string name="summary_seekbar_deadzone">Note: Some games can enforce a larger deadzone than what MiWire is configured to use.</string>
     <string name="suffix_seekbar_deadzone">%</string>
     <string name="title_checkbox_xb1_driver">Xbox 360/One USB gamepad driver</string>
     <string name="summary_checkbox_xb1_driver">Enables a built-in USB driver for devices without native Xbox controller support</string>
     <string name="title_checkbox_usb_bind_all">Override native Xbox gamepad support</string>
-    <string name="summary_checkbox_usb_bind_all">Use Starwire\'s USB driver for all supported gamepads, even if native Xbox controller support is present</string>
+    <string name="summary_checkbox_usb_bind_all">Use MiWire\'s USB driver for all supported gamepads, even if native Xbox controller support is present</string>
     <string name="title_checkbox_usb_share">USB devices (Experimental)</string>
-    <string name="summary_checkbox_usb_share">Share a wired device plugged into this phone with the PC, from the stream menu. The PC needs Starwire\'s USB helper, and this phone paired with its microphone receiver.</string>
+    <string name="summary_checkbox_usb_share">Share a wired device plugged into this phone with the PC, from the stream menu. The PC needs MiWire\'s USB helper, and this phone paired with its microphone receiver.</string>
     <string name="title_checkbox_mouse_emulation">Mouse emulation via gamepad</string>
     <string name="summary_checkbox_mouse_emulation">Long pressing the Start button will switch the gamepad into mouse mode</string>
     <string name="title_checkbox_flip_face_buttons">Flip face buttons</string>
@@ -243,10 +243,10 @@
     <string name="dualsense_status_off">Off. The DualSense works as it always has.</string>
     <string name="dualsense_status_checking">Looking for the DualSense.</string>
     <string name="dualsense_status_needs_android_12">Needs Android 12 or newer. The DualSense works as it always has.</string>
-    <string name="dualsense_status_no_permission">Starwire doesn\'t have the Nearby devices permission. Turn the switch off and on to ask again.</string>
+    <string name="dualsense_status_no_permission">MiWire doesn\'t have the Nearby devices permission. Turn the switch off and on to ask again.</string>
     <string name="dualsense_status_bluetooth_off">Bluetooth is off.</string>
     <string name="dualsense_status_no_hid_service">Android\'s Bluetooth controller service didn\'t answer. The DualSense works as it always has.</string>
-    <string name="dualsense_status_no_call_form">This device doesn\'t have the hidden Android call Starwire uses. The DualSense works as it always has.</string>
+    <string name="dualsense_status_no_call_form">This device doesn\'t have the hidden Android call MiWire uses. The DualSense works as it always has.</string>
     <string name="dualsense_status_no_pad">No DualSense connected over Bluetooth. Pair it in Android\'s Bluetooth settings. A pad on a cable isn\'t supported yet.</string>
     <string name="dualsense_status_two_pads">More than one DualSense is connected. Trigger effects work with one at a time for now.</string>
     <string name="dualsense_status_send_failed">Android wouldn\'t send to the pad. The DualSense works as it always has.</string>
@@ -276,7 +276,7 @@
     <string name="summary_checkbox_force_qwerty">Sends a physical keyboard\'s keys to the PC as QWERTY, which is what the host expects. Turn this off to keep another layout. Needs Android 13 or newer.</string>
     <string name="title_checkbox_back_as_meta">Back button as Meta</string>
     <string name="summary_checkbox_back_as_meta">Sends the Meta (Windows) key when a physical Back button is pressed.</string>
-    <string name="keyboard_service_label">Starwire Physical keyboard</string>
+    <string name="keyboard_service_label">MiWire Physical keyboard</string>
     <string name="accessibility_description_text">Only used while you stream with a physical keyboard. Android keeps some shortcuts for itself, such as Alt+Tab and the Win key, so they never reach the PC. This service passes them to the stream. It only acts on key presses while a stream is running, and it does not store or send what you type.</string>
 
     <string name="category_on_screen_controls_settings">On-screen Controls Settings</string>
@@ -302,7 +302,7 @@
     <string name="title_checkbox_enable_pip">Enable Picture-in-Picture observer mode</string>
     <string name="summary_checkbox_enable_pip">Allows the stream to be viewed (but not controlled) while multitasking</string>
     <string name="title_language_list">Language</string>
-    <string name="summary_language_list">Language to use for Starwire</string>
+    <string name="summary_language_list">Language to use for MiWire</string>
     <string name="title_checkbox_small_icon_mode">Use small box art</string>
     <string name="summary_checkbox_small_icon_mode">Smaller box art in the app grid allows more apps to be visible on screen</string>
 
@@ -355,7 +355,7 @@
     <string name="toast_controller_type_changed">Gamepad type may be changed due to motion sensor emulation</string>
 
     <!-- Permission justification -->
-    <string name="local_network_rationale">Starwire requires local network permissions to communicate with nearby hosts</string>
+    <string name="local_network_rationale">MiWire requires local network permissions to communicate with nearby hosts</string>
 
     <!-- Array strings -->
     <string name="resolution_720p">720p</string>
@@ -386,19 +386,19 @@
     <string name="summary_video_renderer">Vulkan adds dithering and native frame pacing. Automatic uses the direct renderer.</string>
 
     <string name="title_custom_vulkan_driver">Custom Vulkan driver (experimental)</string>
-    <string name="summary_custom_vulkan_driver">Not yet tried with a real Turnip driver. Loads a Vulkan driver file you choose, such as Turnip, for PyroWave on 64-bit ARM devices with Android 10 or newer; other codecs keep the system driver. If the driver can\'t load or can\'t run PyroWave, the system driver is used instead, but a driver that crashes closes Starwire. Restart Starwire after changing it.</string>
+    <string name="summary_custom_vulkan_driver">Not yet tried with a real Turnip driver. Loads a Vulkan driver file you choose, such as Turnip, for PyroWave on 64-bit ARM devices with Android 10 or newer; other codecs keep the system driver. If the driver can\'t load or can\'t run PyroWave, the system driver is used instead, but a driver that crashes closes MiWire. Restart MiWire after changing it.</string>
     <string name="title_custom_vulkan_driver_path">Custom driver file</string>
-    <string name="summary_custom_vulkan_driver_path">Tap to choose the driver (.so, .zip or .adpkg). Starwire checks it\'s a 64-bit ARM library, then copies it into its own storage.</string>
+    <string name="summary_custom_vulkan_driver_path">Tap to choose the driver (.so, .zip or .adpkg). MiWire checks it\'s a 64-bit ARM library, then copies it into its own storage.</string>
     <string name="summary_custom_vulkan_driver_file">%1$s\nSHA-256: %2$s</string>
-    <string name="summary_custom_vulkan_driver_unchecked">%1$s was imported by an older Starwire that didn\'t record its SHA-256, so it isn\'t used. Tap to choose it again.</string>
+    <string name="summary_custom_vulkan_driver_unchecked">%1$s was imported by an older MiWire that didn\'t record its SHA-256, so it isn\'t used. Tap to choose it again.</string>
     <string name="custom_vulkan_driver_imported">Custom driver imported: %1$s</string>
     <string name="custom_vulkan_driver_import_failed">Could not import the custom driver</string>
     <string name="custom_vulkan_driver_no_picker">No file picker available</string>
     <string name="title_remove_custom_vulkan_driver">Remove the custom driver</string>
-    <string name="summary_remove_custom_vulkan_driver">Deletes the driver file from Starwire\'s storage.</string>
+    <string name="summary_remove_custom_vulkan_driver">Deletes the driver file from MiWire\'s storage.</string>
     <string name="custom_vulkan_driver_removed">Custom driver removed</string>
     <string name="custom_vulkan_driver_warning_title">Turn on the custom driver?</string>
-    <string name="custom_vulkan_driver_warning_message">This loads a graphics driver file that you choose into Starwire. It\'s only used for PyroWave streams.\n\nThe driver runs as part of Starwire, with the same access as the app: your network, your microphone if you\'ve allowed it, and the keys for your paired PCs. Only use a driver file from a source you trust.\n\nIf the driver can\'t load or can\'t run PyroWave, Starwire goes back to the normal driver. A driver that crashes closes Starwire instead.\n\nThis is experimental and hasn\'t been tried with a real Turnip driver yet.</string>
+    <string name="custom_vulkan_driver_warning_message">This loads a graphics driver file that you choose into MiWire. It\'s only used for PyroWave streams.\n\nThe driver runs as part of MiWire, with the same access as the app: your network, your microphone if you\'ve allowed it, and the keys for your paired PCs. Only use a driver file from a source you trust.\n\nIf the driver can\'t load or can\'t run PyroWave, MiWire goes back to the normal driver. A driver that crashes closes MiWire instead.\n\nThis is experimental and hasn\'t been tried with a real Turnip driver yet.</string>
     <string name="custom_vulkan_driver_warning_accept">Turn on</string>
     <string name="title_custom_vulkan_driver_toast">Driver loaded toast</string>
     <string name="summary_custom_vulkan_driver_toast">Show a message when the custom Vulkan driver is loaded.</string>
@@ -648,7 +648,7 @@
     <string name="usb_share_rule_unconfirmed">Keyboards and mice need your yes on this phone first.</string>
     <string name="usb_share_rule_configurations">It has more than one configuration.</string>
     <string name="usb_share_rule_unreadable">Its descriptors don\'t add up.</string>
-    <string name="usb_share_rule_other_class">Starwire doesn\'t share this kind of device.</string>
+    <string name="usb_share_rule_other_class">MiWire doesn\'t share this kind of device.</string>
     <string name="usb_share_rule_mismatch">It sent the PC something it hadn\'t described.</string>
     <string name="usb_share_rule_too_fast">It\'s a USB 3 device.</string>
     <string name="usb_share_rule_other">The device rules refused it.</string>
@@ -668,22 +668,22 @@
     <string name="usb_share_lost_toast">Lost the connection to the PC. %1$s is back on this phone.</string>
     <string name="usb_share_connect_failed">Couldn\'t start sharing it. Try again in a moment.</string>
     <string name="usb_share_ended">Sharing stopped.</string>
-    <string name="usb_share_permission_denied">Android didn\'t let Starwire use it.</string>
+    <string name="usb_share_permission_denied">Android didn\'t let MiWire use it.</string>
 
     <!-- Starwire: Warp Drive / Warp 2 pacing (from Artemide), cursor hiding, long-press right click -->
     <string name="pacing_warp">Warp Drive: 2x FPS from the PC, newest frame shown (Experimental)</string>
     <string name="pacing_warp2">Warp 2: 4x FPS from the PC, newest frame shown (Experimental)</string>
     <string name="title_hide_cursor_mode">Hide PC cursor</string>
-    <string name="summary_hide_cursor_mode">Hide the PC\'s mouse cursor in the video, using Vibepollo\'s Ctrl+Alt+Shift+N toggle. It\'s shown again when the stream ends, or the next time you connect if Starwire was closed suddenly. If it\'s ever the wrong way round, use Fix PC Cursor in the stream menu.</string>
+    <string name="summary_hide_cursor_mode">Hide the PC\'s mouse cursor in the video, using Vibepollo\'s Ctrl+Alt+Shift+N toggle. It\'s shown again when the stream ends, or the next time you connect if MiWire was closed suddenly. If it\'s ever the wrong way round, use Fix PC Cursor in the stream menu.</string>
     <string name="hide_cursor_never">Never</string>
     <string name="hide_cursor_touching">While touching the screen</string>
     <string name="hide_cursor_always">Always</string>
     <string name="overlay_menu_fix_host_cursor">Fix PC Cursor</string>
     <string name="host_cursor_fix_sent">Switched the PC cursor. If it\'s still wrong, tap Fix PC Cursor again.</string>
-    <string name="host_cursor_reconciled">The PC cursor was left hidden last time, so Starwire turned it back on.</string>
+    <string name="host_cursor_reconciled">The PC cursor was left hidden last time, so MiWire turned it back on.</string>
 
-    <!-- Starwire: Cover Glow home screen -->
-    <string name="cg_wordmark" translatable="false">Starwire</string>
+    <!-- MiWire: Cover Glow home screen -->
+    <string name="cg_wordmark" translatable="false">MiWire</string>
     <string name="cg_play">Play</string>
     <string name="cg_resume">Resume</string>
     <string name="cg_quit">Quit</string>
@@ -707,7 +707,7 @@
     <string name="cg_back">Back</string>
     <string name="cg_settings">Settings</string>
     <string name="cg_settings_for">%1$s settings</string>
-    <color name="cg_settings_background">#FF0A0918</color>
+    <color name="cg_settings_background">#FF0D0F12</color>
 
     <!-- Cover Glow settings: plain-language section names (English only; other languages keep
          their translated headings) -->
@@ -820,16 +820,16 @@
     <string name="summary_overlay_menu">Configure custom commands for the in-game overlay menu</string>
     <string name="title_enable_overlay_menu">Enable overlay menu</string>
     <string name="summary_enable_overlay_menu">Hold select button for 5 seconds during streaming to open the overlay menu</string>
-    <!-- Sending the microphone: to Starwire's receiver on the PC (encrypted), to another VBAN
+    <!-- Sending the microphone: to MiWire's receiver on the PC (encrypted), to another VBAN
          receiver (not encrypted), or over the stream (logabell's Apollo build) -->
     <string name="title_checkbox_enable_microphone">Send my microphone</string>
     <string name="summary_checkbox_enable_microphone">Talk in voice chat on the PC. Works with Vibepollo, Sunshine and Apollo through a small receiver on the PC, or over the stream with logabell\'s Apollo build.</string>
     <string name="title_microphone_target">Send my microphone to</string>
     <string name="microphone_target_host">The PC\'s streaming app (logabell\'s Apollo build)</string>
-    <string name="microphone_target_starwire">Starwire\'s receiver on the PC (encrypted)</string>
+    <string name="microphone_target_starwire">MiWire\'s receiver on the PC (encrypted)</string>
     <string name="microphone_target_vban">Not encrypted (for Voicemeeter or other VBAN apps)</string>
     <string name="title_vban_setup">Set up the PC</string>
-    <string name="summary_mic_setup_encrypted">Run Starwire\'s microphone setup on the PC once. It installs VB-Cable (a free virtual microphone) and Starwire\'s receiver. Then pair with the PC below, and choose CABLE Output as the microphone in Discord or the game. Tap for the guide.</string>
+    <string name="summary_mic_setup_encrypted">Run MiWire\'s microphone setup on the PC once. It installs VB-Cable (a free virtual microphone) and MiWire\'s receiver. Then pair with the PC below, and choose CABLE Output as the microphone in Discord or the game. Tap for the guide.</string>
     <string name="summary_vban_setup">Not encrypted: anyone on the same network can listen to your microphone or send sound into the PC\'s microphone. Use it only for Voicemeeter or another VBAN app, on a network you trust. Set it to receive stream %2$s from %1$s (or this device\'s VPN address over a VPN), port %3$d, and play it into CABLE Input; then choose CABLE Output as the microphone in Discord or the game. Tap for the guide.</string>
     <string name="title_mic_pairing">Pair with the PC</string>
     <string name="summary_mic_pairing_none">Not paired yet. Tap, then type the code the PC shows.</string>
@@ -839,42 +839,42 @@
     <string name="summary_vban_stream_name">%1$s. Must match the stream name on the PC\'s receiver.</string>
     <string name="title_vban_port">Microphone port</string>
     <string name="summary_vban_port">%1$s. 6980 unless you changed it on the PC.</string>
-    <string name="microphone_vban_not_home">The microphone wasn\'t sent. VBAN isn\'t encrypted, so Starwire only sends it to a PC on your home network or a private VPN.</string>
+    <string name="microphone_vban_not_home">The microphone wasn\'t sent. VBAN isn\'t encrypted, so MiWire only sends it to a PC on your home network or a private VPN.</string>
     <string name="microphone_vban_failed">Couldn\'t start sending the microphone over VBAN</string>
-    <string name="microphone_secure_not_home">The microphone wasn\'t sent. Starwire only sends it to a PC on your home network or a private VPN.</string>
+    <string name="microphone_secure_not_home">The microphone wasn\'t sent. MiWire only sends it to a PC on your home network or a private VPN.</string>
     <string name="microphone_secure_failed">Couldn\'t start sending the microphone to the PC\'s receiver</string>
-    <string name="microphone_secure_not_paired">Your microphone wasn\'t sent: pair Starwire with this PC first (Settings, Sound and vibration, Send my microphone, Pair with the PC).</string>
+    <string name="microphone_secure_not_paired">Your microphone wasn\'t sent: pair MiWire with this PC first (Settings, Sound and vibration, Send my microphone, Pair with the PC).</string>
     <string name="microphone_secure_no_answer">The PC\'s microphone receiver isn\'t answering, so your microphone isn\'t being sent. Check the receiver is running and up to date, or pair again.</string>
     <string name="microphone_secure_busy">The PC is already receiving another device\'s microphone.</string>
     <string name="microphone_secure_no_output">The PC\'s receiver can\'t find VB-Cable. Run the microphone setup on the PC again.</string>
     <!-- Pairing with the PC's microphone receiver -->
     <string name="mic_pair_title">Pair with the PC</string>
-    <string name="mic_pair_message">On the PC, right-click the Starwire microphone icon by the clock and choose Pair a device. Then pick the PC here and type the code it shows.</string>
+    <string name="mic_pair_message">On the PC, right-click the MiWire microphone icon by the clock and choose Pair a device. Then pick the PC here and type the code it shows.</string>
     <!-- The hyphens are the code's own, as the PC shows it -->
     <string name="mic_pair_code_hint" tools:ignore="TypographyDashes">Code, like 2491-650N-2RBH-G690</string>
     <string name="mic_pair_button">Pair</string>
     <string name="mic_pair_working">Pairing with %1$s. This takes a few seconds.</string>
-    <string name="mic_pair_no_pcs">Add your PC to Starwire first: find it on the main screen and pair it for streaming. Then come back here.</string>
+    <string name="mic_pair_no_pcs">Add your PC to MiWire first: find it on the main screen and pair it for streaming. Then come back here.</string>
     <string name="mic_pair_done">Paired with %1$s. Your microphone is encrypted from now on.</string>
     <string name="mic_pair_bad_code" tools:ignore="TypographyDashes">The code is 16 letters and numbers, like 2491-650N-2RBH-G690.</string>
     <string name="mic_pair_wrong_code">That code didn\'t match. It changes each time you open Pair a device on the PC.</string>
-    <string name="mic_pair_not_pairing">The PC isn\'t waiting to pair. Right-click the Starwire microphone icon by the PC\'s clock and choose Pair a device.</string>
+    <string name="mic_pair_not_pairing">The PC isn\'t waiting to pair. Right-click the MiWire microphone icon by the PC\'s clock and choose Pair a device.</string>
     <string name="mic_pair_expired">That code has expired. Choose Pair a device on the PC again.</string>
-    <string name="mic_pair_no_answer">No answer from the receiver on %1$s. Check its icon is by the PC\'s clock. If you set it up with Starwire 0.2.0, run the new setup from the Windows zip first.</string>
-    <string name="mic_pair_no_address">Starwire doesn\'t know a home-network or VPN address for %1$s. Stream from it once on your home network, then try again.</string>
+    <string name="mic_pair_no_answer">No answer from the receiver on %1$s. Check its icon is by the PC\'s clock. If you set it up with MiWire 0.2.0, run the new setup from the Windows zip first.</string>
+    <string name="mic_pair_no_address">MiWire doesn\'t know a home-network or VPN address for %1$s. Stream from it once on your home network, then try again.</string>
     <string name="mic_pair_failed">Pairing didn\'t work. Choose Pair a device on the PC again and type the new code.</string>
-    <string name="mic_pair_not_saved">Paired, but Starwire couldn\'t save the pairing. Try again.</string>
+    <string name="mic_pair_not_saved">Paired, but MiWire couldn\'t save the pairing. Try again.</string>
     <!-- Sharing a USB device with the PC's USB helper, through the tunnel (docs/dev/usb-protocol.md) -->
     <string name="usb_tunnel_no_pairing">Nothing was shared. USB sharing uses the microphone\'s pairing, so pair the microphone with this PC first (Settings, Sound and vibration, Send my microphone, Pair with the PC).</string>
-    <string name="usb_tunnel_not_home">Nothing was shared. Starwire only shares USB devices with a PC on your home network or a private VPN.</string>
+    <string name="usb_tunnel_not_home">Nothing was shared. MiWire only shares USB devices with a PC on your home network or a private VPN.</string>
     <string name="usb_tunnel_cant_reach">Couldn\'t reach the USB helper on the PC. Check that it\'s running and that USB is on in its menu.</string>
     <string name="usb_tunnel_no_answer">The USB helper on the PC didn\'t answer, so nothing was shared. Check that USB is on in its menu.</string>
     <string name="usb_tunnel_not_verified">The PC\'s answer didn\'t check out, so nothing was shared.</string>
-    <string name="usb_tunnel_update_starwire">The USB helper on the PC is newer than this Starwire. Update Starwire to share devices with it.</string>
-    <string name="usb_tunnel_update_helper">The USB helper on the PC is too old for this Starwire. Update it on the PC.</string>
+    <string name="usb_tunnel_update_starwire">The USB helper on the PC is newer than this MiWire. Update MiWire to share devices with it.</string>
+    <string name="usb_tunnel_update_helper">The USB helper on the PC is too old for this MiWire. Update it on the PC.</string>
     <string name="usb_tunnel_refused">The PC refused the connection, so nothing was shared.</string>
     <string name="usb_tunnel_refused_not_paired">The PC says this phone isn\'t paired with it. Pair the microphone with this PC again.</string>
-    <string name="usb_tunnel_refused_version">The PC says it has no version in common with this Starwire. Update Starwire and the USB helper.</string>
+    <string name="usb_tunnel_refused_version">The PC says it has no version in common with this MiWire. Update MiWire and the USB helper.</string>
     <string name="usb_tunnel_refused_not_allowed">On the PC, tick Allow USB for this phone in the USB helper\'s menu.</string>
     <string name="usb_tunnel_busy">Another device is already shared with this PC.</string>
     <string name="usb_tunnel_device_refused">The PC refused this device: %1$s.</string>
@@ -889,8 +889,8 @@
     <string name="usb_tunnel_ended_by_pc">The PC stopped sharing.</string>
     <string name="usb_tunnel_stopped">Sharing stopped.</string>
     <string name="usb_tunnel_lost">The connection to the PC dropped. You can share the device again.</string>
-    <string name="usb_tunnel_protocol">The PC sent something Starwire didn\'t expect, so sharing stopped.</string>
-    <string name="usb_tunnel_device_gone">The device was unplugged, or Starwire couldn\'t read it, so sharing stopped.</string>
+    <string name="usb_tunnel_protocol">The PC sent something MiWire didn\'t expect, so sharing stopped.</string>
+    <string name="usb_tunnel_device_gone">The device was unplugged, or MiWire couldn\'t read it, so sharing stopped.</string>
     <!-- Each one finishes "The PC refused this device: " or "the device broke a rule: " -->
     <string name="usb_rule_hub">it\'s a USB hub</string>
     <string name="usb_rule_storage">it\'s storage, like a drive, a camera or a phone</string>
@@ -899,17 +899,17 @@
     <string name="usb_rule_unconfirmed_input">it\'s a keyboard or mouse, and you didn\'t say yes to sharing it</string>
     <string name="usb_rule_configurations">it has more than one configuration</string>
     <string name="usb_rule_unreadable">its descriptors don\'t read, or don\'t fit together</string>
-    <string name="usb_rule_other_class">it\'s a kind of device Starwire doesn\'t share</string>
+    <string name="usb_rule_other_class">it\'s a kind of device MiWire doesn\'t share</string>
     <string name="usb_rule_mismatch">it sent Windows something it hadn\'t described</string>
-    <string name="usb_rule_too_fast">it\'s a USB 3 device, faster than Starwire can share</string>
-    <string name="usb_rule_unknown">a rule this Starwire doesn\'t know yet</string>
+    <string name="usb_rule_too_fast">it\'s a USB 3 device, faster than MiWire can share</string>
+    <string name="usb_rule_unknown">a rule this MiWire doesn\'t know yet</string>
     <string name="title_microphone_host_info">Get the Apollo build for microphone</string>
     <string name="summary_microphone_host_info">Opens logabell\'s Apollo on GitHub. Install it on the PC in place of your current host.</string>
     <string name="title_microphone_device_list">Microphone</string>
     <string name="summary_microphone_device_list">Which microphone to send</string>
     <string name="microphone_device_default">Default microphone</string>
     <string name="microphone_preview_inactive">Microphone off</string>
-    <string name="microphone_preview_permission_required">Starwire needs microphone permission</string>
+    <string name="microphone_preview_permission_required">MiWire needs microphone permission</string>
     <string name="microphone_preview_selected_missing">That microphone isn\'t connected, so the default one is used</string>
     <string name="microphone_preview_default_active">Using the default microphone</string>
     <string name="microphone_preview_selected_active">Using the chosen microphone</string>
@@ -918,7 +918,7 @@
     <string name="microphone_capture_start_failed">Couldn\'t open the microphone</string>
     <string name="microphone_permission_denied">Microphone permission denied</string>
     <string name="microphone_host_not_negotiated">This PC can\'t receive your microphone. It needs logabell\'s Apollo build.</string>
-    <string name="microphone_stream_permission_revoked">Microphone is off because Starwire doesn\'t have permission to use it</string>
+    <string name="microphone_stream_permission_revoked">Microphone is off because MiWire doesn\'t have permission to use it</string>
     <string name="microphone_stream_start_failed">Couldn\'t start the microphone. The stream carries on without it.</string>
 
     <!-- The "Impact:" line under settings (SettingsImpact.java). Keep each one short and free of percent signs. -->
@@ -931,13 +931,13 @@
     <string name="impact_jitter_buffer">A bigger buffer rides out patchy Wi-Fi but adds latency.</string>
     <string name="impact_vsync">On removes tearing but adds up to one frame of latency.</string>
     <string name="impact_sync_lfr">On lowers latency by skipping late frames. Motion can look less even under load.</string>
-    <string name="impact_async_decode">On can cut decode delay on some devices (not measured in Starwire yet). Turn it off if video stalls.</string>
+    <string name="impact_async_decode">On can cut decode delay on some devices (not measured in MiWire yet). Turn it off if video stalls.</string>
     <string name="impact_async_lfr">On gives the lowest delay but can drop frames under load.</string>
     <string name="impact_ultra_low_latency">Can lower decode latency on the chips listed. No gain on others; turn it off if video glitches.</string>
     <string name="impact_surround">Surround uses a little more bandwidth. No change to latency.</string>
     <string name="impact_audiofx">Can add audio delay. Leave it off unless you use an equalizer.</string>
     <string name="impact_microphone">Uses a little upload bandwidth and battery. No change to video.</string>
-    <string name="impact_microphone_target">Over the stream it\'s compressed to about 24 kbps. To a receiver on the PC it goes uncompressed, just under 1 Mbps, and only to a PC on your home network or a private VPN. Starwire\'s receiver gets it encrypted; the other VBAN option isn\'t encrypted. No change to video.</string>
+    <string name="impact_microphone_target">Over the stream it\'s compressed to about 24 kbps. To a receiver on the PC it goes uncompressed, just under 1 Mbps, and only to a PC on your home network or a private VPN. MiWire\'s receiver gets it encrypted; the other VBAN option isn\'t encrypted. No change to video.</string>
     <string name="impact_audio_haptics">Uses some battery. No change to the stream.</string>
     <string name="impact_deadzone">Lower feels more responsive, but worn sticks may drift.</string>
     <string name="impact_prevent_packet_loss">For devices whose Wi-Fi naps between packets. Slightly more battery.</string>
@@ -948,7 +948,7 @@
     <string name="impact_exact_slices">Can reduce decode hiccups on Amlogic decoders. Minimal bandwidth impact.</string>
     <string name="impact_pyrowave_late_frames">Accepting more blur keeps the stream smooth when frames arrive late.</string>
     <string name="impact_video_renderer">Vulkan paces frames more evenly for a small GPU cost. Direct has the least overhead.</string>
-    <string name="impact_custom_vulkan_driver">Experimental and not yet tried with a real Turnip driver. A bad driver can close Starwire.</string>
+    <string name="impact_custom_vulkan_driver">Experimental and not yet tried with a real Turnip driver. A bad driver can close MiWire.</string>
     <string name="impact_spatial_dithering">Small GPU cost. No change to latency.</string>
     <string name="impact_vulkan_sharpening">Small GPU cost. No change to latency.</string>
     <string name="impact_hdr">Uses 10-bit video, which needs hardware HEVC or AV1 decoding. Slower devices may take longer per frame.</string>

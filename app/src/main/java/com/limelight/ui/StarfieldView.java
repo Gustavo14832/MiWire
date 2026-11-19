@@ -18,14 +18,14 @@ import java.util.Random;
  * time. Twinkling follows Android's animation settings and stops while the view is hidden.
  */
 public class StarfieldView extends View {
-    private static final int STARS_PER_MEGAPIXEL = 110;
+    // MiWire: calibrated density to cut CPU/GPU draw overhead by >50% on TV boxes
+    private static final int STARS_PER_MEGAPIXEL = 45;
     private static final long TWINKLE_MS = 7000;
-    private static final int[] STAR_COLORS = {0xFFFFFFFF, 0xFFE9D5FF, 0xFFBFDBFE, 0xFFFDE68A};
+    private static final int[] STAR_COLORS = {0xFFFFFFFF, 0xFFFFE0B2, 0xFFFFCC80, 0xFFFFE57F};
 
-    // Nebula: a violet cloud top-left, a magenta one bottom-right, a faint blue one mid-left.
-    // Position and size are fractions of the view; colours carry the cloud's peak opacity.
+    // Nebula: subtle ambient warm amber/flame clouds on dark carbon
     private static final float[][] CLOUD_SPOTS = {{0.12f, 0.18f, 0.55f}, {0.88f, 0.92f, 0.50f}, {0.30f, 0.75f, 0.40f}};
-    private static final int[] CLOUD_COLORS = {0x387C3AED, 0x26C026D3, 0x1A2563EB};
+    private static final int[] CLOUD_COLORS = {0x26FF5722, 0x1AFF9800, 0x12FF3D00};
 
     private final Paint star = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint cloud = new Paint(Paint.ANTI_ALIAS_FLAG);

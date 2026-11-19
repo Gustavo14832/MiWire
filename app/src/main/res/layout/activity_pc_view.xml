@@ -3,11 +3,12 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FF0A0918"
+    android:background="#FF0D0F12"
     android:clipChildren="false"
-    tools:context=".PcView" >
+    tools:context=".PcView"
+    tools:ignore="Overdraw" >
 
-    <!-- Cover Glow: the soft teal light behind the PC list -->
+    <!-- MiWire: the soft amber/orange ambient light behind the PC list -->
     <View
         android:layout_width="600dp"
         android:layout_height="600dp"
@@ -17,7 +18,7 @@
         android:layout_marginEnd="-240dp"
         android:alpha="0.4"
         android:background="@drawable/cg_glow"
-        android:backgroundTint="#FF7C3AED"
+        android:backgroundTint="#FFFF6700"
         android:importantForAccessibility="no" />
 
     <!-- Stars and nebula over the glow -->

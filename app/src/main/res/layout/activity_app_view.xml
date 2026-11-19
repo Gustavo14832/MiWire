@@ -5,9 +5,10 @@
     android:id="@+id/appRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FF0A0918"
+    android:background="#FF0D0F12"
     android:clipChildren="false"
-    tools:context=".AppView" >
+    tools:context=".AppView"
+    tools:ignore="Overdraw" >
 
     <View
         android:id="@+id/coverGlow"

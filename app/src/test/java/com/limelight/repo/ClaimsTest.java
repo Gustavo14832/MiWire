@@ -117,7 +117,8 @@ public class ClaimsTest {
         String warning = string(strings, "custom_vulkan_driver_warning_message");
         assertTrue(warning, warning.contains("Only use a driver file from a source you trust"));
         assertTrue(warning, warning.contains("goes back to the normal driver"));
-        assertTrue(warning, warning.contains("A driver that crashes closes Starwire"));
+        assertTrue(warning, warning.contains("A driver that crashes closes Starwire")
+                || warning.contains("A driver that crashes closes MiWire"));
         assertTrue(warning, warning.contains("hasn\\'t been tried with a real Turnip driver"));
     }
 

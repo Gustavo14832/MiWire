@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Starwire icon: a deep-space backdrop with a violet glow and a few stars -->
+<!-- MiWire icon: a dark carbon backdrop with a warm orange core glow and amber stars -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
@@ -13,15 +13,16 @@
                 android:centerX="54"
                 android:centerY="50"
                 android:gradientRadius="80"
-                android:startColor="#FF2B1660"
-                android:endColor="#FF06051A" />
+                android:startColor="#FF1A0800"
+                android:endColor="#FF0D0F12" />
         </aapt:attr>
     </path>
-    <!-- Stars -->
+    <!-- Warm white stars -->
     <path
         android:fillColor="#CCFFFFFF"
         android:pathData="M22,24a1,1 0,1 1,0 2a1,1 0,1 1,0 -2zM86,30a0.8,0.8 0,1 1,0 1.6a0.8,0.8 0,1 1,0 -1.6zM30,82a0.9,0.9 0,1 1,0 1.8a0.9,0.9 0,1 1,0 -1.8zM80,84a1.1,1.1 0,1 1,0 2.2a1.1,1.1 0,1 1,0 -2.2zM16,58a0.7,0.7 0,1 1,0 1.4a0.7,0.7 0,1 1,0 -1.4zM92,62a0.8,0.8 0,1 1,0 1.6a0.8,0.8 0,1 1,0 -1.6z" />
+    <!-- Amber-tinted stars -->
     <path
-        android:fillColor="#99E9D5FF"
+        android:fillColor="#99FFE0B2"
         android:pathData="M40,16a0.7,0.7 0,1 1,0 1.4a0.7,0.7 0,1 1,0 -1.4zM70,92a0.7,0.7 0,1 1,0 1.4a0.7,0.7 0,1 1,0 -1.4zM64,18a0.6,0.6 0,1 1,0 1.2a0.6,0.6 0,1 1,0 -1.2z" />
 </vector>

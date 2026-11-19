@@ -175,8 +175,8 @@ android {
             applicationIdSuffix ".debug"
             // The commit a CI build came from, so Settings > Apps shows which build is installed
             versionNameSuffix "-debug-" + (System.getenv('GITHUB_SHA') ?: 'local').take(7)
-            resValue "string", "app_label", "Starwire (Debug)"
-            resValue "string", "app_label_root", "Starwire (Root Debug)"
+            resValue "string", "app_label", "MiWire (Debug)"
+            resValue "string", "app_label_root", "MiWire (Root Debug)"
         }
         release {
             // To whomever is releasing/using an APK in release mode with
@@ -212,8 +212,8 @@ android {
             //
             // Starwire: honoured by giving the nonRoot flavor its own
             // applicationId (com.starwire), so no suffix is needed here.
-            resValue "string", "app_label", "Starwire"
-            resValue "string", "app_label_root", "Starwire (Root)"
+            resValue "string", "app_label", "MiWire"
+            resValue "string", "app_label_root", "MiWire (Root)"
 
             if (signingConfigs.release.storeFile != null) {
                 signingConfig signingConfigs.release

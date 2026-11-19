@@ -23,8 +23,8 @@ import android.widget.TextView;
  * still apply; with animations off the colours simply stay put.
  */
 public final class Rainbow {
-    // The last colour repeats the first, so the flow loops without a seam
-    static final int[] COLORS = {0xFF0894FF, 0xFFC959DD, 0xFFFF2E54, 0xFFFF9004, 0xFF0894FF};
+    // MiWire: flowing amber/orange gaming flame loop without seam
+    static final int[] COLORS = {0xFFFF5722, 0xFFFF9800, 0xFFFFC107, 0xFFFF6D00, 0xFFFF5722};
     private static final long TEXT_LOOP_MS = 6000;
     private static final long RING_LOOP_MS = 4000;
 

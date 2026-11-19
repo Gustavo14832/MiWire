@@ -1,20 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Cover Glow: a frosted card for each PC in the PC list -->
+<!-- MiWire: frosted carbon card with Xiaomi gaming orange focus glow -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="#33FFFFFF">
+    android:color="#40FF6700">
     <item>
         <selector>
             <item android:state_focused="true">
                 <shape android:shape="rectangle">
                     <corners android:radius="22dp" />
-                    <solid android:color="#2EFFFFFF" />
-                    <stroke android:width="3dp" android:color="#FFFFFFFF" />
+                    <solid android:color="#28FF6700" />
+                    <stroke android:width="3dp" android:color="#FFFF6700" />
                 </shape>
             </item>
             <item>
                 <shape android:shape="rectangle">
                     <corners android:radius="22dp" />
                     <solid android:color="#1AFFFFFF" />
+                    <stroke android:width="1dp" android:color="#20FFFFFF" />
                 </shape>
             </item>
         </selector>
