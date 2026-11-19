@@ -1002,7 +1002,13 @@ void VulkanRenderer::recordPresentTimestampLocked(int64_t presentNs, int64_t hos
     const int64_t streamIntervalNs = 1'000'000'000LL / std::max(config_.streamFps, 1);
     const bool hostIdlePause = hostPtsNs > 0 && lastRecordedHostPtsNs_ > 0 &&
             (hostPtsNs - lastRecordedHostPtsNs_) > streamIntervalNs * 5 / 2;
-    if (!hostIdlePause && lastRecordedPresentNs_ > 0 && presentNs > lastRecordedPresentNs_) {
+    if (hostIdlePause) {
+        // When resuming after an idle pause, clear stale idle deltas so telemetry
+        // immediately reflects the active 60 FPS stream cadence.
+        presentDeltaCount_ = 0;
+        presentDeltaWrite_ = 0;
+    }
+    else if (lastRecordedPresentNs_ > 0 && presentNs > lastRecordedPresentNs_) {
         const int64_t deltaNs = presentNs - lastRecordedPresentNs_;
         if (deltaNs >= 1'000'000 && deltaNs < 1'000'000'000) {
             presentDeltasNs_[presentDeltaWrite_] = deltaNs;

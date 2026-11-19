@@ -212,6 +212,16 @@ void HostTimeline::addSample(int64_t scheduledPtsNs, int64_t arrivalNs) {
     if (offsetNs_ == 0 || target > offsetNs_) {
         offsetNs_ = target;
     }
+    else if (jitterBuffer_ == JitterBuffer::MiBox60Hz) {
+        // Shed buffer delay quickly for MiBox60Hz so resuming mouse movement after
+        // quiet stretches (typing, idle) immediately restores sub-frame responsiveness.
+        const int64_t diff = offsetNs_ - target;
+        if (diff > 2'000'000) {
+            offsetNs_ -= diff / 4;
+        } else {
+            offsetNs_ -= diff / 8;
+        }
+    }
     else {
         offsetNs_ -= (offsetNs_ - target) / decayDivisor_;
     }
@@ -229,7 +239,7 @@ FramePacer::FramePacer(PacingMode mode, int streamFps, int64_t vsyncPeriodNs, Ji
     // Frames waiting out the buffer sit in the caller's queue (maxQueued()), which also holds
     // the frame due next and one being shown
     if (mode == PacingMode::MiBox60Hz) {
-        timeline_.setMaxBufferNs(10'000'000);
+        timeline_.setMaxBufferNs(7'000'000);
     }
     else {
         timeline_.setMaxBufferNs(static_cast<int64_t>(kMaxQueuedFrames - 3) * streamIntervalNs_);
@@ -807,6 +817,14 @@ int64_t FramePacer::frameVsyncNs(const FrameTiming& frame, bool committable) con
     int64_t ahead = 1;
     if (due > lastVsyncNs_ + periodNs_) {
         ahead = (due - lastVsyncNs_ + periodNs_ - 1) / periodNs_;
+    }
+    // For MiBox60Hz, if returning from an idle pause (no frame was presented in the current VSync
+    // cycle) and the new frame arrived in time for the upcoming VSync, present immediately at ahead = 1
+    // instead of delaying by an extra VSync.
+    if (mode_ == PacingMode::MiBox60Hz && ahead > 1 && lastPresentVsyncNs_ <= lastVsyncNs_) {
+        if (frame.arrivalNs + presentGuardNs() <= lastVsyncNs_ + periodNs_) {
+            ahead = 1;
+        }
     }
     int64_t index = vsyncIndex_ + ahead;
 

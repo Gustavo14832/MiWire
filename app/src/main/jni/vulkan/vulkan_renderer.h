@@ -408,7 +408,7 @@ private:
         uint64_t total;
     };
     std::deque<SkipSample> skipSamples_;
-    static constexpr size_t kPresentDeltaWindow = 512;
+    static constexpr size_t kPresentDeltaWindow = 128;
     void recordPresentTimestampLocked(int64_t presentNs, int64_t hostPtsNs = 0);
     std::array<int64_t, kPresentDeltaWindow> presentDeltasNs_ {};
     size_t presentDeltaWrite_ = 0;
