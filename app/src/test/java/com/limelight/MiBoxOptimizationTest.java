@@ -82,6 +82,8 @@ public class MiBoxOptimizationTest {
         assertEquals(20, prefs.getInt("seekbar_max_pending_audio_ms", 0));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v7", false));
+        assertTrue(prefs.getBoolean("checkbox_sustained_performance", false));
         assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
         assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
         assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
@@ -126,6 +128,8 @@ public class MiBoxOptimizationTest {
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v4", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v7", false));
+        assertTrue(prefs.getBoolean("checkbox_sustained_performance", false));
         assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
         assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
         assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
@@ -168,6 +172,8 @@ public class MiBoxOptimizationTest {
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v4", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v7", false));
+        assertTrue(prefs.getBoolean("checkbox_sustained_performance", false));
         assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
         assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
         assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
@@ -296,6 +302,8 @@ public class MiBoxOptimizationTest {
 
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v7", false));
+        assertTrue(prefs.getBoolean("checkbox_sustained_performance", false));
         assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
         assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
         assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));

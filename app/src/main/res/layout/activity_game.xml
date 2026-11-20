@@ -68,6 +68,16 @@
         android:preferKeepClear="true"
         android:visibility="gone" />
 
+    <!-- Invisible keep-alive heartbeat view to keep Android TV CPU governor and SurfaceFlinger alert even when overlay is hidden -->
+    <View
+        android:id="@+id/uiKeepAliveView"
+        android:layout_width="1dp"
+        android:layout_height="1dp"
+        android:layout_gravity="top|start"
+        android:background="#01000000"
+        android:alpha="0.01"
+        android:visibility="visible" />
+
     <!-- Floating menu button (from Artemide): tap to open the overlay menu, drag to move -->
     <include layout="@layout/floating_menu_button" />
 

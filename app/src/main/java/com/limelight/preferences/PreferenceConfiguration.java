@@ -237,6 +237,7 @@ public class PreferenceConfiguration {
     static final String TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v4";
     static final String TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v5";
     static final String TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v6";
+    static final String TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v7";
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -857,7 +858,8 @@ public class PreferenceConfiguration {
                     .putBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, true)
                     .putBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, true)
                     .putBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING, true);
+                    .putBoolean(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING, true)
+                    .putBoolean(TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING, true);
             if (!prefs.contains(RESOLUTION_PREF_STRING)) {
                 editor.putString(RESOLUTION_PREF_STRING, RES_1080P);
             }
@@ -954,6 +956,9 @@ public class PreferenceConfiguration {
             if (!prefs.contains(GAMEPAD_MOTION_FALLBACK_PREF_STRING)) {
                 editor.putBoolean(GAMEPAD_MOTION_FALLBACK_PREF_STRING, false);
             }
+            if (!prefs.contains(SUSTAINED_PERFORMANCE_PREF_STRING)) {
+                editor.putBoolean(SUSTAINED_PERFORMANCE_PREF_STRING, true);
+            }
             editor.apply();
         }
         else if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, false)) {
@@ -1027,6 +1032,12 @@ public class PreferenceConfiguration {
                     .putBoolean(VIBRATE_OSC_PREF_STRING, false)
                     .putBoolean(VIBRATE_FALLBACK_PREF_STRING, false)
                     .putBoolean(GAMEPAD_MOTION_FALLBACK_PREF_STRING, false)
+                    .apply();
+        }
+        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING, false)) {
+            prefs.edit()
+                    .putBoolean(TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING, true)
+                    .putBoolean(SUSTAINED_PERFORMANCE_PREF_STRING, true)
                     .apply();
         }
     }

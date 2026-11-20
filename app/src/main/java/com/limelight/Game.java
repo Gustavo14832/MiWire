@@ -264,6 +264,27 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     };
 
+    // UI Keep-Alive Pulse: On Android TV (Amlogic S905X5M), if the view hierarchy has no redraw operations
+    // (e.g. stats overlay hidden), the kernel CPU governor lowers clocks and SurfaceFlinger desyncs
+    // Vulkan VSync presentation, causing micro-stutters and frame skips (which disappear when the
+    // perf overlay is visible). This ultra-lightweight heartbeat pulses the UI layer once a second to keep the SoC alert and compositor locked.
+    private static final int UI_KEEP_ALIVE_INTERVAL_MS = 1000;
+    private View uiKeepAliveView;
+    private boolean uiKeepAliveFlip = false;
+    private final Handler uiKeepAliveHandler = new Handler(android.os.Looper.getMainLooper());
+    private final Runnable uiKeepAlivePulse = new Runnable() {
+        @Override
+        public void run() {
+            if (connected && !isFinishing()) {
+                if (uiKeepAliveView != null) {
+                    uiKeepAliveFlip = !uiKeepAliveFlip;
+                    uiKeepAliveView.setAlpha(uiKeepAliveFlip ? 0.010f : 0.012f);
+                }
+                uiKeepAliveHandler.postDelayed(this, UI_KEEP_ALIVE_INTERVAL_MS);
+            }
+        }
+    };
+
     private boolean isImeVisible = false;
     private boolean isAndroidTV = false;
 
@@ -449,7 +470,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         prefConfig = AppPreferences.getEffectivePreferences(this, appKey, quickLaunchAppKey, applyPreferenceOverrides);
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
 
-        if (prefConfig.enableSustainedPerformance && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        if ((prefConfig.enableSustainedPerformance || isAndroidTV) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             getWindow().setSustainedPerformanceMode(true);
         }
         registerThermalStatusListener();
@@ -512,6 +533,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             );
         }
 
+        uiKeepAliveView = findViewById(R.id.uiKeepAliveView);
         notificationOverlayView = findViewById(R.id.notificationOverlay);
 
         performanceOverlayView = findViewById(R.id.performanceOverlay);
@@ -1504,6 +1526,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        uiKeepAliveHandler.removeCallbacks(uiKeepAlivePulse);
         unregisterThermalStatusListener();
         stopMicrophoneCapture();
         stopUsbSharing(UsbShareTunnel.END_CLOSING);
@@ -3348,6 +3371,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
                 // Keep the display on
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && (prefConfig.enableSustainedPerformance || isAndroidTV)) {
+                    getWindow().setSustainedPerformanceMode(true);
+                }
+                uiKeepAliveHandler.removeCallbacks(uiKeepAlivePulse);
+                uiKeepAliveHandler.postDelayed(uiKeepAlivePulse, UI_KEEP_ALIVE_INTERVAL_MS);
 
                 // Update GameManager state to indicate we're in game
                 UiHelper.notifyStreamConnected(Game.this);
