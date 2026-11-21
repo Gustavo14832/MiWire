@@ -56,7 +56,7 @@ android {
             }
 
             // Its own ID too, so it can never replace a Moonlight root install
-            applicationId "com.starwire.root"
+            applicationId "com.miware.root"
             dimension "root"
             buildConfigField "boolean", "ROOT_BUILD", "true"
         }
@@ -69,7 +69,7 @@ android {
             }
 
             // Starwire uses its own ID so it installs beside Moonlight X and Artemide
-            applicationId "com.starwire"
+            applicationId "com.miware"
             dimension "root"
             buildConfigField "boolean", "ROOT_BUILD", "false"
         }
@@ -211,7 +211,7 @@ android {
             // TL;DR: Leave the following line alone!
             //
             // Starwire: honoured by giving the nonRoot flavor its own
-            // applicationId (com.starwire), so no suffix is needed here.
+            // applicationId (com.miware), so no suffix is needed here.
             resValue "string", "app_label", "MiWire"
             resValue "string", "app_label_root", "MiWire (Root)"
 

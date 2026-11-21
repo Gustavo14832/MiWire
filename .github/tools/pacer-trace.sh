@@ -11,7 +11,7 @@
 #                                          analyse traces (the newest pulled one by default), and
 #                                          replay them through the pacer as it is in this checkout
 #
-# Environment: MOONLIGHT_PACKAGE (default com.starwire.debug), ADB, CXX (default g++),
+# Environment: MOONLIGHT_PACKAGE (default com.miware.debug), ADB, CXX (default g++),
 # PACER_TRACE_DIR (default pacer-traces in the repository). analyze needs no device or adb.
 # check-tools.sh runs analyze on a sample trace, so a move or a rename can't break it unseen.
 
@@ -19,7 +19,7 @@ set -euo pipefail
 
 # This script is in .github/tools, two folders below the repository
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-PKG="${MOONLIGHT_PACKAGE:-com.starwire.debug}"
+PKG="${MOONLIGHT_PACKAGE:-com.miware.debug}"
 OUT="${PACER_TRACE_DIR:-$ROOT/pacer-traces}"
 REMOTE="/sdcard/Android/data/$PKG/files/pacer-traces"
 SRC="$ROOT/app/src/main/jni/vulkan"

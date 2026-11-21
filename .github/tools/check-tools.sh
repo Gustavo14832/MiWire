@@ -247,7 +247,7 @@ if ! called "-e starwire.monkeyCheck true"; then fail "device-test.sh didn't run
 if called "shell monkey"; then fail "device-test.sh ran monkey although MonkeyPreconditionTest failed"; fi
 # An emulator that knows no PC: monkey runs with the fixed seed, in airplane mode, put back after
 fake_run 0 FAKE_ADB_EMULATOR=1 FAKE_ADB_MONKEY_CHECK=pass -s FAKE-1 --monkey 50
-if ! called "shell monkey -p com.starwire.debug -s 20261023" || ! called "airplane-mode enable" ||
+if ! called "shell monkey -p com.miware.debug -s 20261023" || ! called "airplane-mode enable" ||
    ! called "airplane-mode disable"; then
     fail "device-test.sh didn't run monkey with the fixed seed in airplane mode on an empty emulator"
 fi
@@ -596,7 +596,7 @@ else
     if ! called "settings put system font_scale 1.3" || ! called "settings put system font_scale 1.0" ||
        ! called "wm density 480" || ! called "wm density reset" ||
        ! called "settings put global stay_on_while_plugged_in 0" ||
-       ! grep -qE 'shell monkey -p com.starwire.debug -s 20261023 .* 1000$' "$work/calls" ||
+       ! grep -qE 'shell monkey -p com.miware.debug -s 20261023 .* 1000$' "$work/calls" ||
        [ "$(tail -n 1 "$work/legs/small/passes.tsv" | cut -f 1,2)" != "$(printf 'monkey\tPASS')" ]; then
         fail "device-run.sh didn't change and put back text and display size, or run monkey last"
     fi

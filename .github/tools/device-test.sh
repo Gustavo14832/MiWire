@@ -47,7 +47,7 @@ export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
-PKG="${STARWIRE_PKG:-com.starwire.debug}"
+PKG="${STARWIRE_PKG:-com.miware.debug}"
 TEST_PKG="$PKG.test"
 RUNNER="androidx.test.runner.AndroidJUnitRunner"
 SEED=20261023
