@@ -537,9 +537,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         notificationOverlayView = findViewById(R.id.notificationOverlay);
 
         performanceOverlayView = findViewById(R.id.performanceOverlay);
-        if (prefConfig.enablePerfOverlayLite) {
-            styleLitePerformanceOverlay();
-        }
 
         // Initialize brightness slider
         brightnessSliderView = new BrightnessSliderView(this);
@@ -676,10 +673,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             }
         }
 
-        // Check if the user has enabled performance stats overlay
-        if (prefConfig.enablePerfOverlay) {
-            performanceOverlayView.setVisibility(View.VISIBLE);
-        }
+        // Initialize performance stats overlay or Ghost Overlay Mode on TV
+        updatePerformanceOverlayVisibility();
 
         decoderRenderer = new MediaCodecDecoderRenderer(
                 this,
@@ -1017,7 +1012,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     virtualController.hide();
                 }
 
-                performanceOverlayView.setVisibility(View.GONE);
+                updatePerformanceOverlayVisibility();
                 notificationOverlayView.setVisibility(View.GONE);
                 brightnessSliderView.hide();
                 floatingMenuButton.setVisibility(View.GONE);
@@ -1040,9 +1035,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     virtualController.show();
                 }
 
-                if (prefConfig.enablePerfOverlay) {
-                    performanceOverlayView.setVisibility(View.VISIBLE);
-                }
+                updatePerformanceOverlayVisibility();
 
                 notificationOverlayView.setVisibility(requestedNotificationOverlayVisibility);
                 setFloatingButtonShown(floatingButtonShown);
@@ -3813,13 +3806,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             @Override
             public void onToggleStats() {
                 prefConfig.enablePerfOverlay = !prefConfig.enablePerfOverlay;
-
-                // Toggle performance overlay visibility
-                if (performanceOverlayView.getVisibility() == View.VISIBLE) {
-                    performanceOverlayView.setVisibility(View.GONE);
-                } else {
-                    performanceOverlayView.setVisibility(View.VISIBLE);
-                }
+                updatePerformanceOverlayVisibility();
             }
 
             @Override
@@ -3941,7 +3928,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             public boolean isToggleOn(int toggle) {
                 switch (toggle) {
                     case OverlayMenuView.TOGGLE_STATS:
-                        return performanceOverlayView.getVisibility() == View.VISIBLE;
+                        return prefConfig.enablePerfOverlay;
                     case OverlayMenuView.TOGGLE_MOUSE_EMULATION:
                         return controllerHandler.isMouseEmulationActiveForController0();
                     case OverlayMenuView.TOGGLE_FULL_KEYBOARD:
@@ -4030,6 +4017,52 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         performanceOverlayView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         performanceOverlayView.setGravity(Gravity.CENTER);
         performanceOverlayView.setSingleLine(true);
+    }
+
+    /**
+     * Updates the performance overlay visibility and styling.
+     * On Android TV (Amlogic), when the user turns off the stats overlay, instead of setting
+     * View.GONE (which triggers Amlogic HWC power-saving bypass and leads to frame skips),
+     * we enter Ghost Overlay Mode: keep the view View.VISIBLE with 1/255 alpha (0x01000000).
+     * This keeps SurfaceFlinger / HWUI continuous multi-plane 60Hz compositing active while
+     * remaining 100% invisible to human eyes on the TV.
+     */
+    private void updatePerformanceOverlayVisibility() {
+        if (performanceOverlayView == null) {
+            return;
+        }
+
+        final boolean userWantsOverlay = prefConfig.enablePerfOverlay && !isHidingOverlays;
+
+        if (userWantsOverlay) {
+            performanceOverlayView.setVisibility(View.VISIBLE);
+            if (prefConfig.enablePerfOverlayLite) {
+                styleLitePerformanceOverlay();
+                performanceOverlayView.setTextColor(0xBFFFFFFF);
+            } else {
+                float density = getResources().getDisplayMetrics().density;
+                FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) performanceOverlayView.getLayoutParams();
+                params.gravity = Gravity.START | Gravity.TOP;
+                params.setMargins((int) (5 * density), (int) (5 * density), 0, 0);
+                performanceOverlayView.setLayoutParams(params);
+                performanceOverlayView.setBackgroundResource(R.drawable.stats_overlay_background);
+                int pad = (int) (2 * density);
+                performanceOverlayView.setPadding(pad, pad, pad, pad);
+                performanceOverlayView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+                performanceOverlayView.setGravity(Gravity.START);
+                performanceOverlayView.setSingleLine(false);
+                performanceOverlayView.setTextColor(0xBFFFFFFF);
+            }
+        } else {
+            if (isAndroidTV) {
+                // Ghost Overlay Mode: maintain multi-plane composition at 60 Hz without visual obstruction
+                performanceOverlayView.setVisibility(View.VISIBLE);
+                performanceOverlayView.setTextColor(0x01000000);
+                performanceOverlayView.setBackgroundColor(0x01000000);
+            } else {
+                performanceOverlayView.setVisibility(View.GONE);
+            }
+        }
     }
 
     // Hides and shows the PC cursor for "Hide PC cursor", and remembers per PC what it hid

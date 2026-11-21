@@ -1951,7 +1951,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 }
             }
 
-            if (prefs.enablePerfOverlay) {
+            if (prefs.enablePerfOverlay || perfListener != null) {
                 VideoStats lastTwo = new VideoStats();
                 lastTwo.add(lastWindowVideoStats);
                 lastTwo.add(activeWindowVideoStats);
@@ -1990,7 +1990,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
                 float droppedPercent = (float)lastTwo.framesLost / lastTwo.totalFrames * 100;
 
-                if (prefs.enablePerfOverlayLite) {
+                if (prefs.enablePerfOverlay && prefs.enablePerfOverlayLite) {
                     // Artemide's Lite mode: one line of data rate, ping, decode time, dropped frames and FPS
                     StringBuilder lite = new StringBuilder();
                     if (realtimeNetData >= 0) {
@@ -2003,7 +2003,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                     if (low > 0) {
                         lite.append(context.getString(R.string.perf_overlay_lite_one_percent_low, low));
                     }
-                    perfListener.onPerfUpdate(lite.toString());
+                    if (perfListener != null) {
+                        perfListener.onPerfUpdate(lite.toString());
+                    }
                 }
                 else {
                     // The renderer's fixed details go with the decoder's on the first line, and its
@@ -2072,7 +2074,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                             pacingSnap.p50Ms, pacingSnap.p95Ms, pacingSnap.p99Ms)));
                         }
                     }
-                    perfListener.onPerfUpdate(sb.toString());
+                    if (perfListener != null) {
+                        perfListener.onPerfUpdate(sb.toString());
+                    }
                 }
             }
 
