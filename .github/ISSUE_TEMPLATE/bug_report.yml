@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in Starwire doesn't work as it should
+description: Something in Miware doesn't work as it should
 labels: [bug]
 body:
   - type: textarea
@@ -20,16 +20,16 @@ body:
   - type: input
     id: version
     attributes:
-      label: Starwire version
-      description: Check the release you installed.
-      placeholder: "0.2.0"
+      label: Miware version
+      description: Check Settings > About or the release you installed.
+      placeholder: "v0.3.0-miware"
     validations:
       required: true
   - type: input
     id: device
     attributes:
-      label: Device and Android version
-      placeholder: "e.g. Pixel 8, Android 15"
+      label: Device and Android TV / OS version
+      placeholder: "e.g. Xiaomi Mi Box S Gen 3, Android TV 14"
     validations:
       required: true
   - type: input
@@ -40,9 +40,9 @@ body:
   - type: input
     id: controller
     attributes:
-      label: Controller (if it's involved)
+      label: Controller / Peripheral (if involved)
   - type: textarea
     id: extra
     attributes:
       label: Anything else
-      description: Settings you changed, screenshots, or whether other Moonlight apps do the same.
+      description: Settings you changed, screenshots, or whether Starwire / Moonlight does the same.

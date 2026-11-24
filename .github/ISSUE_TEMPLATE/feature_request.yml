@@ -1,16 +1,16 @@
 name: Feature idea
-description: Something you'd like Starwire to do
+description: Something you'd like Miware to do
 labels: [enhancement]
 body:
   - type: textarea
     id: idea
     attributes:
       label: What would you like?
-      description: Describe the feature and how you'd use it.
+      description: Describe the feature and how you'd use it on Android TV / Mi Box S Gen 3.
     validations:
       required: true
   - type: input
     id: source
     attributes:
-      label: Does another Moonlight app already have it?
-      description: If so, which one (a link helps). Starwire can often bring it over.
+      label: Does Starwire or another Moonlight app already have it?
+      description: If so, which one (a link helps). Miware can often port or adapt it.

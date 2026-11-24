@@ -1,125 +1,83 @@
 # Security
 
+**Miware** is a fork of [Starwire](https://github.com/SicarioGaming/Starwire) (by SicarioGaming)
+and [Moonlight Android](https://github.com/moonlight-stream/moonlight-android), specialized for the
+Xiaomi Mi Box S Gen 3.
+
 ## Reporting a security problem
 
-Please don't put the details in a public issue or discussion. Report it privately instead:
+Please don't put the details in a public issue. Report it privately instead:
 
-1. Go to the repo's [Security tab](https://github.com/SicarioGaming/Starwire/security) and choose
-   **Report a vulnerability** (or use [this link](https://github.com/SicarioGaming/Starwire/security/advisories/new)).
-2. Say which part of Starwire it's in (the Android app, the Windows microphone receiver, the
-   Windows USB helper, or their setup), what you found and how to reproduce it. Only you and I can
-   see the report.
+1. Go to the repo's [Security tab](https://github.com/Gustavo14832/Miware/security) and choose
+   **Report a vulnerability** (or use [this link](https://github.com/Gustavo14832/Miware/security/advisories/new)).
+2. Say which part of Miware it's in (the Android TV app, the Windows microphone receiver, the
+   Windows USB helper, or their setup), what you found and how to reproduce it.
 
-I'll reply there. If you can't use GitHub's form, open an issue that only says you've found a
-security problem, without the details, and I'll get in touch.
-
-Fixes go into new releases, so please check the problem is still there in the
-[latest release](https://github.com/SicarioGaming/Starwire/releases/latest).
+Please also check whether the issue affects the [latest release](https://github.com/Gustavo14832/Miware/releases/latest)
+and whether it also exists upstream in [Starwire](https://github.com/SicarioGaming/Starwire/security).
 
 ## The microphone
 
-This is about **Settings → Sound & vibration → Send my microphone** and the receiver that
+This applies to **Settings → Sound & vibration → Send my microphone** and the receiver that
 `setup-microphone.cmd` installs on the PC.
 
-From 0.2.1, with **Send my microphone to** set to **Starwire's receiver on the PC (encrypted)**,
-which is the default, the audio is encrypted and authenticated, and the receiver only plays it
-from devices you've paired with that PC. You pair each device once, with a 16-character code the
-receiver shows. The code authenticates a key exchange, each stream gets its own AES-256-GCM key,
-and every packet carries a counter that only goes up. The receiver refuses anything it can't
-check: devices it hasn't paired, packets recorded and sent again, forged packets, and plain VBAN.
-Both sides still only talk to private addresses (local network or VPN), but that's an extra
-filter, not what keeps it safe: a UDP packet's sender address is easy to fake. The format, and
-how it's tested, is in [docs/dev/mic-protocol.md](docs/dev/mic-protocol.md).
-
-Before 0.2.1 shipped, the encryption had two separate security reviews. The first found three
-medium problems. The second found one more: if the receiver restarted mid-stream, someone who had
-recorded an earlier reply could send it again and make the app reuse an encryption key. All four
-were fixed before the release, each with a test that fails without the fix.
+With **Send my microphone to** set to the encrypted PC receiver (default), audio is encrypted and
+authenticated, and the receiver only plays it from devices paired with that PC. Each device pairs
+once with a 16-character code, each stream derives its own AES-256-GCM key, and every packet
+carries a monotonically increasing counter. The receiver refuses unpaired devices, replayed or forged
+packets, and plain VBAN. Both sides restrict traffic to private addresses (local network or private VPN).
+The protocol is documented in [docs/dev/mic-protocol.md](docs/dev/mic-protocol.md).
 
 What it doesn't protect against:
 
-- Someone who sees the pairing code before you've typed it could pair instead of you, so don't
-  show it while your screen is shared. If the receiver's window says **Paired with** a device
-  before you've typed the code, or one that isn't yours, choose **Unpair it** there.
-- A lost or stolen device that's still paired can send audio until you unpair it: right-click the
-  receiver's icon by the clock, then **Paired devices**, the device and **Unpair**.
-- Nothing can stop someone on the network from flooding it or jamming the Wi-Fi. The receiver only
-  keeps that cheap.
-- Malware on the Android device or the PC can reach the microphone directly.
-- The packet sizes and timing are visible, as with any encrypted stream.
+- Someone who sees the pairing code before you type it could pair instead of you; do not share your
+  screen while showing the code.
+- A lost or stolen device that remains paired can send audio until unpaired from the receiver's tray menu.
+- Network flooding/jamming or malware already running on the Android device or PC.
+- Packet sizes and timing remain visible on the network.
 
-**Not encrypted**, another choice under **Send my microphone to** (for Voicemeeter and other
-VBAN apps), sends plain VBAN, so anyone on the same network can listen to the microphone.
+**Not encrypted** (for Voicemeeter and other VBAN apps) sends plain VBAN, so anyone on the same
+network can listen to the microphone.
 
-Starwire's receiver only plays plain VBAN if you set it up with `-AllowUnencrypted`. Then, as with
-Voicemeeter or VBAN-Receptor, anyone on the network can send their own audio into the PC's virtual
-mic so Discord or the game hears it as you, whichever option your device uses. The receiver's
-firewall rule applies on every type of network Windows knows about, public Wi-Fi included. Use
-the "Not encrypted" option and `-AllowUnencrypted` only on a network you trust.
-
-Starwire 0.2.0 sent the microphone as plain VBAN, with no encryption or authentication. If you
-still use 0.2.0, update both the app and the PC setup, then pair once. The
-[microphone guide](windows/README.md#updating-from-starwire-020) has the steps.
+The PC receiver only plays plain VBAN if set up with `-AllowUnencrypted`, in which case anyone on the
+network can send audio into the PC's virtual mic whichever option your device uses. Its firewall rule
+applies on every network profile Windows knows about (including public Wi-Fi). Use unencrypted VBAN
+only on networks you trust.
 
 ## USB devices
 
-This is about **Settings → Controllers → USB devices (Experimental)**, new in 0.3.0, and the USB
-helper that `setup-usb.cmd` installs on the PC. Both are off until you turn them on.
+This applies to **Settings → Controllers → USB devices (Experimental)** and the USB helper that
+`setup-usb.cmd` installs on the PC. Both are off by default.
 
-A device can only be shared with a PC whose microphone receiver the phone is paired with, and only
-once you've turned on sharing in the helper's menu and ticked that phone under **Allow USB for**.
-The key for the connection is worked out from the microphone's pairing, never the microphone key
-itself, and the connection uses TLS 1.2 or 1.3. A phone that isn't allowed is only told so after
-it proves it holds the right key. Starwire's device rules decide what may be shared before Windows
-sees anything, one device at a time. The helper listens on TCP 6981, and its firewall rule covers
-Private and Domain networks only. The protocol, what it protects against and how it's tested are in
-[docs/dev/usb-protocol.md](docs/dev/usb-protocol.md).
+A device can only be shared with a PC whose microphone receiver the Android device is paired with,
+and only after enabling USB sharing in the PC helper and ticking the device under **Allow USB for**.
+Keys are derived from the microphone pairing, and transport uses TLS 1.2 or 1.3 over TCP port 6981
+(firewall rule covers Private and Domain networks only). Device rules validate classes and descriptors
+before Windows sees the device. See [docs/dev/usb-protocol.md](docs/dev/usb-protocol.md).
 
 What it doesn't protect against:
 
-- The device rules go by what a device says about itself, so a device that misreports what it is
-  could reach a Windows driver meant for the device it claims to be.
-- A lost or stolen phone that's still paired and unlocked can share what the rules allow,
-  keyboards and mice included, since it can say yes itself. Unpair it in the microphone
-  receiver's menu (see above), or untick it under **Allow USB for** in the helper's menu.
-- Code that can read the phone's pairing key, such as root malware or a custom Vulkan driver,
-  doesn't need Starwire's checks or your yes. Only the helper's own checks stand between it and
-  Windows' USB drivers, which run in the kernel.
-- On the phone, the USB exporter trusts its own loopback connection (127.0.0.1).
-- Malware on the PC can reach USB devices directly.
+- A malicious USB device that misreports its descriptors.
+- A lost or stolen paired phone that is unlocked.
+- Code inside the app process capable of reading the pairing key (such as root malware or an untrusted
+  custom Vulkan driver).
+- Local loopback connections (127.0.0.1) to the in-app exporter or malware on the PC.
 
 ## The custom Vulkan driver option
 
-**Settings → Advanced → Custom Vulkan driver** is off by default. It's experimental, and it
-hasn't been tried with a real Turnip driver yet.
+**Settings → Advanced → Custom Vulkan driver** is off by default and experimental.
 
-When you turn it on and pick a driver file (`.so`, `.zip` or `.adpkg`) with Android's file
-picker, Starwire copies that file into its own private storage. On 64-bit ARM devices with
-Android 10 or newer, PyroWave streams then load it in place of the device's own Vulkan driver.
-Other codecs keep using the system driver. Starwire never downloads a driver itself.
+When enabled, a picked `.so`, `.zip` or `.adpkg` driver file is copied into private app storage and
+loaded only for PyroWave streams on 64-bit ARM devices (Android 10+) via `libadrenotools`. A loaded
+driver runs native code inside Miware's process with Miware's permissions (network, microphone, Nearby
+devices if granted, paired PC keys), so only use drivers from a trusted source. If a driver fails to
+load or initialize PyroWave, Miware falls back to the system driver; if it crashes, Miware closes.
 
-To load it, Starwire uses libadrenotools, whose hook libraries change how Android loads the
-Vulkan driver inside Starwire's own process. Those libraries are in every 64-bit ARM APK, but
-they're only loaded when the option is on and a driver has been picked.
+## Verifying a Miware download
 
-A driver is native code. It runs inside Starwire with all of Starwire's permissions, including
-the network, the microphone, Nearby devices if you allowed it for the DualSense, and the keys
-for your paired PCs. So only use a driver from a source you trust. Starwire refuses files that
-aren't 64-bit ARM libraries, and goes back to the system driver when a driver can't load or
-can't run PyroWave. A driver that loads and then crashes will end the stream.
-
-## Checking that a download is really Starwire
-
-Every Starwire APK is signed with the same certificate. Its SHA-256 fingerprint is:
-
-```
-B6:04:1D:43:9F:28:4F:17:16:64:6F:C0:F9:80:F1:9A:76:17:8F:A7:04:D5:6F:50:34:D4:06:2A:D3:C1:3F:97
-```
-
-For [AppVerifier](https://github.com/soupslurpr/AppVerifier), the package name is `com.starwire`.
-With the Android SDK's build tools, `apksigner verify --print-certs Starwire-0.2.0.apk` should show
-`certificate SHA-256 digest: b6041d439f284f1716646fc0f980f19a76178fa704d56f5034d4062ad3c13f97`.
-The [README](README.md#more-details) has more on this, including the Windows zip.
-
-Android won't install an update over Starwire if it was signed with a different certificate, so
-if it refuses, don't force it by uninstalling first. Check where the file came from.
+- **Package ID:** `com.miware` (debug builds: `com.miware.debug`)
+- **Latest APK (`release/Miware.apk`, `v0.3.0-miware`) SHA-256:**
+  `572CEBCEB5D47D410091CDBF2088762E2AE523C93A3D7DE0D5D42F7F1CF975FF`
+- You can inspect the signing certificate of any APK using the Android SDK's `apksigner`:
+  `apksigner verify --print-certs Miware.apk`. Android will refuse to install an update signed with
+  a different key over an existing install.

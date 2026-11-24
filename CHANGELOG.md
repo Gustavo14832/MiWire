@@ -1,19 +1,25 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to **Miware** (fork of [Starwire](https://github.com/SicarioGaming/Starwire)
+by SicarioGaming, built on [Moonlight Android](https://github.com/moonlight-stream/moonlight-android))
+will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Starwire adopted
-[Semantic Versioning](https://semver.org/spec/v2.0.0.html) in 0.2.1, so every release after it is
-numbered by SemVer's rules; 0.2.1 keeps the number it was announced with.
-[RELEASING.md](docs/dev/RELEASING.md#version-numbers) explains what that means for an app, and the
-few places Starwire can't follow it exactly.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), inheriting
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html) from Starwire (`0.2.1` onward).
 
-The release pages on [GitHub](https://github.com/SicarioGaming/Starwire/releases) have the install
-steps and the checksums for each version.
+- **Miware releases:** [GitHub Releases](https://github.com/Gustavo14832/Miware/releases)
+- **Original Starwire releases (upstream base up to `0.3.0`):** [SicarioGaming/Starwire Releases](https://github.com/SicarioGaming/Starwire/releases)
 
 ## [Unreleased]
 
 ### Added
+
+- **Miware rebrand & Android TV identity:** changed package ID to `com.miware` (`com.miware.root` for
+  root builds), applied the Xiaomi gaming orange & dark carbon theme (`#FF6700` / `#0D0F12`), reduced
+  starfield GPU overdraw, and added full `pt-BR` translations.
+- **Ghost Overlay & UI keep-alive heartbeat:** keeps SurfaceFlinger / Amlogic Hardware Composer in
+  continuous 60 Hz composition (`0x01000000` alpha when stats are hidden on Android TV) plus a
+  1 Hz micro-alpha pulse (`uiKeepAliveView`) and forced `setSustainedPerformanceMode(true)` on TV.
 
 - **Back button as Meta:** a new setting under Input that sends the Windows key when a physical Back
   button is pressed. From Artemis, credited to Yukino Song.
