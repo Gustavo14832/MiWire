@@ -1,6 +1,6 @@
 # Security
 
-**Miware** is a fork of [Starwire](https://github.com/SicarioGaming/Starwire) (by SicarioGaming)
+**MiWire** is a fork of [Starwire](https://github.com/SicarioGaming/Starwire) (by SicarioGaming)
 and [Moonlight Android](https://github.com/moonlight-stream/moonlight-android), specialized for the
 Xiaomi Mi Box S Gen 3.
 
@@ -8,12 +8,12 @@ Xiaomi Mi Box S Gen 3.
 
 Please don't put the details in a public issue. Report it privately instead:
 
-1. Go to the repo's [Security tab](https://github.com/Gustavo14832/Miware/security) and choose
-   **Report a vulnerability** (or use [this link](https://github.com/Gustavo14832/Miware/security/advisories/new)).
-2. Say which part of Miware it's in (the Android TV app, the Windows microphone receiver, the
+1. Go to the repo's [Security tab](https://github.com/Gustavo14832/MiWire/security) and choose
+   **Report a vulnerability** (or use [this link](https://github.com/Gustavo14832/MiWire/security/advisories/new)).
+2. Say which part of MiWire it's in (the Android TV app, the Windows microphone receiver, the
    Windows USB helper, or their setup), what you found and how to reproduce it.
 
-Please also check whether the issue affects the [latest release](https://github.com/Gustavo14832/Miware/releases/latest)
+Please also check whether the issue affects the [latest release](https://github.com/Gustavo14832/MiWire/releases/latest)
 and whether it also exists upstream in [Starwire](https://github.com/SicarioGaming/Starwire/security).
 
 ## The microphone
@@ -69,15 +69,15 @@ What it doesn't protect against:
 
 When enabled, a picked `.so`, `.zip` or `.adpkg` driver file is copied into private app storage and
 loaded only for PyroWave streams on 64-bit ARM devices (Android 10+) via `libadrenotools`. A loaded
-driver runs native code inside Miware's process with Miware's permissions (network, microphone, Nearby
+driver runs native code inside MiWire's process with MiWire's permissions (network, microphone, Nearby
 devices if granted, paired PC keys), so only use drivers from a trusted source. If a driver fails to
-load or initialize PyroWave, Miware falls back to the system driver; if it crashes, Miware closes.
+load or initialize PyroWave, MiWire falls back to the system driver; if it crashes, MiWire closes.
 
-## Verifying a Miware download
+## Verifying a MiWire download
 
 - **Package ID:** `com.miware` (debug builds: `com.miware.debug`)
-- **Latest APK (`release/Miware.apk`, `v0.3.0-miware`) SHA-256:**
+- **Latest APK (`release/MiWire.apk`, `v0.3.0-miware`) SHA-256:**
   `572CEBCEB5D47D410091CDBF2088762E2AE523C93A3D7DE0D5D42F7F1CF975FF`
 - You can inspect the signing certificate of any APK using the Android SDK's `apksigner`:
-  `apksigner verify --print-certs Miware.apk`. Android will refuse to install an update signed with
+  `apksigner verify --print-certs MiWire.apk`. Android will refuse to install an update signed with
   a different key over an existing install.

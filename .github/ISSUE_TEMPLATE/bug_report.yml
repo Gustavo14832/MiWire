@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in Miware doesn't work as it should
+description: Something in MiWire doesn't work as it should
 labels: [bug]
 body:
   - type: textarea
@@ -20,9 +20,9 @@ body:
   - type: input
     id: version
     attributes:
-      label: Miware version
+      label: MiWire version
       description: Check Settings > About or the release you installed.
-      placeholder: "v0.3.0-miware"
+      placeholder: "0.3.0 (v0.3.0-miware)"
     validations:
       required: true
   - type: input

@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="560" height="110" viewBox="0 0 560 110" role="img" aria-label="Miware">
-  <title>Miware</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="110" viewBox="0 0 560 110" role="img" aria-label="MiWire">
+  <title>MiWire</title>
   <defs>
-    <!-- Xiaomi gaming orange flame sweep gradient matching Miware's theme -->
+    <!-- Xiaomi gaming orange flame sweep gradient matching MiWire's theme -->
     <linearGradient id="flame" x1="0" y1="0" x2="1120" y2="0" gradientUnits="userSpaceOnUse" spreadMethod="repeat">
       <stop offset="0" stop-color="#FF5722"/>
       <stop offset="0.25" stop-color="#FF9800"/>
@@ -13,5 +13,5 @@
   </defs>
   <text x="280" y="58" text-anchor="middle" dominant-baseline="middle"
         font-family="'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="84" font-weight="900"
-        letter-spacing="-1" fill="url(#flame)">Miware</text>
+        letter-spacing="-1" fill="url(#flame)">MiWire</text>
 </svg>

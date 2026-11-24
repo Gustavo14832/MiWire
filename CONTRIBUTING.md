@@ -1,12 +1,12 @@
-# Contributing to Miware
+# Contributing to MiWire
 
-Thanks for taking a look at **Miware** (a specialized fork of [Starwire](https://github.com/SicarioGaming/Starwire) by SicarioGaming, built on [Moonlight Android](https://github.com/moonlight-stream/moonlight-android) for Xiaomi Mi Box S Gen 3 at 1080p @ 60 Hz).
+Thanks for taking a look at **MiWire** (a specialized fork of [Starwire](https://github.com/SicarioGaming/Starwire) by SicarioGaming, built on [Moonlight Android](https://github.com/moonlight-stream/moonlight-android) for Xiaomi Mi Box S Gen 3 at 1080p @ 60 Hz).
 
 ## Bugs and ideas
 
 - **Bugs:** open an issue with the
-  [Bug report form](https://github.com/Gustavo14832/Miware/issues/new/choose). It asks for
-  your Miware version, your device and Android/Google TV version, and the host on your PC.
+  [Bug report form](https://github.com/Gustavo14832/MiWire/issues/new/choose). It asks for
+  your MiWire version, your device and Android/Google TV version, and the host on your PC.
 - **Ideas:** use the **Feature idea** form if you already know what you'd like, and note if
   Starwire or another Moonlight client already has it.
 - **Security problems:** please follow [SECURITY.md](SECURITY.md) instead of opening a normal
@@ -17,8 +17,8 @@ Thanks for taking a look at **Miware** (a specialized fork of [Starwire](https:/
 With the NDK version from `app/build.gradle` installed:
 
 ```bash
-git clone --recursive https://github.com/Gustavo14832/Miware.git
-cd Miware
+git clone --recursive https://github.com/Gustavo14832/MiWire.git
+cd MiWire
 ./gradlew assembleNonRootDebug
 ```
 
@@ -69,7 +69,7 @@ branch names follow [Conventional Branch](https://conventionalbranch.org), and
 
 ## Licence and credits
 
-Miware is GPL-3.0 ([LICENSE.txt](LICENSE.txt)), like [Starwire](https://github.com/SicarioGaming/Starwire),
+MiWire is GPL-3.0 ([LICENSE.txt](LICENSE.txt)), like [Starwire](https://github.com/SicarioGaming/Starwire),
 [Moonlight Android](https://github.com/moonlight-stream/moonlight-android) and every fork it builds on,
 and anything you contribute is under the same licence. Keep all upstream credits in [README.md](README.md)
 and `AboutCredits.java` intact, and preserve existing copyright and licence notices.

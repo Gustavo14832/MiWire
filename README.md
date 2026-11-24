@@ -1,19 +1,19 @@
-# 🎮 Miware
+# 🎮 MiWire
 
 <div align="center">
 
-<img src="docs/images/title.svg" alt="Miware" width="380" />
+<img src="docs/images/title.svg" alt="MiWire" width="380" />
 
 **Cliente de streaming Moonlight hiper-calibrado para a Xiaomi Mi Box S (3ª Geração) a 1080p @ 60 Hz.**
 
 *Fork especializado do [Starwire](https://github.com/SicarioGaming/Starwire) (por SicarioGaming) e do [Moonlight Android](https://github.com/moonlight-stream/moonlight-android) (por Cameron Gutman).*
 
 [![Licença: GPL-3.0](https://img.shields.io/badge/licen%C3%A7a-GPL--3.0-FF6700?style=flat-square)](LICENSE.txt)
-[![Android TV 11+](https://img.shields.io/badge/Android%20TV-11%2B%20(Google%20TV)-34A853?style=flat-square&logo=android&logoColor=white)](https://github.com/Gustavo14832/Miware/releases/latest)
-[![Target: Mi Box S Gen 3](https://img.shields.io/badge/Target-Mi%20Box%20S%20Gen%203-FF6700?style=flat-square)](https://github.com/Gustavo14832/Miware/releases/latest)
-[![Package: com.miware](https://img.shields.io/badge/package-com.miware-blue?style=flat-square)](https://github.com/Gustavo14832/Miware/releases/latest)
+[![Android TV 11+](https://img.shields.io/badge/Android%20TV-11%2B%20(Google%20TV)-34A853?style=flat-square&logo=android&logoColor=white)](https://github.com/Gustavo14832/MiWire/releases/latest)
+[![Target: Mi Box S Gen 3](https://img.shields.io/badge/Target-Mi%20Box%20S%20Gen%203-FF6700?style=flat-square)](https://github.com/Gustavo14832/MiWire/releases/latest)
+[![Package: com.miware](https://img.shields.io/badge/package-com.miware-blue?style=flat-square)](https://github.com/Gustavo14832/MiWire/releases/latest)
 
-### [⬇ Baixar Miware.apk (GitHub Releases)](https://github.com/Gustavo14832/Miware/releases/latest) · [📦 Cópia Direta no Repositório](release/Miware.apk)
+### [⬇ Baixar MiWire.apk (GitHub Releases)](https://github.com/Gustavo14832/MiWire/releases/latest) · [📦 Cópia Direta no Repositório](release/MiWire.apk)
 
 **Versão:** `0.3.0` (`v0.3.0-miware`) | **Tamanho:** `~14.6 MB` | **ID do Pacote:** `com.miware`  
 **SHA-256:** `572CEBCEB5D47D410091CDBF2088762E2AE523C93A3D7DE0D5D42F7F1CF975FF`
@@ -32,19 +32,19 @@
 
 ---
 
-## 🌟 O que é o Miware?
+## 🌟 O que é o MiWire?
 
-O **Miware** é um fork independente derivado do projeto original **[Starwire](https://github.com/SicarioGaming/Starwire)** (criado por *SicarioGaming*), construído sobre o **[Moonlight Android](https://github.com/moonlight-stream/moonlight-android)** (criado por *Cameron Gutman*) e reunindo recursos de outros clientes da comunidade Moonlight.
+O **MiWire** é um fork independente derivado do projeto original **[Starwire](https://github.com/SicarioGaming/Starwire)** (criado por *SicarioGaming*), construído sobre o **[Moonlight Android](https://github.com/moonlight-stream/moonlight-android)** (criado por *Cameron Gutman*) e reunindo recursos de outros clientes da comunidade Moonlight.
 
 Ele nasceu com um propósito específico: transformar a **Xiaomi Mi Box S Gen 3** em um console de streaming de baixíssima latência para jogos de PC na rede local ou na nuvem (como instâncias GPU usando **Sunshine**, **Vibepollo** ou **Apollo**).
 
 ---
 
-## 🚀 Recursos Exclusivos do Miware (Otimizações Mi Box S Gen 3)
+## 🚀 Recursos Exclusivos do MiWire (Otimizações Mi Box S Gen 3)
 
 ### 1. 👻 Ghost Overlay (Modo Fantasma de Composição 60 Hz Contínua) + Keep-Alive
 * **O Problema Resolvido:** No SoC Amlogic da Mi Box, quando nenhum elemento de UI é desenhado na tela, o *Hardware Composer* ativa um modo de economia agressivo (*Bypass*) e o governador de CPU reduz o clock, quebrando a sincronia com o relógio do Vulkan e causando **83+ pulos de quadro (skips)** por sessão.
-* **A Solução do Miware:** Quando as estatísticas estão ocultas na TV, o Miware ativa o **Ghost Overlay** (sobreposição invisível com alfa `0x01000000`, equivalente a ~0,39% de opacidade) aliado a um pulso periódico de 1 Hz (`uiKeepAliveView`). Isso mantém o *SurfaceFlinger* em composição contínua a 60.00 Hz sem obstruir a imagem do jogo.
+* **A Solução do MiWire:** Quando as estatísticas estão ocultas na TV, o MiWire ativa o **Ghost Overlay** (sobreposição invisível com alfa `0x01000000`, equivalente a ~0,39% de opacidade) aliado a um pulso periódico de 1 Hz (`uiKeepAliveView`). Isso mantém o *SurfaceFlinger* em composição contínua a 60.00 Hz sem obstruir a imagem do jogo.
 
 ### 2. ⏱️ Frame Pacing `mibox-60hz` & Renderizador Vulkan Avançado
 * **Pacing dedicado (`FRAME_PACING_MIBOX_60HZ`):** Sincronização *phase-locked* em 60 Hz com alvo de **1 vsync/frame**, janela de jitter de 2,5 s (99% de cobertura), decaimento rápido após pausas estáticas e limite de buffer reduzido para **7 ms**.
@@ -52,7 +52,7 @@ Ele nasceu com um propósito específico: transformar a **Xiaomi Mi Box S Gen 3*
 * **Telemetria `p50/p95/p99`:** Estatísticas em tempo real de intervalos de apresentação no overlay (filtrando pausas ociosas do host).
 
 ### 3. 🎯 Calibração Automática Out-of-the-Box para Android TV
-Na primeira execução em dispositivos Android TV / Amlogic (`isTvOrAmlogicDevice`), o Miware configura automaticamente:
+Na primeira execução em dispositivos Android TV / Amlogic (`isTvOrAmlogicDevice`), o MiWire configura automaticamente:
 * **Vídeo:** `1920x1080` @ `60 FPS`, `35 Mbps`, **HEVC (H.265)**, renderizador **Vulkan**, `mibox-60hz`, dither `high`, RCAS `balanced`, Full Range (`0-255`), `exactSlices` desativado (preservando predição NVENC de quadro inteiro).
 * **Decodificador Amlogic Codec2 (`c2.amlogic.*`):** Ignora a chave genérica `low-latency` (que causa travamentos no driver da Amlogic), aplica extensões de baixa latência da fabricante (`vendor.amlogic.*`, `vendor.media.omx.gamemode`, `operating-rate 240`, prioridade `0`), restaura HEVC RFI no `c2.amlogic`, expande buffers dinâmicos de entrada (>= 2 MB) e adiciona *watchdog* de 3 estágios contra travamento (IDR -> Flush -> Restart).
 * **Sistema & Áudio:** Modo de Desempenho Sustentado (`setSustainedPerformanceMode`), ADPF (`PerformanceHintManager` em Java e C++), prioridade elevada de threads de renderização/áudio, `AudioTrack` de baixa latência no HDMI em Android 12+, fila máxima de áudio de `20 ms`, e skip de Wi-Fi lock quando conectado via cabo Ethernet.
@@ -67,7 +67,7 @@ Na primeira execução em dispositivos Android TV / Amlogic (`isTvOrAmlogicDevic
 
 ## 🛠️ Recursos Herdados do Ecossistema Starwire & Moonlight
 
-Além das otimizações exclusivas para Mi Box S Gen 3, o Miware preserva os recursos modernos trazidos pelo **Starwire** e demais forks:
+Além das otimizações exclusivas para Mi Box S Gen 3, o MiWire preserva os recursos modernos trazidos pelo **Starwire** e demais forks:
 
 * **ID de Pacote Próprio (`com.miware` / `com.miware.debug`):** Instala lado a lado com Moonlight oficial e Starwire sem conflito de assinatura.
 * **Gatilhos Adaptativos DualSense (Experimental):** Efeitos de gatilho via Bluetooth (Android 12+) com suporte a hosts compatíveis (como Vibepollo) ou presets integrados.
@@ -79,10 +79,10 @@ Além das otimizações exclusivas para Mi Box S Gen 3, o Miware preserva os rec
 
 ## 📥 Como Instalar e Usar na Mi Box S Gen 3
 
-1. Baixe o **`Miware.apk`** na página de [Releases do GitHub](https://github.com/Gustavo14832/Miware/releases/latest) (ou diretamente em [`release/Miware.apk`](release/Miware.apk)).
+1. Baixe o **`MiWire.apk`** na página de [Releases do GitHub](https://github.com/Gustavo14832/MiWire/releases/latest) (ou diretamente em [`release/MiWire.apk`](release/MiWire.apk)).
 2. Verifique a integridade (opcional): SHA-256 `572CEBCEB5D47D410091CDBF2088762E2AE523C93A3D7DE0D5D42F7F1CF975FF`.
 3. Transfira o APK para a Mi Box via pendrive ou *Send Files to TV* e instale usando um gerenciador de arquivos (como *X-plore* ou *AnExplorer*).
-4. Abra o **Miware**, pareie com seu PC (**Sunshine**, **Vibepollo** ou **Apollo**) e jogue com 60 Hz cravados.
+4. Abra o **MiWire**, pareie com seu PC (**Sunshine**, **Vibepollo** ou **Apollo**) e jogue com 60 Hz cravados.
 5. *(Opcional)* Para usar microfone ou passthrough USB com um PC Windows, confira os scripts e instruções na pasta [`windows/`](windows/README.md).
 
 ---
@@ -90,20 +90,20 @@ Além das otimizações exclusivas para Mi Box S Gen 3, o Miware preserva os rec
 ## 📚 Documentação e Repositório
 
 * **Código-fonte e Build:** consulte [`CONTRIBUTING.md`](CONTRIBUTING.md) para instruções de compilação com Gradle/NDK e execução de testes.
-* **Histórico de Versões:** consulte [`CHANGELOG.md`](CHANGELOG.md) e a [página de Releases](https://github.com/Gustavo14832/Miware/releases).
+* **Histórico de Versões:** consulte [`CHANGELOG.md`](CHANGELOG.md) e a [página de Releases](https://github.com/Gustavo14832/MiWire/releases).
 * **Segurança:** consulte [`SECURITY.md`](SECURITY.md) para detalhes sobre criptografia, drivers customizados e relato de vulnerabilidades.
 * **Proveniência e Binários:** consulte [`docs/PROVENANCE.md`](docs/PROVENANCE.md).
-* **Reportar Problemas / Sugestões:** abra uma [Issue](https://github.com/Gustavo14832/Miware/issues).
+* **Reportar Problemas / Sugestões:** abra uma [Issue](https://github.com/Gustavo14832/MiWire/issues).
 
 ---
 
 ## ⚖️ Conformidade Legal, Licenciamento e Créditos
 
-Todo o código-fonte do **Miware** é software livre licenciado sob a **GNU General Public License v3.0 (GPL-3.0)** — veja o texto integral em [`LICENSE.txt`](LICENSE.txt).
+Todo o código-fonte do **MiWire** é software livre licenciado sob a **GNU General Public License v3.0 (GPL-3.0)** — veja o texto integral em [`LICENSE.txt`](LICENSE.txt).
 
 ### Créditos ao Projeto Original e Projetos da Comunidade
 
-O Miware existe graças ao trabalho dos desenvolvedores originais do **Starwire**, do **Moonlight** e de toda a comunidade open source:
+O MiWire existe graças ao trabalho dos desenvolvedores originais do **Starwire**, do **Moonlight** e de toda a comunidade open source:
 
 | Projeto | Autor Original / Mantenedor | Licença | Contribuição Utilizada |
 |---|---|---|---|
@@ -118,7 +118,7 @@ O Miware existe graças ao trabalho dos desenvolvedores originais do **Starwire*
 | **Moonlit Artemis** | [Mohammad Forhad (4had45)](https://github.com/4had45/moonlit-artemis) | GPL-3.0 | Alternador de monitores e pinch-to-zoom contínuo. |
 | **Nightjar** | [Ramazan Kara](https://github.com/RamazanKara/nightjar) | GPL-3.0 | Mapeamento de efeitos de gatilho DualSense do host para Java. |
 | **Apollo Microphone** | [logabell](https://github.com/logabell/apollo-microphone) | GPL-3.0 | Captura e protocolo de microfone in-stream de baixa latência. |
-| **Moonlight Common C** | [Cameron Gutman & Diego Waxemberg](https://github.com/moonlight-stream/moonlight-common-c) | GPL-3.0 | Biblioteca nativa em C de streaming, RTP e controle (com modificações do Starwire e do Miware). |
+| **Moonlight Common C** | [Cameron Gutman & Diego Waxemberg](https://github.com/moonlight-stream/moonlight-common-c) | GPL-3.0 | Biblioteca nativa em C de streaming, RTP e controle (com modificações do Starwire e do MiWire). |
 | **PyroWave & libadrenotools** | [Themaister](https://github.com/Themaister/pyrowave) / [bylaws](https://github.com/bylaws/libadrenotools) | MIT / BSD-2 | Codec PyroWave e carregador de drivers Vulkan customizados. |
 | **usbipdcpp & usbip-win2** | [yunsmall](https://github.com/yunsmall/usbipdcpp) / [vadimgrn](https://github.com/vadimgrn/usbip-win2) | LGPL-3.0 / BSD-2 | Servidor USB/IP nativo e protocolo do driver Windows. |
 | **nanors & enet** | [sleepybishop](https://github.com/sleepybishop/nanors) / [cgutman](https://github.com/cgutman/enet) | MIT | Reed-Solomon FEC e transporte UDP confiável. |

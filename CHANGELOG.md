@@ -1,20 +1,20 @@
 # Changelog
 
-All notable changes to **Miware** (fork of [Starwire](https://github.com/SicarioGaming/Starwire)
+All notable changes to **MiWire** (fork of [Starwire](https://github.com/SicarioGaming/Starwire)
 by SicarioGaming, built on [Moonlight Android](https://github.com/moonlight-stream/moonlight-android))
 will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), inheriting
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from Starwire (`0.2.1` onward).
 
-- **Miware releases:** [GitHub Releases](https://github.com/Gustavo14832/Miware/releases)
+- **MiWire releases:** [GitHub Releases](https://github.com/Gustavo14832/MiWire/releases)
 - **Original Starwire releases (upstream base up to `0.3.0`):** [SicarioGaming/Starwire Releases](https://github.com/SicarioGaming/Starwire/releases)
 
 ## [Unreleased]
 
 ### Added
 
-- **Miware rebrand & Android TV identity:** changed package ID to `com.miware` (`com.miware.root` for
+- **MiWire rebrand & Android TV identity:** changed package ID to `com.miware` (`com.miware.root` for
   root builds), applied the Xiaomi gaming orange & dark carbon theme (`#FF6700` / `#0D0F12`), reduced
   starfield GPU overdraw, and added full `pt-BR` translations.
 - **Ghost Overlay & UI keep-alive heartbeat:** keeps SurfaceFlinger / Amlogic Hardware Composer in
@@ -547,7 +547,7 @@ same app renamed; it installs separately, so you can uninstall Voidlink afterwar
 - **Extras:** monitor switching, pinch to zoom anytime, changing the bitrate mid-stream, audio
   haptics and shortcuts imported from a file.
 
-[Unreleased]: https://github.com/SicarioGaming/Starwire/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Gustavo14832/MiWire/compare/v0.3.0...HEAD
 [0.3.0]: https://github.com/SicarioGaming/Starwire/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/SicarioGaming/Starwire/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/SicarioGaming/Starwire/compare/v0.1.2...v0.2.0

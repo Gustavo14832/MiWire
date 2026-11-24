@@ -1,4 +1,4 @@
 [submodule "app/src/main/jni/moonlight-core/moonlight-common-c"]
 	path = app/src/main/jni/moonlight-core/moonlight-common-c
-	url = https://github.com/Gustavo14832/Miware.git
+	url = https://github.com/Gustavo14832/MiWire.git
 	branch = submodule/moonlight-common-c

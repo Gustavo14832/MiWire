@@ -1,5 +1,5 @@
 name: Feature idea
-description: Something you'd like Miware to do
+description: Something you'd like MiWire to do
 labels: [enhancement]
 body:
   - type: textarea
@@ -13,4 +13,4 @@ body:
     id: source
     attributes:
       label: Does Starwire or another Moonlight app already have it?
-      description: If so, which one (a link helps). Miware can often port or adapt it.
+      description: If so, which one (a link helps). MiWire can often port or adapt it.
