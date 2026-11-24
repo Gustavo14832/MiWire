@@ -34,7 +34,8 @@ import java.util.regex.Pattern;
  * comparing take plain strings, so each check is also run on planted mistakes.
  */
 public class VersionNumbersTest {
-    private static final String REPO = "https://github.com/SicarioGaming/Starwire/";
+    private static final String REPO = "https://github.com/Gustavo14832/MiWire/";
+    private static final String UPSTREAM_REPO = "https://github.com/SicarioGaming/Starwire/";
 
     // The regular expression semver.org's FAQ suggests. Group 4 is the pre-release part and group
     // 5 the build metadata.
@@ -210,7 +211,7 @@ public class VersionNumbersTest {
             if (link == null) {
                 problems.add(at + "there's no link reference for [" + version + "]: add [" + version + "]: " + REPO
                         + "compare/v<the version before>...v" + version + " at the bottom");
-            } else if (!link.startsWith(REPO)) {
+            } else if (!link.startsWith(REPO) && !link.startsWith(UPSTREAM_REPO)) {
                 problems.add(at + "the link for [" + version + "] goes to " + link + ": it has to start with " + REPO);
             }
         }

@@ -266,7 +266,8 @@ int main() {
     }
     {
         // Safety fallback: if compositor genuinely needs >16 ms, miss detection raises to 2 vsyncs
-        Scenario s {"60 Hz MiBox preferSingleVsync raises when compositor needs 17.5 ms", 60.0, 17.5};
+        Scenario s {"60 Hz MiBox preferSingleVsync raises when compositor needs 16.2 ms", 60.0, 16.2};
+        s.needJitterMs = 0.2;
         s.reportsMargin = false;
         s.preferSingleVsync = true;
         Result r = runAndReport(s);
