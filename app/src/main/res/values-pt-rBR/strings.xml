@@ -861,6 +861,15 @@
     <string name="cg_a11y_quit_game">Encerrar %1$s</string>
     <string name="cg_a11y_overrides">Ajustes rápidos de transmissão</string>
     <string name="cg_a11y_auto_resume">Retomada automática de sessão</string>
+    <string name="title_keyboard_accessibility">Serviço de teclado físico (Acessibilidade)</string>
+    <string name="summary_keyboard_accessibility_on">Ativo — Alt+Tab, tecla Windows e atalhos vão direto ao PC.</string>
+    <string name="summary_keyboard_accessibility_off">Desativado — toque para abrir. Após ativar 1 vez, futuras atualizações mantêm ativo.</string>
+    <string name="keyboard_accessibility_dialog_title">Serviço de teclado físico</string>
+    <string name="keyboard_accessibility_dialog_message_on">O serviço de acessibilidade do teclado físico está ATIVO.\n\nAlt+Tab, tecla Windows e atalhos do sistema são encaminhados ao PC durante o streaming, e as próximas atualizações do MiWire mantêm esta opção ativada.</string>
+    <string name="keyboard_accessibility_dialog_message_off">Por segurança do sistema, o Android TV não permite que um APK ative a Acessibilidade sozinho na instalação.\n\n1. Ative \"Serviço de teclado estendido MiWire\" uma vez em Acessibilidade do Android.\n2. Se o Android TV 14 bloquear com \"Configuração restrita\", libere em Informações do app ou execute via ADB:\n\nadb shell appops set com.miwire ACCESS_RESTRICTED_SETTINGS allow\nadb shell settings put secure enabled_accessibility_services com.miwire/com.limelight.KeyboardAccessibilityService\n\nDepois de ativar uma vez, as atualizações futuras do MiWire mantêm o serviço ativo automaticamente.</string>
+    <string name="keyboard_accessibility_open">Abrir Acessibilidade</string>
+    <string name="keyboard_accessibility_no_settings">Abra Configurações do Android → Acessibilidade e ative Serviço de teclado estendido MiWire.</string>
+    <string name="credit_starwire">Projeto original do fork (por SicarioGaming): base da interface Cover Glow, microfone criptografado (SWMC v1), passthrough USB/IP, DualSense Bluetooth, testes e CI.</string>
     <string name="category_about">Sobre o MiWire</string>
     <string name="title_about_version">Versão do aplicativo</string>
     <string name="summary_about_version">%1$s (%2$d) · commit %3$s. Toque para copiar para relatório.</string>

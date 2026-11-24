@@ -26,13 +26,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: feature/back-as-meta-force-qwerty
+          ref: main
           fetch-depth: 0
 
       - name: Merge the latest release
         id: sync
         env:
-          BRANCH: feature/back-as-meta-force-qwerty
+          BRANCH: main
         run: |
           set -euo pipefail
           BRANCH="${BRANCH:?set BRANCH}"
@@ -96,4 +96,4 @@ jobs:
         if: steps.sync.outputs.merged == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run build.yml --ref feature/back-as-meta-force-qwerty
+        run: gh workflow run build.yml --ref main

@@ -23,7 +23,7 @@ cd MiWire
 ```
 
 The debug APK lands in `app/build/outputs/apk/nonRoot/debug/` and installs as "MiWire (Debug)"
-(`com.miware.debug`), next to the release app (`com.miware`) and any Starwire or Moonlight install.
+(`com.miwire.debug`), next to the release app (`com.miwire`) and any Starwire or Moonlight install.
 
 ## Tests
 
@@ -54,7 +54,7 @@ Most tests need no device:
   .github/tools/device-test.sh -s <serial>
   ```
 
-  Or directly with `am instrument` using `com.miware.debug.test/androidx.test.runner.AndroidJUnitRunner`.
+  Or directly with `am instrument` using `com.miwire.debug.test/androidx.test.runner.AndroidJUnitRunner`.
 - **The Windows helpers' tests** in `windows/tests`: `run-tests.ps1`, `e2e-loopback.ps1` and
   `run-usb-helper-tests.ps1`.
 

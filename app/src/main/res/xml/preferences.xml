@@ -127,7 +127,7 @@
             android:key="vban_setup_info"
             android:dependency="checkbox_enable_microphone"
             android:title="@string/title_vban_setup"
-            url="https://github.com/Gustavo14832/Starwire/tree/main/windows#readme" />
+            url="https://github.com/Gustavo14832/MiWire/tree/main/windows#readme" />
         <!-- Opens MicPairingDialog -->
         <Preference
             android:key="mic_pairing"
@@ -394,6 +394,11 @@
             android:title="@string/title_checkbox_back_as_meta"
             android:summary="@string/summary_checkbox_back_as_meta"
             android:defaultValue="false" />
+        <Preference
+            android:key="keyboard_accessibility_service"
+            android:title="@string/title_keyboard_accessibility"
+            android:summary="@string/summary_keyboard_accessibility_off"
+            android:persistent="false" />
         <CheckBoxPreference
             android:key="checkbox_mouse_nav_buttons"
             android:title="@string/title_checkbox_mouse_nav_buttons"
@@ -657,12 +662,12 @@
             android:key="about_github"
             android:title="@string/title_about_github"
             android:summary="@string/summary_about_github"
-            url="https://github.com/Gustavo14832/Starwire" />
+            url="https://github.com/Gustavo14832/MiWire" />
         <com.limelight.preferences.WebLauncherPreference
             android:key="about_issues"
             android:title="@string/title_about_issues"
             android:summary="@string/summary_about_issues"
-            url="https://github.com/Gustavo14832/Starwire/issues" />
+            url="https://github.com/Gustavo14832/MiWire/issues" />
         <Preference
             android:key="about_source"
             android:title="@string/title_about_source"

@@ -3,7 +3,7 @@
     <string name="summary_reset_osc">Tüm ekran kontrollerini varsayılan boyutu ve pozisyonuna sıfırlar</string>
     <string name="title_checkbox_touchscreen_trackpad">Dokunmatik ekranı trackpad olarak kullan</string>
     <string name="category_input_settings">Girdi Ayarları</string>
-    <string name="summary_language_list">Starwire için kullanılacak olan dil</string>
+    <string name="summary_language_list">MiWire için kullanılacak olan dil</string>
     <string name="ip_hint">Ana bilgisayarın IP adresi</string>
     <string name="title_details">Detaylar</string>
     <string name="dialog_title_osc_opacity">Saydamlığı değiştir</string>
@@ -38,7 +38,7 @@
     <string name="help_loading_title">Yardım</string>
     <string name="scut_invalid_app_id">Tanımlanmış uygulama geçerli değil</string>
     <string name="scut_invalid_uuid">Tanımlanmış bilgisayar geçerli değil</string>
-    <string name="nettest_text_waiting">Starwire, gerekli bağlantı noktalarının engellenmediğini belirlemek için ağ bağlantınızı test ediyor.
+    <string name="nettest_text_waiting">MiWire, gerekli bağlantı noktalarının engellenmediğini belirlemek için ağ bağlantınızı test ediyor.
 \n
 \nBu bir kaç saniye sürebilir…</string>
     <string name="nettest_title_done">Ağ Testi Tamamlandı</string>
@@ -137,7 +137,7 @@
     <string name="title_checkbox_flip_face_buttons">Yüzey düğmelerini çevir</string>
     <string name="title_checkbox_absolute_mouse_mode">Uzak masaüstü fare modu</string>
     <string name="error_404">GFE bir HTTP 404 hatası bildirdi. Bilgisayarınızın desteklenen bir GPU çalıştırdığından emin olun. Uzak masaüstü yazılımı kullanmak da bu hataya neden olabilir. Cihazınızı yeniden başlatmayı veya GFE\'yi yeniden yüklemeyi deneyin.</string>
-    <string name="message_decoding_error">Starwire, bu cihazın video kod çözücüsüyle uyumsuzluk nedeniyle çöktü. Kilitlenmeler devam ederse akış ayarlarını değiştirmeyi deneyin.</string>
+    <string name="message_decoding_error">MiWire, bu cihazın video kod çözücüsüyle uyumsuzluk nedeniyle çöktü. Kilitlenmeler devam ederse akış ayarlarını değiştirmeyi deneyin.</string>
     <string name="conn_hardware_latency">Ortalama donanım kod çözme gecikmesi:</string>
     <string name="title_decoding_reset">Video Ayarlarını Sıfırla</string>
     <string name="searching_pc">Yerel ağınızdaki ana bilgisayarlar aranıyor…

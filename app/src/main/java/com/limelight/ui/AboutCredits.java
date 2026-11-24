@@ -3,7 +3,7 @@ package com.limelight.ui;
 import com.limelight.R;
 
 /**
- * The projects and people Starwire is built on, for Settings > About > Credits. The same list as
+ * The projects and people MiWire is built on, for Settings > About > Credits. The same list as
  * the README's Credits table, so change both together.
  */
 public final class AboutCredits {
@@ -31,6 +31,8 @@ public final class AboutCredits {
     private static final int TOOLS = R.string.credits_section_tools;
 
     public static final Credit[] ALL = {
+            new Credit(MOONLIGHT, "Starwire", "SicarioGaming",
+                    R.string.credit_starwire, "https://github.com/SicarioGaming/Starwire"),
             new Credit(MOONLIGHT, "Moonlight Android", "Cameron Gutman and contributors",
                     R.string.credit_moonlight, "https://github.com/moonlight-stream/moonlight-android"),
             new Credit(MOONLIGHT, "Moonlight X", "MoreOrLessSoftware",

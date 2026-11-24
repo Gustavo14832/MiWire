@@ -36,7 +36,7 @@ export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
-PKG="${STARWIRE_PKG:-com.miware.debug}"
+PKG="${STARWIRE_PKG:-com.miwire.debug}"
 ACTIVITY=com.limelight.PcView
 DT="$HERE/device-test.sh"
 BASE_LIMIT="${BASE_TIMEOUT:-50m}"

@@ -14,9 +14,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
-- **MiWire rebrand & Android TV identity:** changed package ID to `com.miware` (`com.miware.root` for
-  root builds), applied the Xiaomi gaming orange & dark carbon theme (`#FF6700` / `#0D0F12`), reduced
-  starfield GPU overdraw, and added full `pt-BR` translations.
+- **MiWire rebrand, persistent signing & Android TV identity:** migrated package ID to `com.miwire`
+  (`com.miwire.root` for root builds), added persistent CI debug/release signing keystores so future
+  builds update in place without uninstalling, added Keyboard Accessibility status & shortcut in
+  Settings, created stable backup tag `backup-v0.3.0-estavel`, applied the Xiaomi gaming theme
+  (`#FF6700` / `#0D0F12`), reduced starfield GPU overdraw, and added full `pt-BR` translations.
 - **Ghost Overlay & UI keep-alive heartbeat:** keeps SurfaceFlinger / Amlogic Hardware Composer in
   continuous 60 Hz composition (`0x01000000` alpha when stats are hidden on Android TV) plus a
   1 Hz micro-alpha pulse (`uiKeepAliveView`) and forced `setSustainedPerformanceMode(true)` on TV.

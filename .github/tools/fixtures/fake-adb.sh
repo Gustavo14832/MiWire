@@ -58,14 +58,14 @@ case "$call" in
     *"locksettings get-disabled") echo false ;;
     *"dumpsys activity activities")
         if [ "${FAKE_ADB_STREAMING:-0}" = 1 ]; then
-            echo "  topResumedActivity=ActivityRecord{1 u0 com.miware.debug/com.limelight.Game t9}"
+            echo "  topResumedActivity=ActivityRecord{1 u0 com.miwire.debug/com.limelight.Game t9}"
         elif [ -f "$state/front" ]; then
-            echo "  topResumedActivity=ActivityRecord{1 u0 com.miware.debug/com.limelight.PcView t9}"
+            echo "  topResumedActivity=ActivityRecord{1 u0 com.miwire.debug/com.limelight.PcView t9}"
         else
             echo "  topResumedActivity=ActivityRecord{1 u0 com.example.launcher/.Home t1}"
         fi
         ;;
-    *"dumpsys package com.miware.debug") echo "    primaryCpuAbi=arm64-v8a" ;;
+    *"dumpsys package com.miwire.debug") echo "    primaryCpuAbi=arm64-v8a" ;;
     *" install "*" --abi "*)
         if [ "${FAKE_ADB_ABI:-}" = fail ]; then
             echo "Failure [INSTALL_FAILED_NO_MATCHING_ABIS: Failed to extract native libraries, res=-113]"
@@ -106,13 +106,13 @@ case "$call" in
     *"shell monkey "*)
         case "${FAKE_ADB_MONKEY:-}" in
             other) echo "// CRASH: com.google.android.bluetooth (pid 1110)"; echo "// Short Msg: Native crash" ;;
-            app) echo "// CRASH: com.miware.debug (pid 4321)"; echo "// Short Msg: java.lang.IllegalStateException"
+            app) echo "// CRASH: com.miwire.debug (pid 4321)"; echo "// Short Msg: java.lang.IllegalStateException"
                  echo "** Monkey aborted due to error."; exit 0 ;;
         esac
         echo "// Monkey finished" ;;
     *" logcat -c"|*" logcat -b crash -c") rm -f "$state/crash" ;;
     *" logcat -d -b crash"*)
-        [ -f "$state/crash" ] && echo "01-01 00:00:01.000  1234  1234 E AndroidRuntime: Process: com.miware.debug, PID: 1234" ;;
+        [ -f "$state/crash" ] && echo "01-01 00:00:01.000  1234  1234 E AndroidRuntime: Process: com.miwire.debug, PID: 1234" ;;
     # Android 6's logcat takes one buffer per -b, not a list
     *" logcat -d -b "*,*) echo "Unable to open log device '${call#*-b }'" ;;
     *" logcat -d -b main -b system -b events"*) echo "01-01 00:00:01.000  1000  1000 I ActivityManager: fake" ;;
@@ -127,15 +127,15 @@ case "$call" in
         echo "Supported states: [ DeviceState{identifier=0, name='CLOSED'}, DeviceState{identifier=1, name='HALF_OPENED'}, DeviceState{identifier=2, name='OPENED'} ]" ;;
     *"cmd device_state print-state") cat "$state/posture" 2>/dev/null || echo OPENED ;;
     *"cmd device_state state "*) echo "state ${call##* }" > "$state/posture" ;;
-    *"cmd locale set-app-locales com.miware.debug --locales "*) echo "${call##* }" > "$state/locales" ;;
-    *"cmd locale set-app-locales com.miware.debug") rm -f "$state/locales" ;;
-    *"cmd locale get-app-locales com.miware.debug")
-        echo "Locales for com.miware.debug for user 0 are [$(cat "$state/locales" 2>/dev/null)]" ;;
+    *"cmd locale set-app-locales com.miwire.debug --locales "*) echo "${call##* }" > "$state/locales" ;;
+    *"cmd locale set-app-locales com.miwire.debug") rm -f "$state/locales" ;;
+    *"cmd locale get-app-locales com.miwire.debug")
+        echo "Locales for com.miwire.debug for user 0 are [$(cat "$state/locales" 2>/dev/null)]" ;;
     *"ls /system/bin/uinput 2>/dev/null") echo /system/bin/uinput ;;
     *"pm list features")
         echo "feature:android.hardware.touchscreen"
         [ "${FAKE_ADB_TV:-0}" = 1 ] && echo "feature:android.software.leanback" ;;
-    *"cmd package query-activities"*) [ "${FAKE_ADB_TV:-0}" = 1 ] && echo "com.miware.debug/com.limelight.PcView" ;;
+    *"cmd package query-activities"*) [ "${FAKE_ADB_TV:-0}" = 1 ] && echo "com.miwire.debug/com.limelight.PcView" ;;
     *) ;;
 esac
 exit 0

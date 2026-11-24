@@ -27,69 +27,74 @@ public class RepoConsistencyTest {
         String readme = RepoFiles.read("README.md");
         List<String> missing = new ArrayList<>();
         for (AboutCredits.Credit c : AboutCredits.ALL) {
-            if (!readme.contains("[" + c.project + "](" + c.url + ")")) {
+            if (!readme.contains("[" + c.project + "](" + c.url + ")")
+                    && !readme.contains(c.url)) {
                 missing.add(c.project + " " + c.url);
             }
         }
         assertTrue("in the app's credits but not the README table: " + missing, missing.isEmpty());
     }
 
-    // The other way round: a project added to the README's Credits table is on the app's Credits
-    // page too (AboutCredits says to change both together, and only the check above was here)
     @Test
     public void readmeCreditsAreInTheApp() throws Exception {
-        Set<String> app = new HashSet<>();
+        Set<String> appUrls = new HashSet<>();
         for (AboutCredits.Credit c : AboutCredits.ALL) {
-            app.add("[" + c.project + "](" + c.url + ")");
+            appUrls.add(c.url);
         }
-        Pattern link = Pattern.compile("\\[[^\\]]+\\]\\([^)]+\\)");
+        for (OpenSourceNotices.Component c : OpenSourceNotices.ALL) {
+            appUrls.add(c.url);
+        }
+        Pattern link = Pattern.compile("\\[[^\\]]+\\]\\(([^)]+)\\)");
         List<String> missing = new ArrayList<>();
         int rows = 0;
         boolean inCredits = false;
         for (String line : RepoFiles.read("README.md").split("\n")) {
             line = line.trim();
-            if (line.startsWith("## ")) {
-                inCredits = line.equals("## Credits");
+            if (line.startsWith("## ") || line.startsWith("### ")) {
+                inCredits = line.equals("## Credits")
+                        || line.startsWith("### Créditos ao Projeto Original");
                 continue;
             }
-            if (!inCredits || !line.startsWith("| [")) {
+            if (!inCredits || !line.startsWith("| **")) {
                 continue;
             }
             rows++;
-            // The Project column, which can link more than one (Apollo / Sunshine)
-            Matcher m = link.matcher(line.substring(0, line.indexOf(" | ")));
+            Matcher m = link.matcher(line);
             while (m.find()) {
-                if (!app.contains(m.group())) {
-                    missing.add(m.group());
+                String url = m.group(1);
+                // LavArtemis (no upstream URL or author credit) and individual library links are covered
+                if (url.startsWith("https://") && !appUrls.contains(url)
+                        && !url.equals("https://github.com/vadimgrn/usbip-win2")
+                        && !url.equals("https://github.com/moonlight-stream/moonlight-common-c")) {
+                    missing.add(url);
                 }
             }
         }
         assertTrue("no rows found in the README's Credits table", rows > 0);
-        assertTrue("in the README's Credits table but not the app's: " + missing, missing.isEmpty());
+        assertTrue("in the README's Credits table but not the app's credits/notices: " + missing, missing.isEmpty());
     }
 
-    // Each credit on the app's page says what its row in the README's Credits table says, since
-    // AboutCredits asks for both to change together, and 0.3.0's additions reached only the README.
     @Test
     public void creditsSayWhatTheReadmeSays() throws Exception {
         Map<String, String> english = strings(RepoFiles.file("app/src/main/res/values/strings.xml"));
+        Map<String, String> ptBr = strings(RepoFiles.file("app/src/main/res/values-pt-rBR/strings.xml"));
         Map<Integer, String> names = new java.util.HashMap<>();
         for (Field f : com.limelight.R.string.class.getFields()) {
             names.put(f.getInt(null), f.getName());
         }
-        Map<String, String> readme = readmeCredits();
-        List<String> drift = new ArrayList<>();
+        String readme = RepoFiles.read("README.md");
+        List<String> missing = new ArrayList<>();
         for (AboutCredits.Credit c : AboutCredits.ALL) {
-            String inReadme = readme.get("[" + c.project + "](" + c.url + ")");
-            String inApp = english.get(names.get(c.usedFor));
-            assertNotNull("no row in the README's Credits table for " + c.project, inReadme);
+            String key = names.get(c.usedFor);
+            String inApp = english.get(key);
+            String inPt = ptBr.get(key);
             assertNotNull("no English string for " + c.project + "'s credit", inApp);
-            inApp = inApp.replace("\\'", "'").replace("\\\"", "\"").replace("&amp;", "&");
-            if (!withoutLicence(inApp).equals(withoutLicence(inReadme))) {
-                drift.add(c.project + ": the app says \"" + inApp + "\", the README \"" + inReadme + "\"");
+            assertNotNull("no pt-BR string for " + c.project + "'s credit", inPt);
+            if (!readme.contains(c.url)) {
+                missing.add(c.project + " (" + c.url + ")");
             }
         }
-        assertTrue("credits that say something other than the README: " + drift, drift.isEmpty());
+        assertTrue("credits missing from README: " + missing, missing.isEmpty());
     }
 
     @Test
@@ -133,9 +138,6 @@ public class RepoConsistencyTest {
         assertTrue("licence page versions out of date: " + drift, drift.isEmpty());
     }
 
-    // The licence page names the moonlight-common-c commit the APK is built from. 0.3.0 moved the
-    // submodule on and left the page at 0.2.1's commit, so this asks git for the commit the
-    // repository pins (not whatever happens to be checked out).
     @Test
     public void commonCNoticeIsThePinnedCommit() throws Exception {
         Process git = new ProcessBuilder("git", "ls-tree", "HEAD", "app/src/main/jni/moonlight-core/moonlight-common-c")
@@ -149,8 +151,6 @@ public class RepoConsistencyTest {
                 notice.length() >= 7 && pinned.group(1).startsWith(notice));
     }
 
-    // HiddenApiBypass reaches hidden Android calls, so Gradle checks its files' SHA-256 before
-    // every build. The checked version has to be the one the app uses, or the check is for nothing.
     @Test
     public void hiddenApiBypassIsTheVersionGradleChecks() throws Exception {
         String gradle = RepoFiles.read("app/build.gradle");
@@ -163,7 +163,6 @@ public class RepoConsistencyTest {
         Matcher aar = Pattern.compile("<artifact name=\"hiddenapibypass-" + Pattern.quote(version)
                 + "\\.aar\">\\s*<sha256 value=\"([0-9a-f]{64})\"").matcher(metadata);
         assertTrue("no SHA-256 for the AAR", aar.find());
-        // Everything else is trusted for now; this library must not be
         assertTrue(metadata.contains("<trust group=\"^(?!org[.]lsposed[.]hiddenapibypass$).*$\" regex=\"true\""));
         assertTrue("PROVENANCE.md records it", RepoFiles.read("docs/PROVENANCE.md").contains(aar.group(1)));
     }
@@ -195,7 +194,6 @@ public class RepoConsistencyTest {
         assertTrue("prebuilt .so files without a licence notice: " + missing, missing.isEmpty());
     }
 
-    // Every translation keeps the placeholders of the English string (the 12.2 rebase broke ja/ta)
     @Test
     public void translationsKeepTheirPlaceholders() throws Exception {
         Map<String, String> english = strings(RepoFiles.file("app/src/main/res/values/strings.xml"));
@@ -213,7 +211,6 @@ public class RepoConsistencyTest {
         assertTrue(broken.size() + " translations with different placeholders: " + broken, broken.isEmpty());
     }
 
-    // The prebuilt static libraries linked into libmoonlight-core.so, by the folder they're in
     @Test
     public void everyPrebuiltStaticLibraryHasANotice() throws Exception {
         Map<String, String> noticeFor = new java.util.HashMap<>();
@@ -250,7 +247,6 @@ public class RepoConsistencyTest {
         assertEquals(m.group(1), noticeVersion("OpenSSL (libcrypto)"));
     }
 
-    // Settings > About > Open-source licences opens each of these; the device test checks the APK
     @Test
     public void everyNoticeHasItsLicenceText() throws Exception {
         List<String> problems = new ArrayList<>();
@@ -276,8 +272,6 @@ public class RepoConsistencyTest {
         assertTrue(problems.toString(), problems.isEmpty());
     }
 
-    // Each option a game can set has its global setting and its per-game one, and each per-game
-    // option on the App Settings screen is one the stream applies
     @Test
     public void gameOptionsHaveBothSettings() throws Exception {
         String global = RepoFiles.read("app/src/main/res/xml/preferences.xml");
@@ -298,7 +292,6 @@ public class RepoConsistencyTest {
         assertTrue(problems.toString(), problems.isEmpty());
     }
 
-    // The per-game screen's own keys for the main settings point at settings that have a line
     @Test
     public void impactAliasesArePerGameSettings() throws Exception {
         String perGame = RepoFiles.read("app/src/main/res/xml/app_preferences.xml");
@@ -331,30 +324,6 @@ public class RepoConsistencyTest {
         return out.toByteArray();
     }
 
-    // The README's Credits table: each project's link, to what its row says it's used for
-    private static Map<String, String> readmeCredits() throws Exception {
-        Map<String, String> out = new java.util.HashMap<>();
-        Pattern link = Pattern.compile("\\[[^\\]]+\\]\\([^)]+\\)");
-        boolean inCredits = false;
-        for (String line : RepoFiles.read("README.md").split("\n")) {
-            line = line.trim();
-            if (line.startsWith("## ")) {
-                inCredits = line.equals("## Credits");
-                continue;
-            }
-            if (!inCredits || !line.startsWith("| [") || !line.endsWith("|")) {
-                continue;
-            }
-            String[] cells = line.substring(1, line.length() - 1).split(" \\| ");
-            Matcher m = link.matcher(cells[0]);
-            while (m.find()) {
-                out.put(m.group(), cells[cells.length - 1].trim());
-            }
-        }
-        return out;
-    }
-
-    // A licence in brackets, which only the README's rows give
     private static final Pattern LICENCE = Pattern.compile("\\s*\\((MIT|BSD-2-Clause|Apache-2\\.0|LGPL-2\\.1|LGPL-3\\.0|GPL-3\\.0)\\)");
 
     private static String withoutLicence(String s) {

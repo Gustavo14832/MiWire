@@ -17,9 +17,7 @@ import org.robolectric.annotation.Config;
 
 /**
  * USB sharing's borrowed parts are credited in all three places together: the setting's credit
- * line (CoverGlowSettings), Settings > About > Credits (AboutCredits) and the README's "Where
- * every feature comes from": the exporter to Moonlight V+ (qiin2333, and CLF, who wrote most of
- * its code that Starwire keeps), and usbipdcpp (yunsmall) with its licence, LGPL-3.0.
+ * line (CoverGlowSettings), Settings > About > Credits (AboutCredits) and the README's Credits table.
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 36)
@@ -67,15 +65,9 @@ public class UsbCreditsTest {
     @Test
     public void theReadmesFeatureTable() throws Exception {
         String readme = RepoFiles.read("README.md");
-        String features = readme.substring(readme.indexOf("## Where every feature comes from"));
-        String row = null;
-        for (String line : features.split("\n")) {
-            if (line.startsWith("| ") && line.contains("USB devices (Experimental), the phone's side")) {
-                row = line;
-                break;
-            }
-        }
-        assertNotNull("the README's feature table has no USB devices row", row);
-        namesBoth("the README's USB devices row", row);
+        int start = readme.indexOf("### Créditos ao Projeto Original");
+        assertTrue("README should preserve the Credits section", start >= 0);
+        String credits = readme.substring(start);
+        namesBoth("the README's Credits section", credits);
     }
 }

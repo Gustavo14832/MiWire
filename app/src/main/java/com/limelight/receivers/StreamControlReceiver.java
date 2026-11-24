@@ -18,7 +18,7 @@ import com.limelight.Game;
  *
  * Example usage from external app:
  *   Intent intent = new Intent("com.limelight.QUIT_STREAM");
- *   intent.setPackage("com.miware"); // or com.miware.debug for debug builds
+ *   intent.setPackage("com.miwire"); // or com.miwire.debug for debug builds
  *   intent.putExtra("quit_moonlight", true); // Optional: close entire app
  *   sendBroadcast(intent);
  */

@@ -75,9 +75,11 @@ load or initialize PyroWave, MiWire falls back to the system driver; if it crash
 
 ## Verifying a MiWire download
 
-- **Package ID:** `com.miware` (debug builds: `com.miware.debug`)
-- **Latest APK (`release/MiWire.apk`, `v0.3.0-miware`) SHA-256:**
+- **Package ID:** `com.miwire` (debug builds: `com.miwire.debug`; legacy `v0.3.0-miware` backup uses `com.miware`)
+- **Latest backup APK (`release/MiWire.apk`, `v0.3.0-miware`) SHA-256:**
   `572CEBCEB5D47D410091CDBF2088762E2AE523C93A3D7DE0D5D42F7F1CF975FF`
+- **Permanent MiWire release signing certificate (all `com.miwire` builds):**
+  `EA:AC:C7:63:59:46:A1:82:4D:69:BC:6D:1E:E7:43:D7:8A:DA:DF:E2:D7:07:34:AE:E3:19:4A:75:04:0A:2F:6D`
 - You can inspect the signing certificate of any APK using the Android SDK's `apksigner`:
-  `apksigner verify --print-certs MiWire.apk`. Android will refuse to install an update signed with
-  a different key over an existing install.
+  `apksigner verify --print-certs MiWire.apk`. Android updates preserve settings and Accessibility
+  across builds signed with the same certificate and refuses mismatched keys over an existing install.

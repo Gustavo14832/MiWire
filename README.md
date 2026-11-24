@@ -11,12 +11,12 @@
 [![Licença: GPL-3.0](https://img.shields.io/badge/licen%C3%A7a-GPL--3.0-FF6700?style=flat-square)](LICENSE.txt)
 [![Android TV 11+](https://img.shields.io/badge/Android%20TV-11%2B%20(Google%20TV)-34A853?style=flat-square&logo=android&logoColor=white)](https://github.com/Gustavo14832/MiWire/releases/latest)
 [![Target: Mi Box S Gen 3](https://img.shields.io/badge/Target-Mi%20Box%20S%20Gen%203-FF6700?style=flat-square)](https://github.com/Gustavo14832/MiWire/releases/latest)
-[![Package: com.miware](https://img.shields.io/badge/package-com.miware-blue?style=flat-square)](https://github.com/Gustavo14832/MiWire/releases/latest)
+[![Package: com.miwire](https://img.shields.io/badge/package-com.miwire-blue?style=flat-square)](https://github.com/Gustavo14832/MiWire/releases/latest)
 
-### [⬇ Baixar MiWire.apk (GitHub Releases)](https://github.com/Gustavo14832/MiWire/releases/latest) · [📦 Cópia Direta no Repositório](release/MiWire.apk)
+### [⬇ Baixar Backup Estável v0.3.0 (GitHub Releases)](https://github.com/Gustavo14832/MiWire/releases/latest) · [📦 APK Backup no Repositório](release/MiWire.apk)
 
-**Versão:** `0.3.0` (`v0.3.0-miware`) | **Tamanho:** `~14.6 MB` | **ID do Pacote:** `com.miware`  
-**SHA-256:** `572CEBCEB5D47D410091CDBF2088762E2AE523C93A3D7DE0D5D42F7F1CF975FF`
+**Versão Estável (Backup):** `0.3.0` (`v0.3.0-miware` · `com.miware`) | **SHA-256:** `572CEBCEB5D47D410091CDBF2088762E2AE523C93A3D7DE0D5D42F7F1CF975FF`  
+**Próximas compilações (`main` / CI):** pacote definitivo **`com.miwire`** com assinatura persistente (atualizáveis por cima sem desinstalar).
 
 </div>
 
@@ -69,7 +69,7 @@ Na primeira execução em dispositivos Android TV / Amlogic (`isTvOrAmlogicDevic
 
 Além das otimizações exclusivas para Mi Box S Gen 3, o MiWire preserva os recursos modernos trazidos pelo **Starwire** e demais forks:
 
-* **ID de Pacote Próprio (`com.miware` / `com.miware.debug`):** Instala lado a lado com Moonlight oficial e Starwire sem conflito de assinatura.
+* **ID de Pacote Próprio (`com.miwire` / `com.miwire.debug`):** Instala lado a lado com Moonlight oficial e Starwire (e com o backup legado `com.miware`), mantendo assinatura fixa em todas as novas builds para atualizar sem desinstalar.
 * **Gatilhos Adaptativos DualSense (Experimental):** Efeitos de gatilho via Bluetooth (Android 12+) com suporte a hosts compatíveis (como Vibepollo) ou presets integrados.
 * **Passthrough USB Completo (Experimental):** Compartilhe volantes, controles e dispositivos USB com o PC via túnel USB/IP criptografado e auxiliar Windows ([guia Windows USB](windows/USB-HELPER.md)).
 * **Microfone Criptografado para Qualquer Host:** Envie seu microfone via protocolo criptografado SWMC v1 para o receptor Windows ([guia Microfone Windows](windows/README.md)), VBAN ou diretamente embutido no stream (Apollo).
@@ -107,22 +107,26 @@ O MiWire existe graças ao trabalho dos desenvolvedores originais do **Starwire*
 
 | Projeto | Autor Original / Mantenedor | Licença | Contribuição Utilizada |
 |---|---|---|---|
-| **Starwire** *(APK original do fork)* | [SicarioGaming](https://github.com/SicarioGaming/Starwire) | GPL-3.0 | Base direta do fork, interface Cover Glow, microfone criptografado (SWMC v1), passthrough USB/IP, DualSense Bluetooth, pipeline de testes e infraestrutura CI. |
-| **Moonlight Android** | [Cameron Gutman (cgutman)](https://github.com/moonlight-stream/moonlight-android) | GPL-3.0 | Cliente Moonlight Android fundamental, arquitetura de streaming, áudio, input e decodificação. |
-| **Moonlight X** | [MoreOrLessSoftware](https://github.com/MoreOrLessSoftware/moonlight-android) | GPL-3.0 | Base upstream do Starwire: renderizador Vulkan, PyroWave, menu overlay, configurações por jogo, Quick Launch e resoluções/FPS customizados. |
-| **Artemis** | [Yukino Song (ClassicOldSong)](https://github.com/ClassicOldSong/moonlight-android) | GPL-3.0 | Pan/zoom, modos de toque, clipboard, comandos de servidor, Virtual Display, pacing Warp, Back como Meta e Force QWERTY. |
-| **Artemide** | [derflacco](https://github.com/derflacco/moonlight-android) | GPL-3.0 | Fast V-Sync (NanoPacer), Sync/Async LFR, decodificação assíncrona e melhorias MediaTek. |
-| **LavArtemis** | Lavagnou | GPL-3.0 | Modo Lite de estatísticas, acessibilidade de teclado físico, hints ADPF, monitoramento térmico e percentis de pacing. |
-| **Moonlight-VPlus** | [qiin2333](https://github.com/qiin2333/moonlight-vplus) | GPL-3.0 | Exportador USB/IP (`usbip-backend`, com CLF184), rotas Bluetooth para gatilhos DualSense, áudio háptico e bitrate em tempo real. |
-| **Moonlight X Turnip** | [ncpt (NoCrypt)](https://github.com/NoCrypt/moonlight-x-turnip) | GPL-3.0 | Suporte a driver Vulkan customizado para PyroWave. |
-| **Moonlit Artemis** | [Mohammad Forhad (4had45)](https://github.com/4had45/moonlit-artemis) | GPL-3.0 | Alternador de monitores e pinch-to-zoom contínuo. |
-| **Nightjar** | [Ramazan Kara](https://github.com/RamazanKara/nightjar) | GPL-3.0 | Mapeamento de efeitos de gatilho DualSense do host para Java. |
-| **Apollo Microphone** | [logabell](https://github.com/logabell/apollo-microphone) | GPL-3.0 | Captura e protocolo de microfone in-stream de baixa latência. |
-| **Moonlight Common C** | [Cameron Gutman & Diego Waxemberg](https://github.com/moonlight-stream/moonlight-common-c) | GPL-3.0 | Biblioteca nativa em C de streaming, RTP e controle (com modificações do Starwire e do MiWire). |
-| **PyroWave & libadrenotools** | [Themaister](https://github.com/Themaister/pyrowave) / [bylaws](https://github.com/bylaws/libadrenotools) | MIT / BSD-2 | Codec PyroWave e carregador de drivers Vulkan customizados. |
-| **usbipdcpp & usbip-win2** | [yunsmall](https://github.com/yunsmall/usbipdcpp) / [vadimgrn](https://github.com/vadimgrn/usbip-win2) | LGPL-3.0 / BSD-2 | Servidor USB/IP nativo e protocolo do driver Windows. |
-| **nanors & enet** | [sleepybishop](https://github.com/sleepybishop/nanors) / [cgutman](https://github.com/cgutman/enet) | MIT | Reed-Solomon FEC e transporte UDP confiável. |
-| **Vibepollo / Apollo / Sunshine** | [Nonary](https://github.com/Nonary/Vibepollo) / [ClassicOldSong](https://github.com/ClassicOldSong/Apollo) / [LizardByte](https://github.com/LizardByte/Sunshine) | GPL-3.0 | Servidores host compatíveis no PC. |
+| **[Starwire](https://github.com/SicarioGaming/Starwire)** *(APK original do fork)* | SicarioGaming | GPL-3.0 | Base direta do fork, interface Cover Glow, microfone criptografado (SWMC v1), passthrough USB/IP, DualSense Bluetooth, pipeline de testes e infraestrutura CI. |
+| **[Moonlight Android](https://github.com/moonlight-stream/moonlight-android)** | Cameron Gutman (cgutman) | GPL-3.0 | Cliente Moonlight Android fundamental, arquitetura de streaming, áudio, input e decodificação. |
+| **[Moonlight X](https://github.com/MoreOrLessSoftware/moonlight-android)** | MoreOrLessSoftware | GPL-3.0 | Base upstream do Starwire: renderizador Vulkan, PyroWave, menu overlay, configurações por jogo, Quick Launch e resoluções/FPS customizados. |
+| **[Artemis](https://github.com/ClassicOldSong/moonlight-android)** | Yukino Song (ClassicOldSong) | GPL-3.0 | Pan/zoom, modos de toque, clipboard, comandos de servidor, Virtual Display, pacing Warp, Back como Meta, Force QWERTY e Back abre o menu (via Artemide). |
+| **[Artemide](https://github.com/derflacco/moonlight-android)** | derflacco | GPL-3.0 | Fast V-Sync (NanoPacer), Sync/Async LFR, decodificação assíncrona e melhorias MediaTek. |
+| **[Moonlight (Axixi2233 fork)](https://github.com/Axixi2233/moonlight-android)** | Axixi2233 | GPL-3.0 | Teclado virtual completo, formato de atalhos e modo Lite de estatísticas (via Artemis). |
+| **LavArtemis** | Lavagnou | GPL-3.0 | Serviço de acessibilidade de teclado físico, hints ADPF, monitoramento térmico e percentis de pacing. |
+| **[Moonlight V+](https://github.com/qiin2333/moonlight-vplus)** | qiin2333 & CLF (CLF184) | GPL-3.0 | Exportador USB/IP (`usbip-backend`), rotas Bluetooth para gatilhos DualSense, áudio háptico, 1% lows e bitrate em tempo real. |
+| **[Moonlight X Turnip](https://github.com/NoCrypt/moonlight-x-turnip)** | ncpt (NoCrypt) | GPL-3.0 | Suporte a driver Vulkan customizado para PyroWave. |
+| **[Moonlit Artemis](https://github.com/4had45/moonlit-artemis)** | Mohammad Forhad (4had45) | GPL-3.0 | Alternador de monitores e pinch-to-zoom contínuo. |
+| **[Moonlight Fold](https://github.com/sblocktechnologies/moonlight-fold)** | sblocktechnologies | GPL-3.0 | Adaptação de transmissão para tela interna de aparelhos dobráveis. |
+| **[Nightjar](https://github.com/RamazanKara/nightjar)** | Ramazan Kara | GPL-3.0 | Mapeamento de efeitos de gatilho DualSense do host para Java. |
+| **[Apollo microphone](https://github.com/logabell/apollo-microphone)** | logabell | GPL-3.0 | Captura e protocolo de microfone in-stream de baixa latência. |
+| **[VBAN and VB-Cable](https://vb-audio.com/Cable/)** | VB-Audio (Vincent Burel) | Donationware | Formato de transporte VBAN e microfone virtual VB-Cable no Windows. |
+| **[Moonlight Common C](https://github.com/moonlight-stream/moonlight-common-c)** | Cameron Gutman & Diego Waxemberg | GPL-3.0 | Biblioteca nativa em C de streaming, RTP e controle (com modificações do Starwire e do MiWire). |
+| **[PyroWave](https://github.com/Themaister/pyrowave) & [libadrenotools](https://github.com/bylaws/libadrenotools)** | Themaister / bylaws | MIT / BSD-2 | Codec PyroWave e carregador de drivers Vulkan customizados. |
+| **[usbipdcpp](https://github.com/yunsmall/usbipdcpp) & [usbip-win2](https://github.com/vadimgrn/usbip-win2)** | yunsmall / vadimgrn | LGPL-3.0 / BSD-2 | Servidor USB/IP nativo e protocolo do driver Windows. |
+| **nanors & enet** | sleepybishop / cgutman | MIT | Reed-Solomon FEC e transporte UDP confiável. |
+| **[Vibepollo](https://github.com/Nonary/Vibepollo) / [Apollo](https://github.com/ClassicOldSong/Apollo) / [Sunshine](https://github.com/LizardByte/Sunshine)** | Nonary / ClassicOldSong / LizardByte | GPL-3.0 | Servidores host compatíveis no PC. |
+| **[Claude Code](https://claude.com/claude-code) & [REA](https://github.com/morluto/rea)** | Anthropic / morluto | — | Desenvolvimento original no Starwire, testes e engenharia reversa / análise. |
 
 ### Isenção de Marcas Registradas (Trademark Disclaimer)
 * *Xiaomi*, *Mi Box*, *Android*, *Google TV*, *NVIDIA*, *GeForce*, *PlayStation*, *DualSense* e outros nomes citados são marcas comerciais de seus respectivos proprietários. O uso destes nomes destina-se exclusivamente a identificar e descrever compatibilidade técnica de hardware e software, sem qualquer afiliação, endosso ou patrocínio.

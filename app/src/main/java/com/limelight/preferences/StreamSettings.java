@@ -1,6 +1,7 @@
 package com.limelight.preferences;
 
 import android.Manifest;
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -8,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.media.MediaCodecInfo;
@@ -26,6 +28,7 @@ import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.preference.PreferenceScreen;
 import android.provider.OpenableColumns;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Range;
@@ -35,9 +38,11 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.Toast;
 
 import com.limelight.BuildConfig;
+import com.limelight.KeyboardAccessibilityService;
 import com.limelight.LimeLog;
 import com.limelight.PcView;
 import com.limelight.R;
@@ -339,6 +344,7 @@ public class StreamSettings extends Activity {
 
         // The DualSense group looks for the pad only while Settings is showing
         private DualSenseSettings dualSenseSettings;
+        private Preference keyboardAccessibilityPref;
 
         @Override
         public void onResume() {
@@ -346,6 +352,7 @@ public class StreamSettings extends Activity {
             if (dualSenseSettings != null) {
                 dualSenseSettings.onResume();
             }
+            updateKeyboardAccessibilitySummary();
         }
 
         @Override
@@ -370,6 +377,7 @@ public class StreamSettings extends Activity {
             addPreferencesFromResource(R.xml.preferences);
             PreferenceScreen screen = getPreferenceScreen();
             initializeMicrophonePreferences();
+            initializeKeyboardAccessibilityPreference();
             initializeAboutPreferences();
             dualSenseSettings = new DualSenseSettings(this);
             dualSenseSettings.attach();
@@ -897,7 +905,7 @@ public class StreamSettings extends Activity {
             versionPref.setOnPreferenceClickListener(preference -> {
                 ClipboardManager clipboard =
                         (ClipboardManager) getActivity().getSystemService(Context.CLIPBOARD_SERVICE);
-                clipboard.setPrimaryClip(ClipData.newPlainText("Starwire version", versionDetails()));
+                clipboard.setPrimaryClip(ClipData.newPlainText("MiWire version", versionDetails()));
                 // Android 13 and newer show their own "Copied" message
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
                     Toast.makeText(getActivity(), R.string.about_copied, Toast.LENGTH_SHORT).show();
@@ -909,7 +917,7 @@ public class StreamSettings extends Activity {
             sourcePref.setSummary(getString(R.string.summary_about_source, BuildConfig.VERSION_NAME));
             sourcePref.setOnPreferenceClickListener(preference -> {
                 HelpLauncher.launchUrl(getActivity(),
-                        "https://github.com/Gustavo14832/Starwire/tree/v" + BuildConfig.VERSION_NAME);
+                        "https://github.com/Gustavo14832/MiWire/tree/v" + BuildConfig.VERSION_NAME);
                 return true;
             });
 
@@ -925,9 +933,82 @@ public class StreamSettings extends Activity {
             });
         }
 
+        private void initializeKeyboardAccessibilityPreference() {
+            keyboardAccessibilityPref = findPreference("keyboard_accessibility_service");
+            if (keyboardAccessibilityPref == null) {
+                return;
+            }
+            updateKeyboardAccessibilitySummary();
+            keyboardAccessibilityPref.setOnPreferenceClickListener(preference -> {
+                showKeyboardAccessibilityDialog();
+                return true;
+            });
+        }
+
+        private void updateKeyboardAccessibilitySummary() {
+            if (keyboardAccessibilityPref == null || getActivity() == null) {
+                return;
+            }
+            keyboardAccessibilityPref.setSummary(isKeyboardAccessibilityEnabled(getActivity())
+                    ? R.string.summary_keyboard_accessibility_on
+                    : R.string.summary_keyboard_accessibility_off);
+        }
+
+        private static boolean isKeyboardAccessibilityEnabled(Context context) {
+            if (context == null) {
+                return false;
+            }
+            AccessibilityManager am =
+                    (AccessibilityManager) context.getSystemService(Context.ACCESSIBILITY_SERVICE);
+            if (am == null) {
+                return false;
+            }
+            List<AccessibilityServiceInfo> enabled =
+                    am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK);
+            if (enabled == null) {
+                return false;
+            }
+            String pkg = context.getPackageName();
+            String cls = KeyboardAccessibilityService.class.getName();
+            for (AccessibilityServiceInfo info : enabled) {
+                if (info == null || info.getResolveInfo() == null || info.getResolveInfo().serviceInfo == null) {
+                    continue;
+                }
+                if (pkg.equals(info.getResolveInfo().serviceInfo.packageName)
+                        && cls.equals(info.getResolveInfo().serviceInfo.name)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void showKeyboardAccessibilityDialog() {
+            Activity activity = getActivity();
+            if (activity == null) {
+                return;
+            }
+            boolean enabled = isKeyboardAccessibilityEnabled(activity);
+            new AlertDialog.Builder(activity)
+                    .setTitle(R.string.keyboard_accessibility_dialog_title)
+                    .setMessage(enabled
+                            ? R.string.keyboard_accessibility_dialog_message_on
+                            : R.string.keyboard_accessibility_dialog_message_off)
+                    .setPositiveButton(R.string.keyboard_accessibility_open, (dialog, which) -> {
+                        try {
+                            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+                        }
+                        catch (ActivityNotFoundException e) {
+                            Toast.makeText(activity, R.string.keyboard_accessibility_no_settings,
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+        }
+
         /** What a tap on Version copies: enough to tell builds and devices apart in a bug report. */
         static String versionDetails() {
-            return "Starwire " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ") "
+            return "MiWire " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ") "
                     + BuildConfig.FLAVOR + " " + BuildConfig.BUILD_TYPE
                     + ", commit " + BuildConfig.GIT_COMMIT
                     + ", Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")"

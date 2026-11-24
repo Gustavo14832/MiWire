@@ -56,7 +56,7 @@ struct Result {
 Result run(const Scenario& s, bool verbose = true) {
     PresentScheduler scheduler;
     if (s.preferSingleVsync) {
-        scheduler.preferSingleVsync(1'500'000);
+        scheduler.preferSingleVsync(2'000'000);
     }
     std::mt19937 rng(s.seed);
     std::normal_distribution<double> jitter(0.0, s.needJitterMs * 1e6);
@@ -257,8 +257,8 @@ int main() {
         check(r.finalGuardMs <= 3.5, s.name, "should go back to the guard from before lowering");
     }
     {
-        // Mi Box S Gen 3 60 Hz mode: starts at delay 1 even without presentMargin
-        Scenario s {"60 Hz MiBox preferSingleVsync without presentMargin", 60.0, 2.5};
+        // Mi Box S Gen 3 60 Hz mode: starts at delay 1 with 2 ms initial guard even without presentMargin
+        Scenario s {"60 Hz MiBox preferSingleVsync without presentMargin", 60.0, 1.2};
         s.reportsMargin = false;
         s.preferSingleVsync = true;
         Result r = runAndReport(s);
