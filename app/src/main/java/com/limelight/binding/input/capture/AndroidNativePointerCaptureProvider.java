@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.hardware.input.InputManager;
 import android.os.Build;
 import android.os.Handler;
+import android.os.Looper;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
@@ -94,19 +95,21 @@ public class AndroidNativePointerCaptureProvider extends AndroidPointerIconCaptu
             return;
         }
 
-        // Recapture the pointer if focus was regained. On Android Q,
-        // we have to delay a bit before requesting capture because otherwise
-        // we'll hit the "requestPointerCapture called for a window that has no focus"
-        // error and it will not actually capture the cursor.
-        Handler h = new Handler();
-        h.postDelayed(new Runnable() {
+        // Android 10 (Q) requires a short settle delay after focus return; Android 11+ can capture right away.
+        Handler h = new Handler(Looper.getMainLooper());
+        Runnable captureTask = new Runnable() {
             @Override
             public void run() {
-                if (hasCaptureCompatibleInputDevice()) {
+                if (isCapturing && !isCursorVisible && hasCaptureCompatibleInputDevice()) {
                     targetView.requestPointerCapture();
                 }
             }
-        }, 500);
+        };
+        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+            h.postDelayed(captureTask, 500);
+        } else {
+            h.post(captureTask);
+        }
     }
 
     @Override

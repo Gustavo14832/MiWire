@@ -46,6 +46,8 @@ static jmethodID BridgeArStartMethod;
 static jmethodID BridgeArStopMethod;
 static jmethodID BridgeArCleanupMethod;
 static jmethodID BridgeArPlaySampleMethod;
+static jmethodID BridgeArPlaySampleFloatMethod;
+static jmethodID BridgeArIsFloatOutputMethod;
 static jmethodID BridgeClStageStartingMethod;
 static jmethodID BridgeClStageCompleteMethod;
 static jmethodID BridgeClStageFailedMethod;
@@ -60,6 +62,8 @@ static jmethodID BridgeClSetControllerLEDMethod;
 static jmethodID BridgeClSetAdaptiveTriggersMethod;
 static jbyteArray DecodedFrameBuffer;
 static jshortArray DecodedAudioBuffer;
+static jfloatArray DecodedAudioFloatBuffer;
+static bool UseFloatAudio;
 static bool VideoThreadPrioritySet;
 static bool AudioThreadPrioritySet;
 
@@ -307,6 +311,8 @@ Java_com_limelight_nvstream_jni_MoonBridge_init(JNIEnv *env, jclass clazz) {
     BridgeArStopMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeArStop", "()V");
     BridgeArCleanupMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeArCleanup", "()V");
     BridgeArPlaySampleMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeArPlaySample", "([S)V");
+    BridgeArPlaySampleFloatMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeArPlaySampleFloat", "([F)V");
+    BridgeArIsFloatOutputMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeArIsFloatOutput", "()Z");
     BridgeClStageStartingMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClStageStarting", "(I)V");
     BridgeClStageCompleteMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClStageComplete", "(I)V");
     BridgeClStageFailedMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClStageFailed", "(II)V");
@@ -521,6 +527,9 @@ int BridgeArInit(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusCon
     int err;
 
     AudioThreadPrioritySet = false;
+    DecodedAudioBuffer = NULL;
+    DecodedAudioFloatBuffer = NULL;
+    UseFloatAudio = false;
 
     err = (*env)->CallStaticIntMethod(env, GlobalBridgeClass, BridgeArInitMethod, audioConfiguration, opusConfig->sampleRate, opusConfig->samplesPerFrame);
     if ((*env)->ExceptionCheck(env)) {
@@ -540,8 +549,32 @@ int BridgeArInit(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusCon
             return -1;
         }
 
+        UseFloatAudio = (*env)->CallStaticBooleanMethod(env, GlobalBridgeClass, BridgeArIsFloatOutputMethod);
+        if ((*env)->ExceptionCheck(env)) {
+            (*env)->ExceptionClear(env);
+            UseFloatAudio = false;
+        }
+
         // We know ahead of time what the buffer size will be for decoded audio, so pre-allocate it
-        DecodedAudioBuffer = (*env)->NewGlobalRef(env, (*env)->NewShortArray(env, opusConfig->channelCount * opusConfig->samplesPerFrame));
+        if (UseFloatAudio) {
+            DecodedAudioFloatBuffer = (*env)->NewGlobalRef(env, (*env)->NewFloatArray(env, opusConfig->channelCount * opusConfig->samplesPerFrame));
+            if (DecodedAudioFloatBuffer == NULL) {
+                opus_multistream_decoder_destroy(Decoder);
+                Decoder = NULL;
+                UseFloatAudio = false;
+                (*env)->CallStaticVoidMethod(env, GlobalBridgeClass, BridgeArCleanupMethod);
+                return -1;
+            }
+        }
+        else {
+            DecodedAudioBuffer = (*env)->NewGlobalRef(env, (*env)->NewShortArray(env, opusConfig->channelCount * opusConfig->samplesPerFrame));
+            if (DecodedAudioBuffer == NULL) {
+                opus_multistream_decoder_destroy(Decoder);
+                Decoder = NULL;
+                (*env)->CallStaticVoidMethod(env, GlobalBridgeClass, BridgeArCleanupMethod);
+                return -1;
+            }
+        }
     }
 
     return err;
@@ -562,9 +595,22 @@ void BridgeArStop(void) {
 void BridgeArCleanup() {
     JNIEnv* env = GetThreadEnv();
 
-    opus_multistream_decoder_destroy(Decoder);
+    if (Decoder != NULL) {
+        opus_multistream_decoder_destroy(Decoder);
+        Decoder = NULL;
+    }
 
-    (*env)->DeleteGlobalRef(env, DecodedAudioBuffer);
+    if (DecodedAudioBuffer != NULL) {
+        (*env)->DeleteGlobalRef(env, DecodedAudioBuffer);
+        DecodedAudioBuffer = NULL;
+    }
+
+    if (DecodedAudioFloatBuffer != NULL) {
+        (*env)->DeleteGlobalRef(env, DecodedAudioFloatBuffer);
+        DecodedAudioFloatBuffer = NULL;
+    }
+
+    UseFloatAudio = false;
 
     (*env)->CallStaticVoidMethod(env, GlobalBridgeClass, BridgeArCleanupMethod);
 }
@@ -575,6 +621,35 @@ void BridgeArDecodeAndPlaySample(char* sampleData, int sampleLength) {
     if (!AudioThreadPrioritySet) {
         AudioThreadPrioritySet = true;
         RaiseCurrentThreadPriority(-16);
+    }
+
+    if (UseFloatAudio && DecodedAudioFloatBuffer != NULL) {
+        jfloat* decodedFloatData = (*env)->GetPrimitiveArrayCritical(env, DecodedAudioFloatBuffer, NULL);
+        if (decodedFloatData == NULL) {
+            return;
+        }
+
+        int decodeLen = opus_multistream_decode_float(Decoder,
+                                                      (const unsigned char*)sampleData,
+                                                      sampleLength,
+                                                      decodedFloatData,
+                                                      OpusConfig.samplesPerFrame,
+                                                      0);
+        if (decodeLen > 0) {
+            // We must release the array elements before making further JNI calls
+            (*env)->ReleasePrimitiveArrayCritical(env, DecodedAudioFloatBuffer, decodedFloatData, 0);
+
+            (*env)->CallStaticVoidMethod(env, GlobalBridgeClass, BridgeArPlaySampleFloatMethod, DecodedAudioFloatBuffer);
+            if ((*env)->ExceptionCheck(env)) {
+                // We will crash here
+                (*JVM)->DetachCurrentThread(JVM);
+            }
+        }
+        else {
+            // We can abort here to avoid the copy back since no data was modified
+            (*env)->ReleasePrimitiveArrayCritical(env, DecodedAudioFloatBuffer, decodedFloatData, JNI_ABORT);
+        }
+        return;
     }
 
     jshort* decodedData = (*env)->GetPrimitiveArrayCritical(env, DecodedAudioBuffer, NULL);

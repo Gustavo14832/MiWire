@@ -180,6 +180,8 @@
     <string name="summary_audio_config_list">Enable 5.1 or 7.1 surround sound for home-theater systems</string>
     <string name="title_checkbox_enable_audiofx">Enable system equalizer support</string>
     <string name="summary_checkbox_enable_audiofx">Allows audio effects to function while streaming, but may increase audio latency</string>
+    <string name="title_checkbox_float_pcm_audio">High-precision 32-bit float PCM audio</string>
+    <string name="summary_checkbox_float_pcm_audio">Decode Opus directly to 32-bit float PCM for compatible HDMI/AVR/DAC chains instead of 16-bit integer PCM (falls back to 16-bit automatically if unsupported).</string>
 
     <string name="category_gamepad_settings">Gamepad Settings</string>
     <string name="title_checkbox_multi_controller">Automatic gamepad presence detection</string>
@@ -329,7 +331,10 @@
     <string name="pyrowave_late_frames_smoothest">Smoothest (most blur)</string>
     <string name="summary_video_format">Newer codecs can lower video bandwidth requirements if your device supports them. Codec selections may be ignored if not supported by the host software or GPU.</string>
     <string name="title_enable_hdr">Enable HDR / 10-bit SDR (Experimental)</string>
-    <string name="summary_enable_hdr">Stream HDR / 10-bit SDR when the game and PC GPU support it. Requires a GPU with HEVC Main 10 encoding support.</string>
+    <string name="summary_enable_hdr">Stream HDR / 10-bit SDR when the game and PC GPU support it. Supports HDR10, HDR10+, HLG, and Dolby Vision displays, or Vulkan 10-bit tone mapping when HDR compatibility is enabled.</string>
+    <string name="display_hdr_detected_format">Detected display range: %1$s</string>
+    <string name="title_checkbox_hdr_compat">HDR compatibility mode (HLG / Dolby Vision / 10-bit SDR)</string>
+    <string name="summary_checkbox_hdr_compat">Allow 10-bit BT.2020 HDR streaming (and Vulkan PQ-to-SDR tone mapping) even when connected to an SDR, 12-bit YCbCr, HLG, or Dolby Vision display without HDR10 advertising.</string>
     <string name="title_full_range">Force full range video (Experimental)</string>
     <string name="summary_full_range">This will cause loss of detail in light and dark areas if your device doesn\'t properly display full range video content.</string>
     <string name="title_max_pending_audio_ms">Max pending audio backlog</string>
@@ -371,6 +376,7 @@
     <string name="audioconf_stereo">Stereo</string>
     <string name="audioconf_51surround">5.1 Surround Sound</string>
     <string name="audioconf_71surround">7.1 Surround Sound</string>
+    <string name="audioconf_auto">Auto (HDMI / AVR max)</string>
 
     <string name="videoformat_auto">Automatic (Recommended)</string>
     <string name="videoformat_av1always">Prefer AV1 (Experimental)</string>
@@ -937,6 +943,7 @@
     <string name="impact_ultra_low_latency">Can lower decode latency on the chips listed. No gain on others; turn it off if video glitches.</string>
     <string name="impact_surround">Surround uses a little more bandwidth. No change to latency.</string>
     <string name="impact_audiofx">Can add audio delay. Leave it off unless you use an equalizer.</string>
+    <string name="impact_float_pcm_audio">Slightly more audio bandwidth between decoder and mixer. Falls back cleanly if the HAL only accepts 16-bit.</string>
     <string name="impact_microphone">Uses a little upload bandwidth and battery. No change to video.</string>
     <string name="impact_microphone_target">Over the stream it\'s compressed to about 24 kbps. To a receiver on the PC it goes uncompressed, just under 1 Mbps, and only to a PC on your home network or a private VPN. MiWire\'s receiver gets it encrypted; the other VBAN option isn\'t encrypted. No change to video.</string>
     <string name="impact_audio_haptics">Uses some battery. No change to the stream.</string>
@@ -953,6 +960,7 @@
     <string name="impact_spatial_dithering">Small GPU cost. No change to latency.</string>
     <string name="impact_vulkan_sharpening">Small GPU cost. No change to latency.</string>
     <string name="impact_hdr">Uses 10-bit video, which needs hardware HEVC or AV1 decoding. Slower devices may take longer per frame.</string>
+    <string name="impact_hdr_compat">No change unless HDR is turned on.</string>
     <string name="impact_perf_overlay">Very small. Lite mode draws less.</string>
     <string name="impact_max_pending_audio_ms">Lower values cap audio lag sooner, at a higher risk of brief audio crackles during network spikes.</string>
     <string name="impact_sustained_performance">Can stabilize thermal behavior during long sessions; some devices lower peak boost clocks.</string>

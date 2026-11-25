@@ -227,6 +227,14 @@
     <string name="resolution_prefix_native_portrait">(Retrato)</string>
     <string name="title_checkbox_enable_audiofx">Habilitar sistema de suporte à equalização</string>
     <string name="summary_checkbox_enable_audiofx">Permitir que efeitos de audio funcionem durante o streaming, pode acrescentar latência de audio</string>
+    <string name="audioconf_auto">Automático (Máximo HDMI / AVR)</string>
+    <string name="title_checkbox_float_pcm_audio">Áudio PCM Float 32-bit de alta precisão</string>
+    <string name="summary_checkbox_float_pcm_audio">Decodifica Opus diretamente em PCM Float 32-bit para HDMI/AVR/DAC compatíveis em vez de 16-bit (volta para 16-bit automaticamente se não suportado).</string>
+    <string name="display_hdr_detected_format">Faixa detectada na tela: %1$s</string>
+    <string name="title_checkbox_hdr_compat">Modo de compatibilidade HDR (HLG / Dolby Vision / 10-bit SDR)</string>
+    <string name="summary_checkbox_hdr_compat">Permite streaming HDR 10-bit BT.2020 (e tone-mapping Vulkan PQ-para-SDR) mesmo em monitores SDR 12-bit YCbCr ou TVs com HLG e Dolby Vision sem anúncio HDR10.</string>
+    <string name="impact_float_pcm_audio">Custo mínimo extra de memória no mixer de áudio. Volta para 16-bit sem erro se o hardware não suportar.</string>
+    <string name="impact_hdr_compat">Nenhum efeito enquanto o HDR estiver desativado.</string>
     <string name="title_full_range">Forçar vídeo de gama completa de cores (Experimental)</string>
     <string name="frame_conversion_error">O PC host relatou um erro fatal de codificação de vídeo.
 \n

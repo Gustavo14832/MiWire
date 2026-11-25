@@ -6,24 +6,29 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.media.AudioDeviceInfo;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
+import android.os.Build;
 import android.preference.PreferenceManager;
 import android.view.Display;
 
 import com.limelight.binding.audio.AndroidAudioRenderer;
+import com.limelight.binding.audio.AudioHaptics;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.ControllerStateSender;
 import com.limelight.binding.input.StickCenterStore;
 import com.limelight.binding.video.AdpfHelper;
 import com.limelight.binding.video.DecoderInputBufferSizing;
+import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.binding.video.PacingStats;
 import com.limelight.grid.assets.MemoryAssetLoader;
 import com.limelight.nvstream.StreamConfiguration;
+import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.AppIcons;
 
@@ -653,5 +658,100 @@ public class MiBoxOptimizationTest {
         assertFalse(Game.isGhostOverlayActive(false, false, false));
         assertFalse(Game.ghostOverlayText(false).equals(Game.ghostOverlayText(true)));
         assertEquals(Game.ghostOverlayText(false).length(), Game.ghostOverlayText(true).length());
+    }
+
+    @Test
+    public void extendedDynamicRangeSupportsHlgHdr10Hdr10PlusDolbyVisionAndCompatMode() {
+        assertTrue(Game.isDisplayExtendedHdrCapable(new int[] {Display.HdrCapabilities.HDR_TYPE_HDR10}));
+        assertTrue(Game.isDisplayExtendedHdrCapable(new int[] {Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS}));
+        assertTrue(Game.isDisplayExtendedHdrCapable(new int[] {Display.HdrCapabilities.HDR_TYPE_HLG}));
+        assertTrue(Game.isDisplayExtendedHdrCapable(new int[] {Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION}));
+        assertFalse(Game.isDisplayExtendedHdrCapable(null));
+        assertFalse(Game.isDisplayExtendedHdrCapable(new int[0]));
+
+        assertEquals("SDR", Game.describeDisplayHdrTypes(null));
+        assertEquals("HDR10, HDR10+, HLG, Dolby Vision", Game.describeDisplayHdrTypes(new int[] {
+                Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION,
+                Display.HdrCapabilities.HDR_TYPE_HLG,
+                Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS,
+                Display.HdrCapabilities.HDR_TYPE_HDR10
+        }));
+
+        // Default SDR panel stays SDR unless compat mode is turned on alongside HDR
+        assertFalse(Game.shouldAllowHdrStream(false, new int[] {Display.HdrCapabilities.HDR_TYPE_HDR10}, true));
+        assertFalse(Game.shouldAllowHdrStream(true, null, false));
+        assertTrue(Game.shouldAllowHdrStream(true, null, true));
+        assertTrue(Game.shouldAllowHdrStream(true, new int[] {Display.HdrCapabilities.HDR_TYPE_HLG}, false));
+        assertTrue(Game.shouldAllowHdrStream(true, new int[] {Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION}, false));
+
+        // Only request Window COLOR_MODE_HDR when the physical display advertises an HDR format
+        assertEquals(ActivityInfo.COLOR_MODE_HDR,
+                Game.chooseWindowColorMode(true, new int[] {Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION}));
+        assertEquals(ActivityInfo.COLOR_MODE_DEFAULT,
+                Game.chooseWindowColorMode(true, null));
+
+        // Codec profile recognition for HDR10 and HDR10+ (plus AV1 Main10 compat fallback)
+        assertTrue(MediaCodecDecoderRenderer.isHevcHdrProfileSupported(
+                CodecProfileLevel.HEVCProfileMain10HDR10, Build.VERSION_CODES.Q));
+        assertTrue(MediaCodecDecoderRenderer.isHevcHdrProfileSupported(
+                CodecProfileLevel.HEVCProfileMain10HDR10Plus, Build.VERSION_CODES.Q));
+        assertTrue(MediaCodecDecoderRenderer.isAv1HdrProfileSupported(
+                CodecProfileLevel.AV1ProfileMain10HDR10, Build.VERSION_CODES.Q, false));
+        assertTrue(MediaCodecDecoderRenderer.isAv1HdrProfileSupported(
+                CodecProfileLevel.AV1ProfileMain10HDR10Plus, Build.VERSION_CODES.Q, false));
+        assertFalse(MediaCodecDecoderRenderer.isAv1HdrProfileSupported(
+                CodecProfileLevel.AV1ProfileMain10, Build.VERSION_CODES.Q, false));
+        assertTrue(MediaCodecDecoderRenderer.isAv1HdrProfileSupported(
+                CodecProfileLevel.AV1ProfileMain10, Build.VERSION_CODES.Q, true));
+    }
+
+    @Test
+    public void audioCapabilitiesAndAutoChannelSelectionPreserveDefaultsAndSupportSurround() {
+        assertEquals(MoonBridge.AUDIO_CONFIGURATION_STEREO,
+                AndroidAudioRenderer.selectBestAudioConfigForChannelCounts(null));
+        assertEquals(MoonBridge.AUDIO_CONFIGURATION_STEREO,
+                AndroidAudioRenderer.selectBestAudioConfigForChannelCounts(new int[] {2}));
+        assertEquals(MoonBridge.AUDIO_CONFIGURATION_51_SURROUND,
+                AndroidAudioRenderer.selectBestAudioConfigForChannelCounts(new int[] {2, 6}));
+        assertEquals(MoonBridge.AUDIO_CONFIGURATION_71_SURROUND,
+                AndroidAudioRenderer.selectBestAudioConfigForChannelCounts(new int[] {2, 6, 8}));
+
+        assertTrue(AndroidAudioRenderer.isPrioritizedExternalAudioDevice(
+                Build.VERSION_CODES.UPSIDE_DOWN_CAKE, AudioDeviceInfo.TYPE_HDMI));
+        assertTrue(AndroidAudioRenderer.isPrioritizedExternalAudioDevice(
+                Build.VERSION_CODES.UPSIDE_DOWN_CAKE, AudioDeviceInfo.TYPE_HDMI_EARC));
+        assertTrue(AndroidAudioRenderer.isPrioritizedExternalAudioDevice(
+                Build.VERSION_CODES.UPSIDE_DOWN_CAKE, AudioDeviceInfo.TYPE_USB_HEADSET));
+        assertFalse(AndroidAudioRenderer.isPrioritizedExternalAudioDevice(
+                Build.VERSION_CODES.UPSIDE_DOWN_CAKE, AudioDeviceInfo.TYPE_BUILTIN_SPEAKER));
+        assertFalse(AndroidAudioRenderer.isPrioritizedExternalAudioDevice(
+                Build.VERSION_CODES.UPSIDE_DOWN_CAKE, AudioDeviceInfo.TYPE_BLUETOOTH_A2DP));
+
+        // Default config stays standard 2.0 Stereo + 16-bit PCM + HDR off
+        PreferenceConfiguration defaults = PreferenceConfiguration.readPreferences(context);
+        assertEquals(MoonBridge.AUDIO_CONFIGURATION_STEREO, defaults.audioConfiguration);
+        assertFalse(defaults.hdrCompatMode);
+        assertFalse(defaults.preferFloatPcmAudio);
+
+        // Opt-in toggles persist cleanly
+        prefs.edit()
+                .putString("list_audio_config", "auto")
+                .putBoolean("checkbox_hdr_compat", true)
+                .putBoolean("checkbox_float_pcm_audio", true)
+                .commit();
+        PreferenceConfiguration optedIn = PreferenceConfiguration.readPreferences(context);
+        assertTrue(optedIn.hdrCompatMode);
+        assertTrue(optedIn.preferFloatPcmAudio);
+        assertTrue(AndroidAudioRenderer.describeAudioCapabilities(context).contains("PCM"));
+
+        // Float PCM path drives AudioHaptics without int16 conversion
+        AudioHaptics haptics = new AudioHaptics(context, AudioHaptics.OUTPUT_CONTROLLER, 100, null);
+        haptics.setup(48000, 2);
+        float[] bassPulse = new float[480];
+        for (int i = 0; i < bassPulse.length; i += 2) {
+            bassPulse[i] = 0.5f;
+            bassPulse[i + 1] = 0.5f;
+        }
+        haptics.process(bassPulse);
     }
 }

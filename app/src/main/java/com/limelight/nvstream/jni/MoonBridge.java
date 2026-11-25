@@ -295,6 +295,16 @@ public class MoonBridge {
         }
     }
 
+    public static void bridgeArPlaySampleFloat(float[] pcmData) {
+        if (audioRenderer != null) {
+            audioRenderer.playDecodedAudioFloat(pcmData);
+        }
+    }
+
+    public static boolean bridgeArIsFloatOutput() {
+        return audioRenderer != null && audioRenderer.isFloatPcmActive();
+    }
+
     public static void bridgeClStageStarting(int stage) {
         if (connectionListener != null) {
             connectionListener.stageStarting(getStageName(stage));

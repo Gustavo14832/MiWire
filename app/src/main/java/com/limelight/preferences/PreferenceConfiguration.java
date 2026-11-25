@@ -76,6 +76,8 @@ public class PreferenceConfiguration {
     private static final String SHOW_GUIDE_BUTTON_PREF_STRING = "checkbox_show_guide_button";
     private static final String LEGACY_DISABLE_FRAME_DROP_PREF_STRING = "checkbox_disable_frame_drop";
     private static final String ENABLE_HDR_PREF_STRING = "checkbox_enable_hdr";
+    private static final String ENABLE_HDR_COMPAT_PREF_STRING = "checkbox_hdr_compat";
+    private static final String FLOAT_PCM_AUDIO_PREF_STRING = "checkbox_float_pcm_audio";
     private static final String ENABLE_PIP_PREF_STRING = "checkbox_enable_pip";
     private static final String ENABLE_PERF_OVERLAY_STRING = "checkbox_enable_perf_overlay";
     private static final String BIND_ALL_USB_STRING = "checkbox_usb_bind_all";
@@ -183,6 +185,8 @@ public class PreferenceConfiguration {
     private static final boolean ONLY_L3_R3_DEFAULT = false;
     private static final boolean SHOW_GUIDE_BUTTON_DEFAULT = true;
     private static final boolean DEFAULT_ENABLE_HDR = false;
+    private static final boolean DEFAULT_ENABLE_HDR_COMPAT = false;
+    private static final boolean DEFAULT_FLOAT_PCM_AUDIO = false;
     private static final boolean DEFAULT_ENABLE_PIP = false;
     private static final boolean DEFAULT_ENABLE_PERF_OVERLAY = false;
     private static final boolean DEFAULT_BIND_ALL_USB = false;
@@ -291,6 +295,7 @@ public class PreferenceConfiguration {
     public boolean onlyL3R3;
     public boolean showGuideButton;
     public boolean enableHdr;
+    public boolean hdrCompatMode;
     public boolean enablePip;
     public boolean enablePerfOverlay;
     public boolean enableLatencyToast;
@@ -323,6 +328,7 @@ public class PreferenceConfiguration {
     public boolean customVulkanDriverToast;
     public boolean absoluteMouseMode;
     public boolean enableAudioFx;
+    public boolean preferFloatPcmAudio;
     public boolean reduceRefreshRate;
     public String actualDisplayRefreshRate;
     public boolean fullRange;
@@ -1228,7 +1234,10 @@ public class PreferenceConfiguration {
         }
 
         String audioConfig = prefs.getString(AUDIO_CONFIG_PREF_STRING, DEFAULT_AUDIO_CONFIG);
-        if (audioConfig.equals("71")) {
+        if (audioConfig.equals(AndroidAudioRenderer.AUDIO_CONFIG_AUTO)) {
+            config.audioConfiguration = AndroidAudioRenderer.resolveAutoAudioConfiguration(context);
+        }
+        else if (audioConfig.equals("71")) {
             config.audioConfiguration = MoonBridge.AUDIO_CONFIGURATION_71_SURROUND;
         }
         else if (audioConfig.equals("51")) {
@@ -1298,6 +1307,7 @@ public class PreferenceConfiguration {
         config.onlyL3R3 = prefs.getBoolean(ONLY_L3_R3_PREF_STRING, ONLY_L3_R3_DEFAULT);
         config.showGuideButton = prefs.getBoolean(SHOW_GUIDE_BUTTON_PREF_STRING, SHOW_GUIDE_BUTTON_DEFAULT);
         config.enableHdr = prefs.getBoolean(ENABLE_HDR_PREF_STRING, DEFAULT_ENABLE_HDR) && !isShieldAtvFirmwareWithBrokenHdr();
+        config.hdrCompatMode = prefs.getBoolean(ENABLE_HDR_COMPAT_PREF_STRING, DEFAULT_ENABLE_HDR_COMPAT);
         config.enablePip = prefs.getBoolean(ENABLE_PIP_PREF_STRING, DEFAULT_ENABLE_PIP);
         config.enablePerfOverlay = prefs.getBoolean(ENABLE_PERF_OVERLAY_STRING, DEFAULT_ENABLE_PERF_OVERLAY);
         config.bindAllUsb = prefs.getBoolean(BIND_ALL_USB_STRING, DEFAULT_BIND_ALL_USB);
@@ -1314,6 +1324,7 @@ public class PreferenceConfiguration {
         config.enableLatencyToast = prefs.getBoolean(LATENCY_TOAST_PREF_STRING, DEFAULT_LATENCY_TOAST);
         config.absoluteMouseMode = prefs.getBoolean(ABSOLUTE_MOUSE_MODE_PREF_STRING, DEFAULT_ABSOLUTE_MOUSE_MODE);
         config.enableAudioFx = prefs.getBoolean(ENABLE_AUDIO_FX_PREF_STRING, DEFAULT_ENABLE_AUDIO_FX);
+        config.preferFloatPcmAudio = prefs.getBoolean(FLOAT_PCM_AUDIO_PREF_STRING, DEFAULT_FLOAT_PCM_AUDIO);
         config.reduceRefreshRate = prefs.getBoolean(REDUCE_REFRESH_RATE_PREF_STRING, DEFAULT_REDUCE_REFRESH_RATE);
         config.actualDisplayRefreshRate = prefs.getString(ACTUAL_DISPLAY_REFRESH_RATE_PREF_STRING, DEFAULT_ACTUAL_DISPLAY_REFRESH_RATE);
         config.fullRange = prefs.getBoolean(FULL_RANGE_PREF_STRING, DEFAULT_FULL_RANGE);

@@ -46,6 +46,7 @@ import com.limelight.KeyboardAccessibilityService;
 import com.limelight.LimeLog;
 import com.limelight.PcView;
 import com.limelight.R;
+import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.audio.MicrophoneCaptureManager;
 import com.limelight.binding.audio.VbanSender;
 import com.limelight.binding.audio.securemic.MicPairing;
@@ -636,34 +637,41 @@ public class StreamSettings extends Activity {
                 });
             }
 
+            // Update audio configuration summary with detected HDMI / USB / Spatializer hardware support
+            Preference audioConfigPref = findPreference(PreferenceConfiguration.AUDIO_CONFIG_PREF_STRING);
+            if (audioConfigPref != null) {
+                audioConfigPref.setSummary(getString(R.string.summary_audio_config_list) + "\n" +
+                        AndroidAudioRenderer.describeAudioCapabilities(getActivity()));
+            }
+
             // Remove HDR preference for devices below Nougat
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
                 LimeLog.info("Excluding HDR toggle based on OS");
                 PreferenceCategory category =
                         (PreferenceCategory) findPreference("category_advanced_settings");
                 category.removePreference(findPreference("checkbox_enable_hdr"));
+                category.removePreference(findPreference("checkbox_hdr_compat"));
             }
             else {
                 Display.HdrCapabilities hdrCaps = display.getHdrCapabilities();
+                int[] supportedHdrTypes = hdrCaps != null ? hdrCaps.getSupportedHdrTypes() : null;
+                String detectedHdr = com.limelight.Game.describeDisplayHdrTypes(supportedHdrTypes);
 
-                // We must now ensure our display is compatible with HDR10 / HDR10+
-                boolean foundHdr10 = hdrCaps != null &&
-                        com.limelight.Game.isDisplayHdr10Capable(hdrCaps.getSupportedHdrTypes());
+                PreferenceCategory category =
+                        (PreferenceCategory) findPreference("category_advanced_settings");
+                CheckBoxPreference hdrPref = (CheckBoxPreference) category.findPreference("checkbox_enable_hdr");
 
-                if (!foundHdr10) {
-                    LimeLog.info("Excluding HDR toggle based on display capabilities");
-                    PreferenceCategory category =
-                            (PreferenceCategory) findPreference("category_advanced_settings");
-                    category.removePreference(findPreference("checkbox_enable_hdr"));
-                }
-                else if (PreferenceConfiguration.isShieldAtvFirmwareWithBrokenHdr()) {
+                if (PreferenceConfiguration.isShieldAtvFirmwareWithBrokenHdr()) {
                     LimeLog.info("Disabling HDR toggle on old broken SHIELD TV firmware");
-                    PreferenceCategory category =
-                            (PreferenceCategory) findPreference("category_advanced_settings");
-                    CheckBoxPreference hdrPref = (CheckBoxPreference) category.findPreference("checkbox_enable_hdr");
-                    hdrPref.setEnabled(false);
-                    hdrPref.setChecked(false);
-                    hdrPref.setSummary("Update the firmware on your NVIDIA SHIELD Android TV to enable HDR");
+                    if (hdrPref != null) {
+                        hdrPref.setEnabled(false);
+                        hdrPref.setChecked(false);
+                        hdrPref.setSummary("Update the firmware on your NVIDIA SHIELD Android TV to enable HDR");
+                    }
+                }
+                else if (hdrPref != null) {
+                    hdrPref.setSummary(getString(R.string.summary_enable_hdr) + "\n" +
+                            getString(R.string.display_hdr_detected_format, detectedHdr));
                 }
             }
 

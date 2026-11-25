@@ -10,6 +10,12 @@ public interface AudioRenderer {
     void stop();
     
     void playDecodedAudio(short[] audioData);
-    
+
+    default void playDecodedAudioFloat(float[] audioData) {}
+
+    default boolean isFloatPcmActive() {
+        return false;
+    }
+
     void cleanup();
 }

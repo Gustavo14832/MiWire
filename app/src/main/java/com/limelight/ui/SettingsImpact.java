@@ -52,6 +52,7 @@ public final class SettingsImpact {
         IMPACT.put("checkbox_stretch_video", R.string.impact_none);
         IMPACT.put("list_audio_config", R.string.impact_surround);
         IMPACT.put("checkbox_enable_audiofx", R.string.impact_audiofx);
+        IMPACT.put("checkbox_float_pcm_audio", R.string.impact_float_pcm_audio);
         IMPACT.put("checkbox_enable_microphone", R.string.impact_microphone);
         IMPACT.put("list_microphone_target", R.string.impact_microphone_target);
         IMPACT.put("list_audio_haptics", R.string.impact_audio_haptics);
@@ -68,6 +69,7 @@ public final class SettingsImpact {
         IMPACT.put("spatial_dithering", R.string.impact_spatial_dithering);
         IMPACT.put("vulkan_sharpening", R.string.impact_vulkan_sharpening);
         IMPACT.put("checkbox_enable_hdr", R.string.impact_hdr);
+        IMPACT.put("checkbox_hdr_compat", R.string.impact_hdr_compat);
         IMPACT.put("checkbox_full_range", R.string.impact_none);
         IMPACT.put("seekbar_max_pending_audio_ms", R.string.impact_max_pending_audio_ms);
         IMPACT.put("checkbox_sustained_performance", R.string.impact_sustained_performance);

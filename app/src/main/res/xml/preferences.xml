@@ -96,6 +96,11 @@
             android:summary="@string/summary_checkbox_enable_audiofx"
             android:defaultValue="true" />
         <CheckBoxPreference
+            android:key="checkbox_float_pcm_audio"
+            android:title="@string/title_checkbox_float_pcm_audio"
+            android:summary="@string/summary_checkbox_float_pcm_audio"
+            android:defaultValue="false" />
+        <CheckBoxPreference
             android:key="checkbox_enable_microphone"
             android:title="@string/title_checkbox_enable_microphone"
             android:summary="@string/summary_checkbox_enable_microphone"
@@ -614,6 +619,11 @@
             android:key="checkbox_enable_hdr"
             android:title="@string/title_enable_hdr"
             android:summary="@string/summary_enable_hdr"
+            android:defaultValue="false" />
+        <CheckBoxPreference
+            android:key="checkbox_hdr_compat"
+            android:title="@string/title_checkbox_hdr_compat"
+            android:summary="@string/summary_checkbox_hdr_compat"
             android:defaultValue="false" />
         <CheckBoxPreference
             android:key="checkbox_full_range"

@@ -108,6 +108,28 @@ public class AudioHaptics {
         latestLevel = levelFor(env, intensity);
     }
 
+    /**
+     * Called with each block of decoded audio (interleaved 32-bit float PCM) on the audio thread.
+     */
+    public void process(float[] pcm) {
+        float env = envelope;
+        float lp = lowPassState;
+        for (int i = 0; i + channelCount <= pcm.length; i += channelCount) {
+            float sum = 0f;
+            for (int c = 0; c < channelCount; c++) {
+                sum += pcm[i + c];
+            }
+            float mono = sum / (float) channelCount;
+            lp += lowPassAlpha * (mono - lp);
+
+            float magnitude = Math.abs(lp);
+            env = magnitude > env ? magnitude : env * releasePerSample;
+        }
+        lowPassState = lp;
+        envelope = env;
+        latestLevel = levelFor(env, intensity);
+    }
+
     // Current vibration strength 0..1
     float level() {
         return latestLevel;

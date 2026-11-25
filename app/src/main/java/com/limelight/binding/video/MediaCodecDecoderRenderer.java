@@ -557,6 +557,19 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         return avcDecoder != null;
     }
 
+    public static boolean isHevcHdrProfileSupported(int profile, int sdkInt) {
+        return profile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10 ||
+                (sdkInt >= Build.VERSION_CODES.Q &&
+                        profile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus);
+    }
+
+    public static boolean isAv1HdrProfileSupported(int profile, int sdkInt, boolean allowGenericMain10) {
+        return profile == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10 ||
+                (sdkInt >= Build.VERSION_CODES.Q &&
+                        profile == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10Plus) ||
+                (allowGenericMain10 && profile == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10);
+    }
+
     public boolean isHevcMain10Hdr10Supported() {
         if (hevcDecoder == null) {
             return false;
@@ -568,8 +581,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         }
 
         for (MediaCodecInfo.CodecProfileLevel profileLevel : hevcDecoder.getCapabilitiesForType("video/hevc").profileLevels) {
-            if (profileLevel.profile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10) {
-                LimeLog.info("HEVC decoder "+hevcDecoder.getName()+" supports HEVC Main10 HDR10");
+            if (isHevcHdrProfileSupported(profileLevel.profile, Build.VERSION.SDK_INT)) {
+                LimeLog.info("HEVC decoder "+hevcDecoder.getName()+" supports HEVC Main10 HDR10/HDR10+");
                 return true;
             }
         }
@@ -597,9 +610,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             return false;
         }
 
+        boolean allowGenericMain10 = prefs.enableHdr && prefs.hdrCompatMode;
         for (MediaCodecInfo.CodecProfileLevel profileLevel : av1Decoder.getCapabilitiesForType("video/av01").profileLevels) {
-            if (profileLevel.profile == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10) {
-                LimeLog.info("AV1 decoder "+av1Decoder.getName()+" supports AV1 Main 10 HDR10");
+            if (isAv1HdrProfileSupported(profileLevel.profile, Build.VERSION.SDK_INT, allowGenericMain10)) {
+                LimeLog.info("AV1 decoder "+av1Decoder.getName()+" supports AV1 Main 10 HDR");
                 return true;
             }
         }

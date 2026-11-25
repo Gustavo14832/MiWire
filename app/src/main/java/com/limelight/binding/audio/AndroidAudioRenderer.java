@@ -7,23 +7,31 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.media.Spatializer;
 import android.media.audiofx.AudioEffect;
 import android.os.Build;
 import android.os.Process;
+import android.text.TextUtils;
 
 import com.limelight.LimeLog;
 import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.jni.MoonBridge;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
+
 public class AndroidAudioRenderer implements AudioRenderer {
 
     public static final int DEFAULT_MAX_PENDING_AUDIO_MS = 30;
+    public static final String AUDIO_CONFIG_AUTO = "auto";
 
     private final Context context;
     private final boolean enableAudioFx;
     private final int maxPendingAudioMs;
+    private final boolean preferFloatPcm;
 
     private AudioTrack track;
+    private boolean floatPcmActive;
     private boolean audioThreadPriorityElevated;
 
     // Optional: turns the bass in the audio into vibration
@@ -34,25 +42,31 @@ public class AndroidAudioRenderer implements AudioRenderer {
     }
 
     public AndroidAudioRenderer(Context context, boolean enableAudioFx) {
-        this(context, enableAudioFx, null, DEFAULT_MAX_PENDING_AUDIO_MS);
+        this(context, enableAudioFx, null, DEFAULT_MAX_PENDING_AUDIO_MS, false);
     }
 
     public AndroidAudioRenderer(Context context, boolean enableAudioFx, AudioHaptics haptics) {
-        this(context, enableAudioFx, haptics, DEFAULT_MAX_PENDING_AUDIO_MS);
+        this(context, enableAudioFx, haptics, DEFAULT_MAX_PENDING_AUDIO_MS, false);
     }
 
     public AndroidAudioRenderer(Context context, boolean enableAudioFx, AudioHaptics haptics, int maxPendingAudioMs) {
+        this(context, enableAudioFx, haptics, maxPendingAudioMs, false);
+    }
+
+    public AndroidAudioRenderer(Context context, boolean enableAudioFx, AudioHaptics haptics,
+                                int maxPendingAudioMs, boolean preferFloatPcm) {
         this.context = context;
         this.enableAudioFx = enableAudioFx;
         this.haptics = haptics;
         this.maxPendingAudioMs = clampMaxPendingAudioMs(maxPendingAudioMs);
+        this.preferFloatPcm = preferFloatPcm;
     }
 
-    private AudioTrack createAudioTrack(int channelConfig, int sampleRate, int bufferSize, boolean lowLatency) {
+    private AudioTrack createAudioTrack(int encoding, int channelConfig, int sampleRate, int bufferSize, boolean lowLatency) {
         AudioAttributes.Builder attributesBuilder = new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_GAME);
         AudioFormat format = new AudioFormat.Builder()
-                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                .setEncoding(encoding)
                 .setSampleRate(sampleRate)
                 .setChannelMask(channelConfig)
                 .build();
@@ -154,6 +168,159 @@ public class AndroidAudioRenderer implements AudioRenderer {
         return audioManager != null && (audioManager.isBluetoothA2dpOn() || audioManager.isBluetoothScoOn());
     }
 
+    public static boolean isPrioritizedExternalAudioDevice(int sdkInt, int deviceType) {
+        if (sdkInt < Build.VERSION_CODES.M || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return false;
+        }
+        if (deviceType == AudioDeviceInfo.TYPE_HDMI ||
+                deviceType == AudioDeviceInfo.TYPE_HDMI_ARC ||
+                deviceType == AudioDeviceInfo.TYPE_LINE_DIGITAL ||
+                deviceType == AudioDeviceInfo.TYPE_USB_DEVICE ||
+                deviceType == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                deviceType == AudioDeviceInfo.TYPE_WIRED_HEADPHONES) {
+            return true;
+        }
+        if (sdkInt >= Build.VERSION_CODES.O && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                deviceType == AudioDeviceInfo.TYPE_USB_HEADSET) {
+            return true;
+        }
+        return sdkInt >= Build.VERSION_CODES.S && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                deviceType == AudioDeviceInfo.TYPE_HDMI_EARC;
+    }
+
+    public static MoonBridge.AudioConfiguration selectBestAudioConfigForChannelCounts(int[] channelCounts) {
+        int maxChannels = 2;
+        if (channelCounts != null) {
+            for (int count : channelCounts) {
+                if (count > maxChannels) {
+                    maxChannels = count;
+                }
+            }
+        }
+        if (maxChannels >= 8) {
+            return MoonBridge.AUDIO_CONFIGURATION_71_SURROUND;
+        }
+        if (maxChannels >= 6) {
+            return MoonBridge.AUDIO_CONFIGURATION_51_SURROUND;
+        }
+        return MoonBridge.AUDIO_CONFIGURATION_STEREO;
+    }
+
+    public static MoonBridge.AudioConfiguration resolveAutoAudioConfiguration(Context context) {
+        if (context == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return MoonBridge.AUDIO_CONFIGURATION_STEREO;
+        }
+        try {
+            AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+            if (audioManager == null) {
+                return MoonBridge.AUDIO_CONFIGURATION_STEREO;
+            }
+            AudioDeviceInfo[] outputs = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+            if (outputs == null || outputs.length == 0) {
+                return MoonBridge.AUDIO_CONFIGURATION_STEREO;
+            }
+
+            int bestExternal = 0;
+            int bestAny = 2;
+            for (AudioDeviceInfo dev : outputs) {
+                int[] counts = dev.getChannelCounts();
+                if (counts == null) {
+                    continue;
+                }
+                boolean external = isPrioritizedExternalAudioDevice(Build.VERSION.SDK_INT, dev.getType());
+                for (int c : counts) {
+                    if (c > bestAny) {
+                        bestAny = c;
+                    }
+                    if (external && c > bestExternal) {
+                        bestExternal = c;
+                    }
+                }
+            }
+            int chosen = bestExternal > 0 ? bestExternal : bestAny;
+            return selectBestAudioConfigForChannelCounts(new int[] { chosen });
+        } catch (Throwable ignored) {
+            return MoonBridge.AUDIO_CONFIGURATION_STEREO;
+        }
+    }
+
+    public static String describeAudioCapabilities(Context context) {
+        if (context == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return "PCM 2.0 Stereo";
+        }
+        try {
+            AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+            if (audioManager == null) {
+                return "PCM 2.0 Stereo";
+            }
+            AudioDeviceInfo[] outputs = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+            int maxPcmChannels = 2;
+            Set<String> pcmFormats = new LinkedHashSet<>();
+            Set<String> sinkFormats = new LinkedHashSet<>();
+            pcmFormats.add("16-bit");
+
+            if (outputs != null) {
+                for (AudioDeviceInfo dev : outputs) {
+                    int[] counts = dev.getChannelCounts();
+                    if (counts != null) {
+                        for (int c : counts) {
+                            if (c > maxPcmChannels) {
+                                maxPcmChannels = c;
+                            }
+                        }
+                    }
+                    int[] encodings = dev.getEncodings();
+                    if (encodings != null) {
+                        for (int enc : encodings) {
+                            if (enc == AudioFormat.ENCODING_PCM_FLOAT) {
+                                pcmFormats.add("Float 32-bit");
+                            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                                    enc == AudioFormat.ENCODING_PCM_24BIT_PACKED) {
+                                pcmFormats.add("24-bit");
+                            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                                    enc == AudioFormat.ENCODING_PCM_32BIT) {
+                                pcmFormats.add("32-bit");
+                            } else if (enc == AudioFormat.ENCODING_AC3) {
+                                sinkFormats.add("Dolby Digital");
+                            } else if (enc == AudioFormat.ENCODING_E_AC3) {
+                                sinkFormats.add("DD+");
+                            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                                    enc == AudioFormat.ENCODING_E_AC3_JOC) {
+                                sinkFormats.add("Atmos (E-AC-3 JOC)");
+                            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                                    enc == AudioFormat.ENCODING_AC4) {
+                                sinkFormats.add("Dolby AC-4");
+                            } else if (enc == AudioFormat.ENCODING_DTS) {
+                                sinkFormats.add("DTS");
+                            } else if (enc == AudioFormat.ENCODING_DTS_HD) {
+                                sinkFormats.add("DTS-HD");
+                            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1 &&
+                                    enc == AudioFormat.ENCODING_DOLBY_TRUEHD) {
+                                sinkFormats.add("TrueHD");
+                            }
+                        }
+                    }
+                }
+            }
+
+            String channelLabel = maxPcmChannels >= 8 ? "7.1" : (maxPcmChannels >= 6 ? "5.1" : "2.0 Stereo");
+            StringBuilder sb = new StringBuilder();
+            sb.append("PCM: ").append(channelLabel).append(" (").append(TextUtils.join(", ", pcmFormats)).append(")");
+            if (!sinkFormats.isEmpty()) {
+                sb.append(" · HDMI: ").append(TextUtils.join(", ", sinkFormats));
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Spatializer spatializer = audioManager.getSpatializer();
+                if (spatializer != null && spatializer.isAvailable()) {
+                    sb.append(spatializer.isEnabled() ? " · Spatializer ON" : " · Spatializer pronto");
+                }
+            }
+            return sb.toString();
+        } catch (Throwable ignored) {
+            return "PCM 2.0 Stereo";
+        }
+    }
+
     private void applyLowLatencyBufferSizing(AudioTrack audioTrack, int packetFrames, boolean lowLatency) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || audioTrack == null || !lowLatency) {
             return;
@@ -209,85 +376,67 @@ public class AndroidAudioRenderer implements AudioRenderer {
 
         LimeLog.info("Audio channel config: "+String.format("0x%X", channelConfig));
 
-        bytesPerFrame = audioConfiguration.channelCount * samplesPerFrame * 2;
+        floatPcmActive = false;
+        int[] encodingsToTry = preferFloatPcm
+                ? new int[] { AudioFormat.ENCODING_PCM_FLOAT, AudioFormat.ENCODING_PCM_16BIT }
+                : new int[] { AudioFormat.ENCODING_PCM_16BIT };
 
-        // We're not supposed to request less than the minimum
-        // buffer size for our buffer, but it appears that we can
-        // do this on many devices and it lowers audio latency.
-        // We'll try the small buffer size first and if it fails,
-        // use the recommended larger buffer size.
+        for (int encoding : encodingsToTry) {
+            int sampleBytes = (encoding == AudioFormat.ENCODING_PCM_FLOAT) ? 4 : 2;
+            bytesPerFrame = audioConfiguration.channelCount * samplesPerFrame * sampleBytes;
 
-        for (int i = 0; i < 4; i++) {
-            boolean lowLatency;
-            int bufferSize;
-
-            // We will try:
+            // We'll try:
             // 1) Small buffer, low latency mode
             // 2) Large buffer, low latency mode
             // 3) Small buffer, standard mode
             // 4) Large buffer, standard mode
+            for (int i = 0; i < 4; i++) {
+                boolean lowLatency = (i < 2);
+                int bufferSize;
 
-            switch (i) {
-                case 0:
-                case 1:
-                    lowLatency = true;
-                    break;
-                case 2:
-                case 3:
-                    lowLatency = false;
-                    break;
-                default:
-                    // Unreachable
-                    throw new IllegalStateException();
-            }
-
-            switch (i) {
-                case 0:
-                case 2:
+                if (i == 0 || i == 2) {
                     bufferSize = bytesPerFrame * 2;
-                    break;
-
-                case 1:
-                case 3:
-                    // Try the larger buffer size
-                    bufferSize = Math.max(AudioTrack.getMinBufferSize(sampleRate,
-                            channelConfig,
-                            AudioFormat.ENCODING_PCM_16BIT),
-                            bytesPerFrame * 2);
-
-                    // Round to next frame
-                    bufferSize = (((bufferSize + (bytesPerFrame - 1)) / bytesPerFrame) * bytesPerFrame);
-                    break;
-                default:
-                    // Unreachable
-                    throw new IllegalStateException();
-            }
-
-            if (lowLatency && !shouldAttemptLowLatencyAudio(
-                    Build.VERSION.SDK_INT,
-                    AudioTrack.getNativeOutputSampleRate(AudioManager.STREAM_MUSIC),
-                    sampleRate,
-                    enableAudioFx)) {
-                continue;
-            }
-
-            try {
-                track = createAudioTrack(channelConfig, sampleRate, bufferSize, lowLatency);
-                track.play();
-                applyLowLatencyBufferSizing(track, samplesPerFrame, lowLatency);
-
-                // Successfully created working AudioTrack. We're done here.
-                LimeLog.info("Audio track configuration: "+bufferSize+" "+lowLatency);
-                break;
-            } catch (Exception e) {
-                // Try to release the AudioTrack if we got far enough
-                e.printStackTrace();
-                try {
-                    if (track != null) {
-                        track.release();
-                        track = null;
+                } else {
+                    int minBuf = AudioTrack.getMinBufferSize(sampleRate, channelConfig, encoding);
+                    if (minBuf <= 0) {
+                        minBuf = bytesPerFrame * 2;
                     }
-                } catch (Exception ignored) {}
+                    bufferSize = Math.max(minBuf, bytesPerFrame * 2);
+                    bufferSize = (((bufferSize + (bytesPerFrame - 1)) / bytesPerFrame) * bytesPerFrame);
+                }
+
+                if (lowLatency && !shouldAttemptLowLatencyAudio(
+                        Build.VERSION.SDK_INT,
+                        AudioTrack.getNativeOutputSampleRate(AudioManager.STREAM_MUSIC),
+                        sampleRate,
+                        enableAudioFx)) {
+                    continue;
+                }
+
+                try {
+                    track = createAudioTrack(encoding, channelConfig, sampleRate, bufferSize, lowLatency);
+                    track.play();
+                    floatPcmActive = (encoding == AudioFormat.ENCODING_PCM_FLOAT);
+                    applyLowLatencyBufferSizing(track, samplesPerFrame, lowLatency);
+
+                    // Successfully created working AudioTrack. We're done here.
+                    LimeLog.info("Audio track configuration: bytes=" + bufferSize + " lowLatency=" + lowLatency +
+                            " float32=" + floatPcmActive);
+                    break;
+                } catch (Exception e) {
+                    // Try to release the AudioTrack if we got far enough
+                    e.printStackTrace();
+                    try {
+                        if (track != null) {
+                            track.release();
+                            track = null;
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            if (track != null) {
+                break;
             }
         }
 
@@ -303,8 +452,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
         return 0;
     }
 
-    @Override
-    public void playDecodedAudio(short[] audioData) {
+    private void ensureAudioThreadPriority() {
         if (!audioThreadPriorityElevated) {
             audioThreadPriorityElevated = true;
             try {
@@ -312,6 +460,16 @@ public class AndroidAudioRenderer implements AudioRenderer {
             } catch (Throwable ignored) {
             }
         }
+    }
+
+    @Override
+    public boolean isFloatPcmActive() {
+        return floatPcmActive;
+    }
+
+    @Override
+    public void playDecodedAudio(short[] audioData) {
+        ensureAudioThreadPriority();
         if (haptics != null) {
             haptics.process(audioData);
         }
@@ -324,6 +482,21 @@ public class AndroidAudioRenderer implements AudioRenderer {
         }
         else {
             LimeLog.info("Too much pending audio data: " + MoonBridge.getPendingAudioDuration() +" ms");
+        }
+    }
+
+    @Override
+    public void playDecodedAudioFloat(float[] audioData) {
+        ensureAudioThreadPriority();
+        if (haptics != null) {
+            haptics.process(audioData);
+        }
+
+        if (MoonBridge.getPendingAudioDuration() < maxPendingAudioMs) {
+            track.write(audioData, 0, audioData.length, AudioTrack.WRITE_BLOCKING);
+        }
+        else {
+            LimeLog.info("Too much pending audio data: " + MoonBridge.getPendingAudioDuration() + " ms");
         }
     }
 

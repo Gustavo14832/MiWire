@@ -383,6 +383,81 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         return false;
     }
 
+    /**
+     * Returns true when the display reports any Android HDR capability (HDR10, HDR10+, HLG,
+     * or Dolby Vision) so future HDR/HLG/Dolby Vision TVs or monitors can negotiate 10-bit streams.
+     */
+    public static boolean isDisplayExtendedHdrCapable(int[] supportedHdrTypes) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || supportedHdrTypes == null) {
+            return false;
+        }
+        for (int hdrType : supportedHdrTypes) {
+            if (hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10 ||
+                    hdrType == Display.HdrCapabilities.HDR_TYPE_HLG ||
+                    hdrType == Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION ||
+                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                            hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Formats the connected display's reported dynamic-range formats (HDR10, HDR10+, HLG,
+     * Dolby Vision) or "SDR" when none are advertised.
+     */
+    public static String describeDisplayHdrTypes(int[] supportedHdrTypes) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || supportedHdrTypes == null || supportedHdrTypes.length == 0) {
+            return "SDR";
+        }
+        boolean hasDv = false, hasHdr10Plus = false, hasHdr10 = false, hasHlg = false;
+        for (int hdrType : supportedHdrTypes) {
+            if (hdrType == Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION) {
+                hasDv = true;
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                    hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS) {
+                hasHdr10Plus = true;
+            } else if (hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10) {
+                hasHdr10 = true;
+            } else if (hdrType == Display.HdrCapabilities.HDR_TYPE_HLG) {
+                hasHlg = true;
+            }
+        }
+        StringBuilder sb = new StringBuilder();
+        if (hasHdr10) sb.append("HDR10");
+        if (hasHdr10Plus) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append("HDR10+");
+        }
+        if (hasHlg) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append("HLG");
+        }
+        if (hasDv) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append("Dolby Vision");
+        }
+        return sb.length() > 0 ? sb.toString() : "SDR";
+    }
+
+    public static boolean shouldAllowHdrStream(boolean enableHdr, int[] supportedHdrTypes, boolean hdrCompatMode) {
+        if (!enableHdr) {
+            return false;
+        }
+        if (isDisplayExtendedHdrCapable(supportedHdrTypes)) {
+            return true;
+        }
+        return hdrCompatMode;
+    }
+
+    public static int chooseWindowColorMode(boolean willStreamHdr, int[] supportedHdrTypes) {
+        if (willStreamHdr && isDisplayExtendedHdrCapable(supportedHdrTypes)) {
+            return android.content.pm.ActivityInfo.COLOR_MODE_HDR;
+        }
+        return android.content.pm.ActivityInfo.COLOR_MODE_DEFAULT;
+    }
+
     private void acquireWifiLocks() {
         WifiManager wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         if (wifiMgr == null) {
@@ -777,21 +852,27 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 Display display = getWindowManager().getDefaultDisplay();
                 Display.HdrCapabilities hdrCaps = display.getHdrCapabilities();
+                int[] supportedHdrTypes = hdrCaps != null ? hdrCaps.getSupportedHdrTypes() : null;
 
-                // We must now ensure our display is compatible with HDR10 / HDR10+
-                if (hdrCaps != null) {
-                    // getHdrCapabilities() returns null on Lenovo Lenovo Mirage Solo (vega), Android 8.0
-                    willStreamHdr = isDisplayHdr10Capable(hdrCaps.getSupportedHdrTypes());
+                willStreamHdr = shouldAllowHdrStream(true, supportedHdrTypes, prefConfig.hdrCompatMode);
+                LimeLog.info("Display dynamic range: " + describeDisplayHdrTypes(supportedHdrTypes) +
+                        " | willStreamHdr=" + willStreamHdr + " (compat=" + prefConfig.hdrCompatMode + ")");
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    getWindow().setColorMode(chooseWindowColorMode(willStreamHdr, supportedHdrTypes));
                 }
 
                 if (!willStreamHdr) {
                     // Nope, no HDR for us :(
-                    Toast.makeText(this, "Display does not support HDR10", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "Display does not support HDR (enable HDR compatibility for 10-bit SDR tone mapping)", Toast.LENGTH_LONG).show();
                 }
             }
             else {
                 Toast.makeText(this, "HDR requires Android 7.0 or later", Toast.LENGTH_LONG).show();
             }
+        }
+        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getWindow().setColorMode(android.content.pm.ActivityInfo.COLOR_MODE_DEFAULT);
         }
 
         // Initialize performance stats overlay or Ghost Overlay Mode on TV
@@ -826,6 +907,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (willStreamHdr && !decoderRenderer.isHevcMain10Hdr10Supported() && !decoderRenderer.isAv1Main10Supported() &&
                 !usePyrowave) {
             willStreamHdr = false;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                getWindow().setColorMode(android.content.pm.ActivityInfo.COLOR_MODE_DEFAULT);
+            }
             Toast.makeText(this, "Decoder does not support HDR10 profile", Toast.LENGTH_LONG).show();
         }
 
@@ -3703,14 +3787,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             hostRateText + (prefConfig.warpFactor > 1 ? " (Warp x" + prefConfig.warpFactor + ")" : ""),
             prefConfig.bitrate / 1000,
             decoderRenderer.getRendererName(),
-            prefConfig.enableHdr ? " HDR" : "");
+            (streamConfig != null && (streamConfig.getSupportedVideoFormats() & MoonBridge.VIDEO_FORMAT_MASK_10BIT) != 0) ? " HDR" : "");
         Toast.makeText(Game.this, configMessage, Toast.LENGTH_LONG).show();
 
         decoderRenderer.setRenderTarget(streamView.getHolder());
         AudioHaptics audioHaptics = prefConfig.audioHapticsOutputs != 0 ?
                 new AudioHaptics(Game.this, prefConfig.audioHapticsOutputs,
                         prefConfig.audioHapticsIntensity, this::audioHapticsRumble) : null;
-        conn.start(new AndroidAudioRenderer(Game.this, prefConfig.enableAudioFx, audioHaptics, prefConfig.maxPendingAudioMs),
+        conn.start(new AndroidAudioRenderer(Game.this, prefConfig.enableAudioFx, audioHaptics,
+                        prefConfig.maxPendingAudioMs, prefConfig.preferFloatPcmAudio),
                 decoderRenderer, Game.this);
     }
 
