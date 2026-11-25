@@ -277,13 +277,29 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private View uiKeepAliveView;
     private boolean uiKeepAliveFlip = false;
     private final Handler uiKeepAliveHandler = new Handler(android.os.Looper.getMainLooper());
+
+    static boolean isGhostOverlayActive(boolean isTv, boolean enablePerfOverlay, boolean hidingOverlays) {
+        return isTv && (!enablePerfOverlay || hidingOverlays);
+    }
+
+    static String ghostOverlayText(boolean flip) {
+        return flip ? "00\n00" : "00\n01";
+    }
+
     private final Runnable uiKeepAlivePulse = new Runnable() {
         @Override
         public void run() {
             if (connected && !isFinishing()) {
+                uiKeepAliveFlip = !uiKeepAliveFlip;
                 if (uiKeepAliveView != null) {
-                    uiKeepAliveFlip = !uiKeepAliveFlip;
-                    uiKeepAliveView.setAlpha(uiKeepAliveFlip ? 0.010f : 0.012f);
+                    // Use non-zero effective alpha (0x02 * 0.6/1.0 = 1..2/255) so HWUI/HWC does not cull it
+                    uiKeepAliveView.setAlpha(uiKeepAliveFlip ? 0.6f : 1.0f);
+                }
+                if (performanceOverlayView != null && prefConfig != null &&
+                        isGhostOverlayActive(isAndroidTV, prefConfig.enablePerfOverlay, isHidingOverlays)) {
+                    // Lightweight 1 Hz dirty UI buffer with fixed-width monospace text keeps Amlogic HWC locked
+                    // without locking VulkanRenderer::mutex_ or sorting 512 samples on VideoDec.
+                    performanceOverlayView.setText(ghostOverlayText(uiKeepAliveFlip));
                 }
                 uiKeepAliveHandler.postDelayed(this, UI_KEEP_ALIVE_INTERVAL_MS);
             }
@@ -635,6 +651,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         uiKeepAliveView = findViewById(R.id.uiKeepAliveView);
+        if (uiKeepAliveView != null) {
+            uiKeepAliveView.setBackgroundColor(0x02000000);
+            uiKeepAliveView.setAlpha(1.0f);
+        }
         notificationOverlayView = findViewById(R.id.notificationOverlay);
 
         performanceOverlayView = findViewById(R.id.performanceOverlay);
@@ -4159,6 +4179,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         final boolean userWantsOverlay = prefConfig.enablePerfOverlay && !isHidingOverlays;
 
         if (userWantsOverlay) {
+            CharSequence curText = performanceOverlayView.getText();
+            if (curText != null && (ghostOverlayText(false).equals(curText.toString()) ||
+                    ghostOverlayText(true).equals(curText.toString()))) {
+                performanceOverlayView.setText("...");
+            }
             performanceOverlayView.setVisibility(View.VISIBLE);
             if (prefConfig.enablePerfOverlayLite) {
                 styleLitePerformanceOverlay();
@@ -4179,11 +4204,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             }
         } else {
             if (isAndroidTV) {
-                // Ghost Overlay Mode: keep layer active while clearing text so HWUI avoids multi-line glyphs
+                // Ghost Overlay Mode: keep a real 1/255 alpha UI layer & lightweight 1 Hz redraw active
+                // so Amlogic HWC stays in continuous multi-plane compositing without stats CPU/mutex churn.
                 performanceOverlayView.setVisibility(View.VISIBLE);
-                performanceOverlayView.setText("");
                 performanceOverlayView.setTextColor(0x01000000);
                 performanceOverlayView.setBackgroundColor(0x01000000);
+                performanceOverlayView.setSingleLine(false);
+                performanceOverlayView.setText(ghostOverlayText(uiKeepAliveFlip));
             } else {
                 performanceOverlayView.setVisibility(View.GONE);
             }

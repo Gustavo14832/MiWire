@@ -644,4 +644,14 @@ public class MiBoxOptimizationTest {
         onCfg.enableSustainedPerformance = true;
         assertTrue(Game.shouldEnableSustainedPerformance(onCfg));
     }
+
+    @Test
+    public void ghostOverlayActiveOnlyOnTvWhenOverlayHiddenAndTogglesTextWithoutStatsWork() {
+        assertTrue(Game.isGhostOverlayActive(true, false, false));
+        assertTrue(Game.isGhostOverlayActive(true, true, true));
+        assertFalse(Game.isGhostOverlayActive(true, true, false));
+        assertFalse(Game.isGhostOverlayActive(false, false, false));
+        assertFalse(Game.ghostOverlayText(false).equals(Game.ghostOverlayText(true)));
+        assertEquals(Game.ghostOverlayText(false).length(), Game.ghostOverlayText(true).length());
+    }
 }
