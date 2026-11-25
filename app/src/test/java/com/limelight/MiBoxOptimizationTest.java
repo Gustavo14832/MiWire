@@ -88,7 +88,8 @@ public class MiBoxOptimizationTest {
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v7", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v8", false));
-        assertTrue(prefs.getBoolean("checkbox_sustained_performance", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v9", false));
+        assertFalse(prefs.getBoolean("checkbox_sustained_performance", true));
         assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
         assertFalse(prefs.getBoolean("checkbox_enable_audiofx", true));
         assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
@@ -135,7 +136,8 @@ public class MiBoxOptimizationTest {
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v7", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v8", false));
-        assertTrue(prefs.getBoolean("checkbox_sustained_performance", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v9", false));
+        assertFalse(prefs.getBoolean("checkbox_sustained_performance", true));
         assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
         assertFalse(prefs.getBoolean("checkbox_enable_audiofx", true));
         assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
@@ -180,7 +182,8 @@ public class MiBoxOptimizationTest {
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v7", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v8", false));
-        assertTrue(prefs.getBoolean("checkbox_sustained_performance", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v9", false));
+        assertFalse(prefs.getBoolean("checkbox_sustained_performance", true));
         assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
         assertFalse(prefs.getBoolean("checkbox_enable_audiofx", true));
         assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
@@ -311,7 +314,8 @@ public class MiBoxOptimizationTest {
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v7", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v8", false));
-        assertTrue(prefs.getBoolean("checkbox_sustained_performance", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v9", false));
+        assertFalse(prefs.getBoolean("checkbox_sustained_performance", true));
         assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
         assertFalse(prefs.getBoolean("checkbox_enable_audiofx", true));
         assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
@@ -607,5 +611,37 @@ public class MiBoxOptimizationTest {
 
         AppIcons.clearCache();
         MemoryAssetLoader.clearStaticCache();
+    }
+
+    @Test
+    public void tvDefaultsV8UpgradesCleanlyToV9AndRespectsSustainedPerformanceToggle() {
+        prefs.edit()
+                .putBoolean("mibox_tv_gaming_defaults_v1", true)
+                .putBoolean("mibox_tv_gaming_defaults_v2", true)
+                .putBoolean("mibox_tv_gaming_defaults_v3", true)
+                .putBoolean("mibox_tv_gaming_defaults_v4", true)
+                .putBoolean("mibox_tv_gaming_defaults_v5", true)
+                .putBoolean("mibox_tv_gaming_defaults_v6", true)
+                .putBoolean("mibox_tv_gaming_defaults_v7", true)
+                .putBoolean("mibox_tv_gaming_defaults_v8", true)
+                .putBoolean("checkbox_sustained_performance", true)
+                .commit();
+
+        PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
+
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v9", false));
+        assertFalse(prefs.getBoolean("checkbox_sustained_performance", true));
+
+        PreferenceConfiguration offCfg = new PreferenceConfiguration();
+        offCfg.enableSustainedPerformance = false;
+        assertFalse(Game.shouldEnableSustainedPerformance(offCfg));
+
+        prefs.edit().putBoolean("checkbox_sustained_performance", true).commit();
+        PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
+        assertTrue(prefs.getBoolean("checkbox_sustained_performance", false));
+
+        PreferenceConfiguration onCfg = new PreferenceConfiguration();
+        onCfg.enableSustainedPerformance = true;
+        assertTrue(Game.shouldEnableSustainedPerformance(onCfg));
     }
 }

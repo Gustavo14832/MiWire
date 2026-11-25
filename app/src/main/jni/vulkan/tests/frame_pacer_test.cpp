@@ -840,6 +840,72 @@ int main() {
         check(pacer.framesSkipped() == 0, "mibox-60hz idle to slow/fast mouse", "expected 0 skipped frames");
         check(maxWaitAfterIdleMs < 35.0, "mibox-60hz idle to slow/fast mouse", "mouse frames froze across multiple VSyncs");
     }
+    {
+        // Azure cloud WAN jitter wave: periodic 9 ms spikes interleaved with steady frames
+        // must be buffered by the 10 ms cap and smooth divisor-32 decay without skips.
+        const int64_t period = 16'666'667;
+        FramePacer pacer(PacingMode::MiBox60Hz, 60, period, JitterBuffer::MiBox60Hz);
+        pacer.setPresentAhead(true);
+        pacer.setPresentGuardNs(1'500'000);
+        const int64_t t0 = 5'000'000'000LL;
+        const int totalFrames = 1200;
+        std::vector<int64_t> arrivals(totalFrames);
+        int64_t prevArrival = 0;
+        for (int i = 0; i < totalFrames; i++) {
+            const int64_t hostPts = i * period;
+            int64_t delayNs = 18'000'000;
+            if ((i % 45) >= 15 && (i % 45) < 19) {
+                delayNs += 9'000'000;
+            }
+            int64_t a = std::max(t0 + hostPts + delayNs, prevArrival + 500'000);
+            arrivals[i] = prevArrival = a;
+        }
+        std::deque<FrameTiming> queue;
+        size_t next = 0;
+        int overflowDrops = 0;
+        uint64_t skipsAtWarmup = 0;
+        bool latched = false;
+        auto drainAhead = [&]() {
+            while (!queue.empty()) {
+                const int64_t showVsync = pacer.plannedVsyncNs(queue.front());
+                if (showVsync == 0) {
+                    break;
+                }
+                pacer.onPresentedAhead(showVsync);
+                queue.pop_front();
+            }
+        };
+        for (int v = 0; v < totalFrames + 10; v++) {
+            const int64_t vsync = t0 + v * period + 3'000'000;
+            const bool pastWarmup = vsync > t0 + 3'000'000'000LL;
+            if (pastWarmup && !latched) {
+                latched = true;
+                skipsAtWarmup = pacer.framesSkipped();
+            }
+            while (next < arrivals.size() && arrivals[next] <= vsync + 500'000) {
+                FrameTiming f {static_cast<int64_t>(next) * period, arrivals[next], 0};
+                pacer.onFrameArrived(f);
+                queue.push_back(f);
+                while (queue.size() > pacer.maxQueued()) {
+                    queue.pop_front();
+                    if (pastWarmup) {
+                        overflowDrops++;
+                    }
+                }
+                next++;
+                drainAhead();
+            }
+            std::vector<FrameTiming> snap(queue.begin(), queue.end());
+            const int choice = pacer.onVsync(vsync, snap.data(), snap.size());
+            if (choice >= 0) {
+                queue.erase(queue.begin(), queue.begin() + choice + 1);
+            }
+            drainAhead();
+        }
+        check(pacer.framesSkipped() - skipsAtWarmup == 0, "mibox-60hz azure wan 9ms jitter",
+              "expected 0 post-warmup skips on 9 ms WAN jitter bursts");
+        check(overflowDrops == 0, "mibox-60hz azure wan 9ms jitter", "expected 0 queue overflows");
+    }
 
     printf(failures ? "\n%d check(s) failed\n" : "\nAll checks passed\n", failures);
     return failures ? 1 : 0;

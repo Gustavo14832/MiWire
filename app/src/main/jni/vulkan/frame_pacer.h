@@ -36,7 +36,7 @@ enum class JitterBuffer : int {
     Smooth = 2,
     LowestLatency = 3,  // Less buffer than LowLatency, which like it only evens out the host's
                         // timing when frames span more than one vsync
-    MiBox60Hz = 4,      // Calibrated 60 Hz low-latency preset: 2 s window, 95% coverage, fast 0.5 s recovery
+    MiBox60Hz = 4,      // Calibrated 60 Hz low-latency preset: 2.5 s window, 99% coverage, divisor 32 decay
 };
 
 // Maps host frame timestamps onto the local clock.

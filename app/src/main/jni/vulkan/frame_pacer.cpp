@@ -83,7 +83,7 @@ HostTimeline::HostTimeline(JitterBuffer jitterBuffer) : jitterBuffer_(jitterBuff
         case JitterBuffer::MiBox60Hz:
             windowNs_ = 2'500'000'000;
             coverage_ = 0.99;
-            decayDivisor_ = 48;
+            decayDivisor_ = 32;
             break;
         case JitterBuffer::Balanced:
         default:
@@ -212,16 +212,6 @@ void HostTimeline::addSample(int64_t scheduledPtsNs, int64_t arrivalNs) {
     if (offsetNs_ == 0 || target > offsetNs_) {
         offsetNs_ = target;
     }
-    else if (jitterBuffer_ == JitterBuffer::MiBox60Hz) {
-        // Shed buffer delay quickly for MiBox60Hz so resuming mouse movement after
-        // quiet stretches (typing, idle) immediately restores sub-frame responsiveness.
-        const int64_t diff = offsetNs_ - target;
-        if (diff > 2'000'000) {
-            offsetNs_ -= diff / 4;
-        } else {
-            offsetNs_ -= diff / 8;
-        }
-    }
     else {
         offsetNs_ -= (offsetNs_ - target) / decayDivisor_;
     }
@@ -239,7 +229,8 @@ FramePacer::FramePacer(PacingMode mode, int streamFps, int64_t vsyncPeriodNs, Ji
     // Frames waiting out the buffer sit in the caller's queue (maxQueued()), which also holds
     // the frame due next and one being shown
     if (mode == PacingMode::MiBox60Hz) {
-        timeline_.setMaxBufferNs(7'000'000);
+        // Allow up to 10 ms buffer headroom to absorb WAN/cloud jitter waves without skipping
+        timeline_.setMaxBufferNs(10'000'000);
     }
     else {
         timeline_.setMaxBufferNs(static_cast<int64_t>(kMaxQueuedFrames - 3) * streamIntervalNs_);

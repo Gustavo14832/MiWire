@@ -1955,7 +1955,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 }
             }
 
-            if (prefs.enablePerfOverlay || perfListener != null) {
+            if (prefs.enablePerfOverlay && perfListener != null) {
                 VideoStats lastTwo = new VideoStats();
                 lastTwo.add(lastWindowVideoStats);
                 lastTwo.add(activeWindowVideoStats);

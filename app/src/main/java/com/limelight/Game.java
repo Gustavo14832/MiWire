@@ -349,6 +349,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         return hasEthernet && !hasWifi;
     }
 
+    public static boolean shouldEnableSustainedPerformance(PreferenceConfiguration config) {
+        return config != null && config.enableSustainedPerformance;
+    }
+
     public static boolean isDisplayHdr10Capable(int[] supportedHdrTypes) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || supportedHdrTypes == null) {
             return false;
@@ -567,7 +571,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         prefConfig = AppPreferences.getEffectivePreferences(this, appKey, quickLaunchAppKey, applyPreferenceOverrides);
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
 
-        if ((prefConfig.enableSustainedPerformance || isAndroidTV) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        if (shouldEnableSustainedPerformance(prefConfig) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             getWindow().setSustainedPerformanceMode(true);
         }
         registerThermalStatusListener();
@@ -1696,6 +1700,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         if (isFinishing()) {
+            uiKeepAliveHandler.removeCallbacks(uiKeepAlivePulse);
+
             // Stop any further input device notifications before we lose focus (and pointer capture)
             if (controllerHandler != null) {
                 controllerHandler.stop();
@@ -3478,7 +3484,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 // Keep the display on
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && (prefConfig.enableSustainedPerformance || isAndroidTV)) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && shouldEnableSustainedPerformance(prefConfig)) {
                     getWindow().setSustainedPerformanceMode(true);
                 }
                 uiKeepAliveHandler.removeCallbacks(uiKeepAlivePulse);
@@ -3837,10 +3843,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void onPerfUpdate(final String text) {
+        if (!prefConfig.enablePerfOverlay || isHidingOverlays) {
+            return;
+        }
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                performanceOverlayView.setText(text);
+                if (performanceOverlayView != null && prefConfig.enablePerfOverlay && !isHidingOverlays) {
+                    performanceOverlayView.setText(text);
+                }
             }
         });
     }
@@ -4168,8 +4179,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             }
         } else {
             if (isAndroidTV) {
-                // Ghost Overlay Mode: maintain multi-plane composition at 60 Hz without visual obstruction
+                // Ghost Overlay Mode: keep layer active while clearing text so HWUI avoids multi-line glyphs
                 performanceOverlayView.setVisibility(View.VISIBLE);
+                performanceOverlayView.setText("");
                 performanceOverlayView.setTextColor(0x01000000);
                 performanceOverlayView.setBackgroundColor(0x01000000);
             } else {

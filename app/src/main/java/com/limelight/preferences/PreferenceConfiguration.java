@@ -213,7 +213,7 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_LATENCY_TOAST = false;
     private static final String DEFAULT_FRAME_PACING = "balanced";
     private static final boolean DEFAULT_ABSOLUTE_MOUSE_MODE = false;
-    private static final boolean DEFAULT_ENABLE_AUDIO_FX = true;
+    private static final boolean DEFAULT_ENABLE_AUDIO_FX = false;
     private static final boolean DEFAULT_REDUCE_REFRESH_RATE = false;
     private static final String DEFAULT_ACTUAL_DISPLAY_REFRESH_RATE = "";
     private static final boolean DEFAULT_FULL_RANGE = false;
@@ -239,6 +239,7 @@ public class PreferenceConfiguration {
     static final String TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v6";
     static final String TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v7";
     static final String TV_GAMING_DEFAULTS_V8_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v8";
+    static final String TV_GAMING_DEFAULTS_V9_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v9";
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -828,6 +829,7 @@ public class PreferenceConfiguration {
                 .remove(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_V8_SEEDED_PREF_STRING)
+                .remove(TV_GAMING_DEFAULTS_V9_SEEDED_PREF_STRING)
                 .apply();
     }
 
@@ -863,7 +865,8 @@ public class PreferenceConfiguration {
                     .putBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, true)
                     .putBoolean(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING, true)
                     .putBoolean(TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V8_SEEDED_PREF_STRING, true);
+                    .putBoolean(TV_GAMING_DEFAULTS_V8_SEEDED_PREF_STRING, true)
+                    .putBoolean(TV_GAMING_DEFAULTS_V9_SEEDED_PREF_STRING, true);
             if (!prefs.contains(RESOLUTION_PREF_STRING)) {
                 editor.putString(RESOLUTION_PREF_STRING, RES_1080P);
             }
@@ -962,7 +965,8 @@ public class PreferenceConfiguration {
                 editor.putBoolean(GAMEPAD_MOTION_FALLBACK_PREF_STRING, false);
             }
             if (!prefs.contains(SUSTAINED_PERFORMANCE_PREF_STRING)) {
-                editor.putBoolean(SUSTAINED_PERFORMANCE_PREF_STRING, true);
+                // Leave ADPF free to boost Cortex-A55/Mali-G310 clocks cleanly on bursts
+                editor.putBoolean(SUSTAINED_PERFORMANCE_PREF_STRING, false);
             }
             editor.apply();
         }
@@ -1049,6 +1053,12 @@ public class PreferenceConfiguration {
             prefs.edit()
                     .putBoolean(TV_GAMING_DEFAULTS_V8_SEEDED_PREF_STRING, true)
                     .putBoolean(ENABLE_AUDIO_FX_PREF_STRING, false)
+                    .apply();
+        }
+        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V9_SEEDED_PREF_STRING, false)) {
+            prefs.edit()
+                    .putBoolean(TV_GAMING_DEFAULTS_V9_SEEDED_PREF_STRING, true)
+                    .putBoolean(SUSTAINED_PERFORMANCE_PREF_STRING, false)
                     .apply();
         }
     }
