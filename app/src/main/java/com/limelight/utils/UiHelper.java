@@ -150,7 +150,7 @@ public class UiHelper {
         UiModeManager modeMgr = (UiModeManager) activity.getSystemService(Context.UI_MODE_SERVICE);
 
         // Set GameState.MODE_NONE initially for all activities
-        setGameModeStatus(activity, false, false);
+        setGameModeStatus(activity, false, false, false);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             // Allow this non-streaming activity to layout under notches.
