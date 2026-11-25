@@ -558,15 +558,18 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     }
 
     public static boolean isHevcHdrProfileSupported(int profile, int sdkInt) {
-        return profile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10 ||
-                (sdkInt >= Build.VERSION_CODES.Q &&
+        return (sdkInt >= Build.VERSION_CODES.N && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
+                        profile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10) ||
+                (sdkInt >= Build.VERSION_CODES.Q && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
                         profile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus);
     }
 
     public static boolean isAv1HdrProfileSupported(int profile, int sdkInt, boolean allowGenericMain10) {
+        if (sdkInt < Build.VERSION_CODES.Q || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return false;
+        }
         return profile == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10 ||
-                (sdkInt >= Build.VERSION_CODES.Q &&
-                        profile == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10Plus) ||
+                profile == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10Plus ||
                 (allowGenericMain10 && profile == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10);
     }
 

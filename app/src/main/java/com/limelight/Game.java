@@ -452,10 +452,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     public static int chooseWindowColorMode(boolean willStreamHdr, int[] supportedHdrTypes) {
-        if (willStreamHdr && isDisplayExtendedHdrCapable(supportedHdrTypes)) {
-            return android.content.pm.ActivityInfo.COLOR_MODE_HDR;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (willStreamHdr && isDisplayExtendedHdrCapable(supportedHdrTypes)) {
+                return android.content.pm.ActivityInfo.COLOR_MODE_HDR;
+            }
+            return android.content.pm.ActivityInfo.COLOR_MODE_DEFAULT;
         }
-        return android.content.pm.ActivityInfo.COLOR_MODE_DEFAULT;
+        return 0;
     }
 
     private void acquireWifiLocks() {
