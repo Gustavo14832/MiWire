@@ -2,8 +2,10 @@ package com.limelight.grid;
 
 import android.content.Context;
 import android.os.Build;
+import android.util.SparseBooleanArray;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.AbsListView;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -21,6 +23,7 @@ import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.preferences.AppPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -37,11 +40,17 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
     private final ComputerDetails computer;
     private final String uniqueId;
     private final boolean showHiddenApps;
+    private final float density;
 
     private CachedAppAssetLoader loader;
     private int selectedAppId = -1;
     private Set<Integer> hiddenAppIds = new HashSet<>();
     private ArrayList<AppView.AppObject> allApps = new ArrayList<>();
+    private final SparseBooleanArray customSettingsCache = new SparseBooleanArray();
+    private final SparseBooleanArray customSettingsCached = new SparseBooleanArray();
+    private Rainbow.Ring selectionRing;
+    private WeakReference<View> lastSelectedTile;
+    private WeakReference<AbsListView> attachedListView;
 
     public AppGridAdapter(Context context, PreferenceConfiguration prefs, ComputerDetails computer, String uniqueId, boolean showHiddenApps) {
         super(context, getLayoutIdForPreferences(prefs));
@@ -49,6 +58,7 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
         this.computer = computer;
         this.uniqueId = uniqueId;
         this.showHiddenApps = showHiddenApps;
+        this.density = context.getResources().getDisplayMetrics().density;
 
         updateLayoutWithPreferences(context, prefs);
     }
@@ -106,8 +116,9 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
         LimeLog.info("Art scaling divisor: " + scalingDivisor);
 
         if (loader != null) {
-            // Cancel operations on the old loader
-            cancelQueuedOperations();
+            // Shut down the old loader and its executors when switching grid layout densities
+            loader.freeCacheMemory();
+            loader.shutdown();
         }
 
         this.loader = new CachedAppAssetLoader(computer, scalingDivisor,
@@ -119,12 +130,115 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
         setLayoutId(getLayoutIdForPreferences(prefs));
     }
 
+    public void attachListView(AbsListView listView) {
+        this.attachedListView = listView != null ? new WeakReference<>(listView) : null;
+    }
+
+    public void invalidateCustomSettingsCache() {
+        customSettingsCache.clear();
+        customSettingsCached.clear();
+    }
+
+    public void shutdown() {
+        if (selectionRing != null) {
+            selectionRing.stop();
+        }
+        if (lastSelectedTile != null) {
+            View prev = lastSelectedTile.get();
+            if (prev != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                prev.setForeground(null);
+            }
+            lastSelectedTile.clear();
+        }
+        if (loader != null) {
+            loader.shutdown();
+        }
+    }
+
+    private Rainbow.Ring getOrCreateSelectionRing() {
+        if (selectionRing == null) {
+            selectionRing = new Rainbow.Ring(26 * density, 3 * density);
+        }
+        return selectionRing;
+    }
+
+    private void applyTileSelectionVisuals(View tile, AppView.AppObject obj, boolean selected, boolean hasCustom) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (selected) {
+                if (lastSelectedTile != null) {
+                    View prev = lastSelectedTile.get();
+                    if (prev != null && prev != tile) {
+                        prev.setForeground(null);
+                    }
+                }
+                Rainbow.Ring ring = getOrCreateSelectionRing();
+                if (tile.getForeground() != ring) {
+                    tile.setForeground(ring);
+                }
+                lastSelectedTile = new WeakReference<>(tile);
+            }
+            else if (tile.getForeground() != null) {
+                tile.setForeground(null);
+                if (lastSelectedTile != null && lastSelectedTile.get() == tile) {
+                    lastSelectedTile.clear();
+                }
+            }
+        }
+
+        if (obj.isHidden) {
+            tile.setAlpha(0.40f);
+        }
+        else {
+            tile.setAlpha(selected || selectedAppId == -1 ? 1.0f : 0.82f);
+        }
+
+        StringBuilder label = new StringBuilder(obj.app.getAppName());
+        if (obj.isRunning) {
+            label.append(", ").append(context.getString(R.string.cg_running));
+        }
+        if (obj.isHidden) {
+            label.append(", ").append(context.getString(R.string.cg_a11y_hidden));
+        }
+        if (hasCustom) {
+            label.append(", ").append(context.getString(R.string.cg_chip_custom));
+        }
+        if (selected) {
+            label.append(", ").append(context.getString(R.string.cg_a11y_selected));
+        }
+        tile.setContentDescription(label);
+    }
+
     // Cover Glow: the game shown in the home screen's hero gets a ring in the cover row
     public void setSelectedAppId(int appId) {
-        if (appId != selectedAppId) {
-            selectedAppId = appId;
-            notifyDataSetChanged();
+        if (appId == selectedAppId) {
+            return;
         }
+        selectedAppId = appId;
+        AbsListView listView = attachedListView != null ? attachedListView.get() : null;
+        if (listView != null && listView.getChildCount() > 0) {
+            if (lastSelectedTile != null) {
+                View prev = lastSelectedTile.get();
+                if (prev != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    prev.setForeground(null);
+                }
+            }
+            int childCount = listView.getChildCount();
+            for (int i = 0; i < childCount; i++) {
+                View child = listView.getChildAt(i);
+                Object tag = child.getTag();
+                if (tag instanceof ViewHolder) {
+                    ViewHolder holder = (ViewHolder) tag;
+                    if (holder.boundTag instanceof AppView.AppObject) {
+                        AppView.AppObject obj = (AppView.AppObject) holder.boundTag;
+                        boolean hasCustom = holder.settingsIndicator != null &&
+                                holder.settingsIndicator.getVisibility() == View.VISIBLE;
+                        applyTileSelectionVisuals(child, obj, obj.app.getAppId() == selectedAppId, hasCustom);
+                    }
+                }
+            }
+            return;
+        }
+        notifyDataSetChanged();
     }
 
     // Loads a game's cover into another view (the hero), through the same cache as the grid
@@ -192,10 +306,16 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
     public void clear() {
         super.clear();
         allApps.clear();
+        invalidateCustomSettingsCache();
     }
 
     @Override
     public void populateView(View parentView, ImageView imgView, ProgressBar prgView, TextView txtView, ImageView overlayView, ImageView settingsIndicator, AppView.AppObject obj) {
+        Object tag = parentView.getTag();
+        if (tag instanceof ViewHolder) {
+            ((ViewHolder) tag).boundTag = obj;
+        }
+
         // Rounded corners: the XML attribute only works from Android 12, so set it here too
         if (imgView.getBackground() == null) {
             imgView.setBackgroundResource(R.drawable.cg_cover);
@@ -220,48 +340,23 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
             overlayView.setVisibility(View.GONE);
         }
 
+        boolean hasCustom = false;
         // Show settings indicator if app has custom settings (use global settings is false)
         if (settingsIndicator != null) {
-            String appKey = this.computer.uuid + ":" + obj.app.getAppId();
-            AppPreferences.AppSettings appSettings = AppPreferences.getAppSettings(context, appKey);
-            if (!appSettings.useGlobalSettings) {
-                settingsIndicator.setVisibility(View.VISIBLE);
-            } else {
-                settingsIndicator.setVisibility(View.GONE);
+            int appId = obj.app.getAppId();
+            if (!customSettingsCached.get(appId, false)) {
+                String appKey = this.computer.uuid + ":" + appId;
+                hasCustom = AppPreferences.hasCustomSettings(context, appKey);
+                customSettingsCache.put(appId, hasCustom);
+                customSettingsCached.put(appId, true);
             }
+            else {
+                hasCustom = customSettingsCache.get(appId, false);
+            }
+            settingsIndicator.setVisibility(hasCustom ? View.VISIBLE : View.GONE);
         }
 
         boolean selected = obj.app.getAppId() == selectedAppId;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // The selected game's ring slowly turns through the rainbow
-            float density = context.getResources().getDisplayMetrics().density;
-            parentView.setForeground(selected ? new Rainbow.Ring(26 * density, 3 * density) : null);
-        }
-
-        if (obj.isHidden) {
-            parentView.setAlpha(0.40f);
-        }
-        else {
-            // Cover Glow: the other covers sit back a little behind the selected one
-            parentView.setAlpha(selected || selectedAppId == -1 ? 1.0f : 0.82f);
-        }
-
-        // For TalkBack: once a cover loads the name is no longer on screen as text, and the
-        // rest is only icons and dimming, so the tile says it all (tiles are reused, so every time)
-        StringBuilder label = new StringBuilder(obj.app.getAppName());
-        if (obj.isRunning) {
-            label.append(", ").append(context.getString(R.string.cg_running));
-        }
-        if (obj.isHidden) {
-            label.append(", ").append(context.getString(R.string.cg_a11y_hidden));
-        }
-        if (settingsIndicator != null && settingsIndicator.getVisibility() == View.VISIBLE) {
-            label.append(", ").append(context.getString(R.string.cg_chip_custom));
-        }
-        if (selected) {
-            // The next tap plays it
-            label.append(", ").append(context.getString(R.string.cg_a11y_selected));
-        }
-        parentView.setContentDescription(label);
+        applyTileSelectionVisuals(parentView, obj, selected, hasCustom);
     }
 }

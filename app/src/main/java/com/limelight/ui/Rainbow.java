@@ -27,6 +27,7 @@ public final class Rainbow {
     static final int[] COLORS = {0xFFFF5722, 0xFFFF9800, 0xFFFFC107, 0xFFFF6D00, 0xFFFF5722};
     private static final long TEXT_LOOP_MS = 6000;
     private static final long RING_LOOP_MS = 4000;
+    private static final long FRAME_INTERVAL_MS = 66L;
 
     private Rainbow() {}
 
@@ -53,7 +54,13 @@ public final class Rainbow {
         flow.setDuration(TEXT_LOOP_MS);
         flow.setRepeatCount(ValueAnimator.INFINITE);
         flow.setInterpolator(new LinearInterpolator());
+        final long[] lastBucket = {-1L};
         flow.addUpdateListener(animation -> {
+            long bucket = animation.getCurrentPlayTime() / FRAME_INTERVAL_MS;
+            if (bucket == lastBucket[0]) {
+                return;
+            }
+            lastBucket[0] = bucket;
             if (shader[0] != null) {
                 matrix.setTranslate((Float) animation.getAnimatedValue() * view.getWidth() * 2f, 0);
                 shader[0].setLocalMatrix(matrix);
@@ -73,6 +80,7 @@ public final class Rainbow {
         private final float stroke;
         private ValueAnimator spin;
         private float angle;
+        private long lastSpinBucket = -1L;
         private SweepGradient sweep;
 
         public Ring(float radiusPx, float strokePx) {
@@ -115,11 +123,17 @@ public final class Rainbow {
             if (spin != null || !loopsAllowed()) {
                 return;
             }
+            lastSpinBucket = -1L;
             spin = ValueAnimator.ofFloat(0f, 360f);
             spin.setDuration(RING_LOOP_MS);
             spin.setRepeatCount(ValueAnimator.INFINITE);
             spin.setInterpolator(new LinearInterpolator());
             spin.addUpdateListener(animation -> {
+                long bucket = animation.getCurrentPlayTime() / FRAME_INTERVAL_MS;
+                if (bucket == lastSpinBucket) {
+                    return;
+                }
+                lastSpinBucket = bucket;
                 angle = (Float) animation.getAnimatedValue();
                 invalidateSelf();
             });

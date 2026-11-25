@@ -56,19 +56,34 @@ public abstract class GenericGridAdapter<T> extends BaseAdapter {
 
     public abstract void populateView(View parentView, ImageView imgView, ProgressBar prgView, TextView txtView, ImageView overlayView, ImageView settingsIndicator, T obj);
 
+    protected static final class ViewHolder {
+        public ImageView imgView;
+        public ImageView overlayView;
+        public TextView txtView;
+        public ProgressBar prgView;
+        public ImageView settingsIndicator;
+        public Object boundTag;
+    }
+
     @Override
     public View getView(int i, View convertView, ViewGroup viewGroup) {
+        ViewHolder holder;
         if (convertView == null) {
             convertView = inflater.inflate(layoutId, viewGroup, false);
+            holder = new ViewHolder();
+            holder.imgView = convertView.findViewById(R.id.grid_image);
+            holder.overlayView = convertView.findViewById(R.id.grid_overlay);
+            holder.txtView = convertView.findViewById(R.id.grid_text);
+            holder.prgView = convertView.findViewById(R.id.grid_spinner);
+            holder.settingsIndicator = convertView.findViewById(R.id.settings_indicator);
+            convertView.setTag(holder);
+        }
+        else {
+            holder = (ViewHolder) convertView.getTag();
         }
 
-        ImageView imgView = convertView.findViewById(R.id.grid_image);
-        ImageView overlayView = convertView.findViewById(R.id.grid_overlay);
-        TextView txtView = convertView.findViewById(R.id.grid_text);
-        ProgressBar prgView = convertView.findViewById(R.id.grid_spinner);
-        ImageView settingsIndicator = convertView.findViewById(R.id.settings_indicator);
-
-        populateView(convertView, imgView, prgView, txtView, overlayView, settingsIndicator, itemList.get(i));
+        populateView(convertView, holder.imgView, holder.prgView, holder.txtView,
+                holder.overlayView, holder.settingsIndicator, itemList.get(i));
 
         return convertView;
     }

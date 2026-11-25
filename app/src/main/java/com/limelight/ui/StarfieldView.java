@@ -20,7 +20,9 @@ import java.util.Random;
 public class StarfieldView extends View {
     // MiWire: calibrated density to cut CPU/GPU draw overhead by >50% on TV boxes
     private static final int STARS_PER_MEGAPIXEL = 45;
+    private static final int STATIC_STAR_ALPHA = (int) (0.55f * 255);
     private static final long TWINKLE_MS = 7000;
+    private static final long TWINKLE_FRAME_INTERVAL_MS = 85L;
     private static final int[] STAR_COLORS = {0xFFFFFFFF, 0xFFFFE0B2, 0xFFFFCC80, 0xFFFFE57F};
 
     // Nebula: subtle ambient warm amber/flame clouds on dark carbon
@@ -35,6 +37,7 @@ public class StarfieldView extends View {
     private RadialGradient[] clouds;
     private float[][] cloudRects;
     private float time;
+    private long lastTwinkleBucket = -1L;
     private ValueAnimator twinkle;
 
     public StarfieldView(Context context) {
@@ -90,12 +93,13 @@ public class StarfieldView extends View {
             canvas.drawRect(r[0], r[1], r[2], r[3], cloud);
         }
         for (int i = 0; i < x.length; i++) {
-            float alpha = 0.55f;
-            if (twinkles[i]) {
-                alpha = 0.35f + 0.6f * (0.5f + 0.5f * (float) Math.sin(time + phase[i]));
-            }
             star.setColor(color[i]);
-            star.setAlpha((int) (alpha * 255));
+            if (twinkles[i]) {
+                float alpha = 0.35f + 0.6f * (0.5f + 0.5f * (float) Math.sin(time + phase[i]));
+                star.setAlpha((int) (alpha * 255));
+            } else {
+                star.setAlpha(STATIC_STAR_ALPHA);
+            }
             canvas.drawCircle(x[i], y[i], radius[i], star);
         }
     }
@@ -105,11 +109,17 @@ public class StarfieldView extends View {
         super.onVisibilityAggregated(visible);
         if (visible) {
             if (twinkle == null && Loops.allowed(getContext())) {
+                lastTwinkleBucket = -1L;
                 twinkle = ValueAnimator.ofFloat(0f, (float) (Math.PI * 2));
                 twinkle.setDuration(TWINKLE_MS);
                 twinkle.setRepeatCount(ValueAnimator.INFINITE);
                 twinkle.setInterpolator(new LinearInterpolator());
                 twinkle.addUpdateListener(animation -> {
+                    long bucket = animation.getCurrentPlayTime() / TWINKLE_FRAME_INTERVAL_MS;
+                    if (bucket == lastTwinkleBucket) {
+                        return;
+                    }
+                    lastTwinkleBucket = bucket;
                     time = (Float) animation.getAnimatedValue();
                     invalidate();
                 });
@@ -119,6 +129,7 @@ public class StarfieldView extends View {
         else if (twinkle != null) {
             twinkle.cancel();
             twinkle = null;
+            lastTwinkleBucket = -1L;
         }
     }
 

@@ -100,6 +100,12 @@ public final class CoverGlow {
                 .getInt("tint_" + pcUuid + "_" + appId, DEFAULT_TINT);
     }
 
+    public static int rememberedTintOrDefault(Context context, String pcUuid, int appId, int fallbackTint) {
+        android.content.SharedPreferences prefs = context.getSharedPreferences(PREF_FILENAME, Context.MODE_PRIVATE);
+        String key = "tint_" + pcUuid + "_" + appId;
+        return prefs.contains(key) ? prefs.getInt(key, fallbackTint) : fallbackTint;
+    }
+
     private static int darken(int channel, float keep, int floor) {
         return Math.round(channel * keep + floor);
     }

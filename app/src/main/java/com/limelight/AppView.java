@@ -427,6 +427,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         Dialog.closeDialogs(this);
 
         cancelAnimations();
+        if (appGridAdapter != null) {
+            appGridAdapter.shutdown();
+        }
 
         if (managerBinder != null) {
             unbindService(serviceConnection);
@@ -454,6 +457,12 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         setLoopsRunning(false);
     }
 
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        setLoopsRunning(hasFocus && inForeground);
+    }
+
     // The screen's endless animations stop while it's out of sight (during a stream, say), so they
     // don't keep waking the CPU every frame
     private void setLoopsRunning(boolean running) {
@@ -477,6 +486,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         if (requestCode == REQUEST_APP_SETTINGS) {
             // Refresh the grid adapter to update settings indicators
             if (appGridAdapter != null) {
+                appGridAdapter.invalidateCustomSettingsCache();
                 appGridAdapter.notifyDataSetChanged();
             }
             // The hero's chips show the game's settings
@@ -797,6 +807,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
     @Override
     public void receiveAbsListView(AbsListView listView) {
         listView.setAdapter(appGridAdapter);
+        if (appGridAdapter != null) {
+            appGridAdapter.attachListView(listView);
+        }
         // The covers arrive one after another the first time the list lays out
         listView.setLayoutAnimation(new android.view.animation.LayoutAnimationController(
                 android.view.animation.AnimationUtils.loadAnimation(this, R.anim.cg_tile_in), 0.07f));
@@ -989,6 +1002,12 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
             int tint = AppIcons.accentFor(app.app.getAppName());
             animateTint(tint);
             CoverGlow.rememberTint(this, uuidString, app.app.getAppId(), tint);
+        }
+        else if (uuidString != null) {
+            int remembered = CoverGlow.rememberedTintOrDefault(this, uuidString, app.app.getAppId(), currentTint);
+            if (remembered != currentTint) {
+                animateTint(remembered);
+            }
         }
         refreshHero(animate);
     }

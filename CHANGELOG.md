@@ -20,8 +20,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   Settings, created stable backup tag `backup-v0.3.0-estavel`, applied the Xiaomi gaming theme
   (`#FF6700` / `#0D0F12`), reduced starfield GPU overdraw, and added full `pt-BR` translations.
 - **Ghost Overlay & UI keep-alive heartbeat:** keeps SurfaceFlinger / Amlogic Hardware Composer in
-  continuous 60 Hz composition (`0x01000000` alpha when stats are hidden on Android TV) plus a
-  1 Hz micro-alpha pulse (`uiKeepAliveView`) and forced `setSustainedPerformanceMode(true)` on TV.
+  continuous 60 Hz composition (`0x01000000` alpha 1 Hz pulse when stats are hidden on Android TV,
+  without video-thread stats/mutex overhead) plus a `uiKeepAliveView` (`0x02000000` base alpha) and
+  opt-in `setSustainedPerformanceMode` (`v9` migration defaults it `false` on TV so ADPF can scale
+  clocks dynamically).
+- **Extended HDR compatibility & HDMI/AVR audio negotiation:** detects `HDR10`, `HDR10+`, `HLG`,
+  and `Dolby Vision` capabilities, adds opt-in `checkbox_hdr_compat` (10-bit PQ-to-SDR Vulkan tone
+  mapping and HDR10+ decoder profiles), gates `Window.setColorMode(COLOR_MODE_HDR)` to HDR-capable
+  displays, adds `"auto"` (`Auto (HDMI / AVR max)`) and codec capability probing in
+  `list_audio_config`, and adds opt-in 32-bit float Opus decoding (`checkbox_float_pcm_audio`).
+- **MiWire engineering handoff guide (`docs/HANDOFF_MIWIRE.md`):** documents the Xiaomi Mi Box S
+  Gen 3 target setup, signing/in-place upgrade guarantees (`com.miwire` vs `com.miware`), key design
+  invariants, and CI test rules.
 
 - **Back button as Meta:** a new setting under Input that sends the Windows key when a physical Back
   button is pressed. From Artemis, credited to Yukino Song.
@@ -52,11 +62,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- **Lightweight menu & UI shell optimizations (`versionCode = 322`):** added `ViewHolder` reuse in
+  `GenericGridAdapter`, JSON-free custom-settings detection and cache + reused `Rainbow.Ring` +
+  direct D-pad tile selection updates without `notifyDataSetChanged()` in `AppGridAdapter`, bounded
+  30 s idle executor pools + `shutdown()` and single GPU-accelerated cover crossfades in
+  `CachedAppAssetLoader`, sample-size scaled API 28+ decoding in `DiskAssetLoader`, `85 ms` / `66 ms`
+  animation update gating in `StarfieldView` and `Rainbow`, visible-card diff filtering on `PcView`
+  polls, window-focus loop pausing and instant remembered `CoverGlow` tints in `AppView`, and
+  immediate API 30+ pointer recapture on focus return.
 - **Restored `presentAhead` 60 Hz low-latency `mibox-60hz` pacer:** restores immediate
   `VK_GOOGLE_display_timing` presentation in `mibox-60hz`, locks `PresentScheduler` at `1` vsync
   (`1.5 ms` guard) so Mali-G310 `presentMargin = 0` reports never ratchet compositor lag to 2–3
   vsyncs, locks slot cadence to `1 vsync/frame` (`16.67 ms`) with zero `shiftNs_` phase delay and a
-  2 s / 95% jitter window (`decayDivisor = 32`, up to 6 queued frames for burst absorption),
+  2 s / 95% jitter window (`decayDivisor = 32`, `10 ms` buffered jitter cap),
   preserves warmed jitter state across >5 s static-screen pauses, filters >2.5x host-idle intervals
   from `p50/p95/p99` pacing telemetry, and runs `PerfHint` at a 2.0 ms CPU work target.
 - **Restored `c2.amlogic` HEVC RFI & conservative decoder resilience:** restores HEVC Reference

@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
+import android.graphics.BitmapFactory;
 import android.media.AudioDeviceInfo;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
@@ -15,6 +16,8 @@ import android.media.MediaFormat;
 import android.os.Build;
 import android.preference.PreferenceManager;
 import android.view.Display;
+import android.view.View;
+import android.widget.FrameLayout;
 
 import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.audio.AudioHaptics;
@@ -26,11 +29,21 @@ import com.limelight.binding.video.DecoderInputBufferSizing;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.binding.video.PacingStats;
+import com.limelight.grid.AppGridAdapter;
+import com.limelight.grid.assets.CachedAppAssetLoader;
+import com.limelight.grid.assets.DiskAssetLoader;
 import com.limelight.grid.assets.MemoryAssetLoader;
+import com.limelight.grid.assets.NetworkAssetLoader;
 import com.limelight.nvstream.StreamConfiguration;
+import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.preferences.AppPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.AppIcons;
+import com.limelight.ui.CoverGlow;
+
+import java.io.File;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -753,5 +766,67 @@ public class MiBoxOptimizationTest {
             bassPulse[i + 1] = 0.5f;
         }
         haptics.process(bassPulse);
+    }
+
+    @Test
+    public void menuShellOptimizationsAndHelpersWorkDeterministically() throws Exception {
+        assertTrue(BuildConfig.VERSION_CODE >= 322);
+
+        String appKey = "pc-1:42";
+        assertFalse(AppPreferences.hasCustomSettings(context, appKey));
+
+        AppPreferences.AppSettings globalSettings = new AppPreferences.AppSettings();
+        globalSettings.useGlobalSettings = true;
+        AppPreferences.saveAppSettings(context, appKey, globalSettings);
+        assertFalse(AppPreferences.hasCustomSettings(context, appKey));
+
+        AppPreferences.AppSettings customSettings = new AppPreferences.AppSettings(
+                "1920x1080", 60, "mibox-60hz", 35000, 60.0, "false", "false", false);
+        AppPreferences.saveAppSettings(context, appKey, customSettings);
+        assertTrue(AppPreferences.hasCustomSettings(context, appKey));
+
+        assertEquals(0xFF112233, CoverGlow.rememberedTintOrDefault(context, "pc-1", 42, 0xFF112233));
+        CoverGlow.rememberTint(context, "pc-1", 42, 0xFFFF6700);
+        assertEquals(0xFFFF6700, CoverGlow.rememberedTintOrDefault(context, "pc-1", 42, 0xFF112233));
+
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.outWidth = 1200;
+        opts.outHeight = 1600;
+        assertEquals(4, DiskAssetLoader.calculateInSampleSize(opts, 300, 400));
+        opts.outWidth = 300;
+        opts.outHeight = 400;
+        assertEquals(1, DiskAssetLoader.calculateInSampleSize(opts, 300, 400));
+
+        ComputerDetails pc = new ComputerDetails();
+        pc.uuid = "pc-1";
+        DiskAssetLoader diskLoader = new DiskAssetLoader(context);
+        File cachedArt = diskLoader.getFile(pc.uuid, 42);
+        if (cachedArt.getParentFile() != null) {
+            cachedArt.getParentFile().mkdirs();
+        }
+        assertTrue(cachedArt.exists() || cachedArt.createNewFile());
+
+        CachedAppAssetLoader loader = new CachedAppAssetLoader(
+                pc,
+                1.0,
+                new NetworkAssetLoader(context, "0123456789ABCDEF"),
+                new MemoryAssetLoader(),
+                diskLoader);
+        loader.shutdown();
+
+        PreferenceConfiguration prefs = PreferenceConfiguration.readPreferences(context);
+        AppGridAdapter adapter = new AppGridAdapter(context, prefs, pc, "0123456789ABCDEF", false);
+        adapter.addApp(new AppView.AppObject(new NvApp("Desktop", 42, false)));
+        assertEquals(1, adapter.getCount());
+
+        FrameLayout parent = new FrameLayout(context);
+        View row1 = adapter.getView(0, null, parent);
+        View row2 = adapter.getView(0, row1, parent);
+        assertEquals(row1, row2);
+
+        adapter.setSelectedAppId(42);
+        adapter.setSelectedAppId(42);
+        adapter.invalidateCustomSettingsCache();
+        adapter.shutdown();
     }
 }

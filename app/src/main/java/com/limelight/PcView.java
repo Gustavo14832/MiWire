@@ -830,20 +830,30 @@ public class PcView extends Activity implements AdapterFragmentCallbacks, QuickL
             }
         }
 
+        boolean uiChanged = false;
         if (existingEntry != null) {
+            ComputerDetails prev = existingEntry.details;
+            uiChanged = prev == null ||
+                    prev.state != details.state ||
+                    prev.pairState != details.pairState ||
+                    prev.runningGameId != details.runningGameId ||
+                    !java.util.Objects.equals(prev.name, details.name);
             // Replace the information in the existing entry
             existingEntry.details = details;
         }
         else {
             // Add a new entry
             pcGridAdapter.addComputer(new ComputerObject(details));
+            uiChanged = true;
 
             // Remove the "Discovery in progress" view
             noPcFoundLayout.setVisibility(View.INVISIBLE);
         }
 
-        // Notify the view that the data has changed
-        pcGridAdapter.notifyDataSetChanged();
+        // Notify the view only when visible card data actually changed
+        if (uiChanged) {
+            pcGridAdapter.notifyDataSetChanged();
+        }
         
         // Update Quick Launch running status
         if (quickLaunchView != null) {

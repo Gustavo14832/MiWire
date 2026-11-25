@@ -117,7 +117,10 @@ public class DiskAssetLoader {
                         scaledBitmap.originalWidth = imageInfo.getSize().getWidth();
                         scaledBitmap.originalHeight = imageInfo.getSize().getHeight();
 
-                        imageDecoder.setTargetSize(STANDARD_ASSET_WIDTH, STANDARD_ASSET_HEIGHT);
+                        int divisor = Math.max(1, sampleSize);
+                        imageDecoder.setTargetSize(
+                                Math.max(100, STANDARD_ASSET_WIDTH / divisor),
+                                Math.max(133, STANDARD_ASSET_HEIGHT / divisor));
                         if (isLowRamDevice) {
                             imageDecoder.setMemorySizePolicy(ImageDecoder.MEMORY_POLICY_LOW_RAM);
                         }

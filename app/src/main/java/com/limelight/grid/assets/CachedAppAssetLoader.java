@@ -6,8 +6,6 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.view.View;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -32,23 +30,19 @@ public class CachedAppAssetLoader {
     private static final int MAX_PENDING_NETWORK_LOADS = 40;
     private static final int MAX_PENDING_DISK_LOADS = 40;
 
-    private final ThreadPoolExecutor cacheExecutor = new ThreadPoolExecutor(
-            MAX_CONCURRENT_CACHE_LOADS, MAX_CONCURRENT_CACHE_LOADS,
-            Long.MAX_VALUE, TimeUnit.DAYS,
-            new LinkedBlockingQueue<Runnable>(MAX_PENDING_CACHE_LOADS),
-            new ThreadPoolExecutor.DiscardOldestPolicy());
+    private final ThreadPoolExecutor cacheExecutor = createIdleTimeoutPool(MAX_CONCURRENT_CACHE_LOADS, MAX_PENDING_CACHE_LOADS);
+    private final ThreadPoolExecutor foregroundExecutor = createIdleTimeoutPool(MAX_CONCURRENT_DISK_LOADS, MAX_PENDING_DISK_LOADS);
+    private final ThreadPoolExecutor networkExecutor = createIdleTimeoutPool(MAX_CONCURRENT_NETWORK_LOADS, MAX_PENDING_NETWORK_LOADS);
 
-    private final ThreadPoolExecutor foregroundExecutor = new ThreadPoolExecutor(
-            MAX_CONCURRENT_DISK_LOADS, MAX_CONCURRENT_DISK_LOADS,
-            Long.MAX_VALUE, TimeUnit.DAYS,
-            new LinkedBlockingQueue<Runnable>(MAX_PENDING_DISK_LOADS),
-            new ThreadPoolExecutor.DiscardOldestPolicy());
-
-    private final ThreadPoolExecutor networkExecutor = new ThreadPoolExecutor(
-            MAX_CONCURRENT_NETWORK_LOADS, MAX_CONCURRENT_NETWORK_LOADS,
-            Long.MAX_VALUE, TimeUnit.DAYS,
-            new LinkedBlockingQueue<Runnable>(MAX_PENDING_NETWORK_LOADS),
-            new ThreadPoolExecutor.DiscardOldestPolicy());
+    private static ThreadPoolExecutor createIdleTimeoutPool(int threads, int queueCapacity) {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                threads, threads,
+                30L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<Runnable>(queueCapacity),
+                new ThreadPoolExecutor.DiscardOldestPolicy());
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
+    }
 
     private final ComputerDetails computer;
     private final double scalingDivider;
@@ -89,6 +83,14 @@ public class CachedAppAssetLoader {
 
     public void freeCacheMemory() {
         memoryLoader.clearCache();
+    }
+
+    public void shutdown() {
+        cancelForegroundLoads();
+        cancelBackgroundLoads();
+        cacheExecutor.shutdownNow();
+        foregroundExecutor.shutdownNow();
+        networkExecutor.shutdownNow();
     }
 
     private ScaledBitmap doNetworkAssetLoad(LoaderTuple tuple, LoaderTask task) {
@@ -199,9 +201,11 @@ public class CachedAppAssetLoader {
                 LoaderTask task = new LoaderTask(imageView, textView, false);
                 AsyncDrawable asyncDrawable = new AsyncDrawable(imageView.getResources(),
                         AppIcons.missingCoverBitmap(tuple.app.getAppName()), task);
+                imageView.animate().cancel();
                 imageView.setImageDrawable(asyncDrawable);
-                imageView.startAnimation(AnimationUtils.loadAnimation(imageView.getContext(), R.anim.boxart_fadein));
+                imageView.setAlpha(0f);
                 imageView.setVisibility(View.VISIBLE);
+                imageView.animate().alpha(1f).setDuration(140).start();
                 textView.setVisibility(View.VISIBLE);
                 task.executeOnExecutor(networkExecutor, tuple);
             }
@@ -217,36 +221,15 @@ public class CachedAppAssetLoader {
             final ImageView imageView = imageViewRef.get();
             final TextView textView = textViewRef.get();
             if (getLoaderTask(imageView) == this) {
-                // Fade in the box art
                 if (bitmap != null) {
                     // Show the text if it's a placeholder
                     textView.setVisibility(isBitmapPlaceholder(bitmap) ? View.VISIBLE : View.GONE);
 
-                    if (imageView.getVisibility() == View.VISIBLE) {
-                        // Fade out the placeholder first
-                        Animation fadeOutAnimation = AnimationUtils.loadAnimation(imageView.getContext(), R.anim.boxart_fadeout);
-                        fadeOutAnimation.setAnimationListener(new Animation.AnimationListener() {
-                            @Override
-                            public void onAnimationStart(Animation animation) {}
-
-                            @Override
-                            public void onAnimationEnd(Animation animation) {
-                                // Fade in the new box art
-                                imageView.setImageBitmap(shownBitmap(bitmap, tuple.app));
-                                imageView.startAnimation(AnimationUtils.loadAnimation(imageView.getContext(), R.anim.boxart_fadein));
-                            }
-
-                            @Override
-                            public void onAnimationRepeat(Animation animation) {}
-                        });
-                        imageView.startAnimation(fadeOutAnimation);
-                    }
-                    else {
-                        // View is invisible already, so just fade in the new art
-                        imageView.setImageBitmap(shownBitmap(bitmap, tuple.app));
-                        imageView.startAnimation(AnimationUtils.loadAnimation(imageView.getContext(), R.anim.boxart_fadein));
-                        imageView.setVisibility(View.VISIBLE);
-                    }
+                    imageView.animate().cancel();
+                    imageView.setImageBitmap(shownBitmap(bitmap, tuple.app));
+                    imageView.setAlpha(0f);
+                    imageView.setVisibility(View.VISIBLE);
+                    imageView.animate().alpha(1f).setDuration(140).start();
                 }
             }
         }
@@ -353,6 +336,8 @@ public class CachedAppAssetLoader {
         ScaledBitmap bmp = memoryLoader.loadBitmapFromCache(tuple);
         if (bmp != null) {
             // Show the bitmap immediately
+            imgView.animate().cancel();
+            imgView.setAlpha(1f);
             imgView.setVisibility(View.VISIBLE);
             imgView.setImageBitmap(shownBitmap(bmp, app));
 
@@ -365,6 +350,8 @@ public class CachedAppAssetLoader {
         // via AsyncDrawable to this view.
         final LoaderTask task = new LoaderTask(imgView, textView, true);
         final AsyncDrawable asyncDrawable = new AsyncDrawable(imgView.getResources(), placeholderBitmap, task);
+        imgView.animate().cancel();
+        imgView.setAlpha(1f);
         textView.setVisibility(View.INVISIBLE);
         imgView.setVisibility(View.INVISIBLE);
         imgView.setImageDrawable(asyncDrawable);

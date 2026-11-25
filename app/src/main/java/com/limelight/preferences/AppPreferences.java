@@ -99,6 +99,15 @@ public class AppPreferences {
         }
     }
 
+    public static boolean hasCustomSettings(Context context, String appKey) {
+        SharedPreferences prefs = context.getSharedPreferences(APP_PREFERENCES_FILE, Context.MODE_PRIVATE);
+        String jsonString = prefs.getString(appKey, null);
+        if (jsonString == null) {
+            return false;
+        }
+        return !getAppSettings(context, appKey).useGlobalSettings;
+    }
+
     public static void saveAppSettings(Context context, String appKey, AppSettings settings) {
         SharedPreferences prefs = context.getSharedPreferences(APP_PREFERENCES_FILE, Context.MODE_PRIVATE);
         try {

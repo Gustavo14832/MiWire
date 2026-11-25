@@ -24,9 +24,9 @@ android {
         minSdk 21
         targetSdk 36
 
-        // MiWire version. Carries on above v0.3.0 (320) so all com.miwire builds upgrade cleanly in place.
+        // MiWire version. Carries on above v0.3.0 (321) so all com.miwire builds upgrade cleanly in place.
         versionName "0.3.0"
-        versionCode = 321
+        versionCode = 322
         buildConfigField "String", "GIT_COMMIT", "\"${gitCommit}\""
 
         // Generate native debug symbols to allow Google Play to symbolicate our native crashes
