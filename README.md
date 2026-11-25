@@ -26,7 +26,7 @@
 > ### ⚠️ AVISO DE COMPATIBILIDADE ESPECÍFICA (LEIA ANTES DE INSTALAR)
 > Este aplicativo é uma versão **especializada e altamente calibrada** projetada exclusivamente para a **Xiaomi Mi Box S de 3ª Geração (SoC Amlogic S905X5M, Android TV / Google TV)** operando em telas **1080p a 60 Hz**.
 >
-> As otimizações de baixo nível presentes neste APK — como o controle de bypass do Hardware Composer da Amlogic, a sincronização de fase de VSync cravada em 16.66 ms, o acumulador sub-pixel de mouse para Android TV e a trava de modo de desempenho contínuo — foram criadas especificamente para contornar limitações e comportamentos do driver da Amlogic.
+> As otimizações de baixo nível presentes neste APK — como o controle de bypass do Hardware Composer da Amlogic, a sincronização de fase de VSync cravada em 16.66 ms, o acumulador sub-pixel de mouse para Android TV e o ajuste dinâmico de CPU via ADPF — foram criadas especificamente para contornar limitações e comportamentos do driver da Amlogic.
 >
 > **Em celulares, tablets ou aparelhos com telas de 90 Hz, 120 Hz ou VRR, este APK se comportará de forma inadequada (podendo causar engasgos e perda de sincronia).** Para outros aparelhos, utilize o [Starwire original](https://github.com/SicarioGaming/Starwire) ou o [Moonlight oficial](https://github.com/moonlight-stream/moonlight-android).
 
@@ -55,7 +55,8 @@ Ele nasceu com um propósito específico: transformar a **Xiaomi Mi Box S Gen 3*
 Na primeira execução em dispositivos Android TV / Amlogic (`isTvOrAmlogicDevice`), o MiWire configura automaticamente:
 * **Vídeo:** `1920x1080` @ `60 FPS`, `35 Mbps`, **HEVC (H.265)**, renderizador **Vulkan**, `mibox-60hz`, dither `high`, RCAS `balanced`, Full Range (`0-255`), `exactSlices` desativado (preservando predição NVENC de quadro inteiro).
 * **Decodificador Amlogic Codec2 (`c2.amlogic.*`):** Ignora a chave genérica `low-latency` (que causa travamentos no driver da Amlogic), aplica extensões de baixa latência da fabricante (`vendor.amlogic.*`, `vendor.media.omx.gamemode`, `operating-rate 240`, prioridade `0`), restaura HEVC RFI no `c2.amlogic`, expande buffers dinâmicos de entrada (>= 2 MB) e adiciona *watchdog* de 3 estágios contra travamento (IDR -> Flush -> Restart).
-* **Sistema & Áudio:** Modo de Desempenho Sustentado (`setSustainedPerformanceMode`), ADPF (`PerformanceHintManager` em Java e C++), prioridade elevada de threads de renderização/áudio, `AudioTrack` de baixa latência no HDMI em Android 12+, fila máxima de áudio de `20 ms`, e skip de Wi-Fi lock quando conectado via cabo Ethernet.
+* **Sistema, Faixa Dinâmica & Áudio:** ADPF (`PerformanceHintManager` em Java e C++) ativo sob demanda (com Modo de Desempenho Sustentado opcional desativado por padrão na TV), prioridade elevada de threads de renderização/áudio, `AudioTrack` de baixa latência no HDMI em Android 12+, fila máxima de áudio de `20 ms`, skip de Wi-Fi lock na rede Ethernet, compatibilidade opt-in com `HDR10` / `HDR10+` / `HLG` / `Dolby Vision` (incluindo mapeamento Vulkan 10-bit PQ→SDR), negociação automática HDMI/AVR (`auto`) e opção de áudio `PCM Float 32-bit`.
+* **Casca e Menus Leves (fora do streaming):** reciclagem com `ViewHolder`, cache leve de preferências por jogo, seleção via D-pad sem recarregar toda a grade, decodificação escalonada de capas e limpeza imediata de executores ao sair das telas.
 * **Interface & Controles na TV:** Tema visual *Xiaomi Gaming* (carbono escuro `#0D0F12` com destaque laranja `#FF6700`), abertura de menu por `LB+RB`, botão *Back* como tecla Meta (`Win`), deadzone analógica mínima de `3%` (e gatilhos a `2%`), desativação de controles por toque, botão flutuante e sensores de movimento.
 
 ### 4. 🖱️ Mouse Anti-Coasting (1000 Hz) & Periféricos
@@ -89,6 +90,7 @@ Além das otimizações exclusivas para Mi Box S Gen 3, o MiWire preserva os rec
 
 ## 📚 Documentação e Repositório
 
+* **Contexto Técnico & Handoff para IA:** consulte [`docs/HANDOFF_MIWIRE.md`](docs/HANDOFF_MIWIRE.md) para o histórico completo de calibração, hardware alvo, regras de assinatura e decisões de engenharia.
 * **Código-fonte e Build:** consulte [`CONTRIBUTING.md`](CONTRIBUTING.md) para instruções de compilação com Gradle/NDK e execução de testes.
 * **Histórico de Versões:** consulte [`CHANGELOG.md`](CHANGELOG.md) e a [página de Releases](https://github.com/Gustavo14832/MiWire/releases).
 * **Segurança:** consulte [`SECURITY.md`](SECURITY.md) para detalhes sobre criptografia, drivers customizados e relato de vulnerabilidades.

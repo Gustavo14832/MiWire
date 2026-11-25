@@ -4,6 +4,8 @@ Rules for anyone changing Starwire, people or coding agents. Starwire is an Andr
 client (Java, with native code under `app/src/main/jni`) built on Moonlight X, plus a Windows
 microphone receiver in `windows/`. Keep this file short: under 100 lines.
 
+> **MiWire Fork Handoff:** Before changing MiWire, read [`docs/HANDOFF_MIWIRE.md`](docs/HANDOFF_MIWIRE.md) for the Xiaomi Mi Box S 3rd Gen target profile, signing/upgrade rules, recent commits, and CI guardrails.
+
 ## Before you start
 
 Write three or four plain lines saying what "done" looks like: what the user will see, which test
