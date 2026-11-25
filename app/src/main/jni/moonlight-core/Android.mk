@@ -60,6 +60,9 @@ LOCAL_CFLAGS += -DLC_DEBUG
 else
 # Optimize streaming hot paths (RTP depacketization, Reed-Solomon nanors FEC, enet)
 LOCAL_CFLAGS += -O3 -flto
+ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
+LOCAL_CFLAGS += -mtune=cortex-a55
+endif
 LOCAL_LDFLAGS += -flto
 endif
 

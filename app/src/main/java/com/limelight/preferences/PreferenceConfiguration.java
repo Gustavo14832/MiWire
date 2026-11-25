@@ -238,6 +238,7 @@ public class PreferenceConfiguration {
     static final String TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v5";
     static final String TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v6";
     static final String TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v7";
+    static final String TV_GAMING_DEFAULTS_V8_SEEDED_PREF_STRING = "mibox_tv_gaming_defaults_v8";
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -825,6 +826,8 @@ public class PreferenceConfiguration {
                 .remove(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING)
                 .remove(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING)
+                .remove(TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING)
+                .remove(TV_GAMING_DEFAULTS_V8_SEEDED_PREF_STRING)
                 .apply();
     }
 
@@ -859,7 +862,8 @@ public class PreferenceConfiguration {
                     .putBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, true)
                     .putBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, true)
                     .putBoolean(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING, true);
+                    .putBoolean(TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING, true)
+                    .putBoolean(TV_GAMING_DEFAULTS_V8_SEEDED_PREF_STRING, true);
             if (!prefs.contains(RESOLUTION_PREF_STRING)) {
                 editor.putString(RESOLUTION_PREF_STRING, RES_1080P);
             }
@@ -927,7 +931,8 @@ public class PreferenceConfiguration {
                 editor.putBoolean(STRETCH_PREF_STRING, true);
             }
             if (!prefs.contains(ENABLE_AUDIO_FX_PREF_STRING)) {
-                editor.putBoolean(ENABLE_AUDIO_FX_PREF_STRING, true);
+                // Keep Android AudioTrack FastMixer / PERFORMANCE_MODE_LOW_LATENCY unlocked on TV/HDMI
+                editor.putBoolean(ENABLE_AUDIO_FX_PREF_STRING, false);
             }
             if (!prefs.contains(BACK_AS_META_PREF_STRING)) {
                 editor.putBoolean(BACK_AS_META_PREF_STRING, true);
@@ -1019,7 +1024,7 @@ public class PreferenceConfiguration {
             prefs.edit()
                     .putBoolean(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING, true)
                     .putBoolean(STRETCH_PREF_STRING, true)
-                    .putBoolean(ENABLE_AUDIO_FX_PREF_STRING, true)
+                    .putBoolean(ENABLE_AUDIO_FX_PREF_STRING, false)
                     .putBoolean(BACK_AS_META_PREF_STRING, true)
                     .putBoolean(SMALL_ICONS_PREF_STRING, true)
                     .putBoolean(DISABLE_TOASTS_PREF_STRING, true)
@@ -1038,6 +1043,12 @@ public class PreferenceConfiguration {
             prefs.edit()
                     .putBoolean(TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING, true)
                     .putBoolean(SUSTAINED_PERFORMANCE_PREF_STRING, true)
+                    .apply();
+        }
+        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V8_SEEDED_PREF_STRING, false)) {
+            prefs.edit()
+                    .putBoolean(TV_GAMING_DEFAULTS_V8_SEEDED_PREF_STRING, true)
+                    .putBoolean(ENABLE_AUDIO_FX_PREF_STRING, false)
                     .apply();
         }
     }

@@ -476,6 +476,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         // library. The limitation of this is that we don't know whether we're using HEVC or AVC.
         int avcOptimalSlicesPerFrame = 0;
         int hevcOptimalSlicesPerFrame = 0;
+        int av1OptimalSlicesPerFrame = 0;
         if (avcDecoder != null) {
             directSubmit = MediaCodecHelper.decoderCanDirectSubmit(avcDecoder.getName());
             refFrameInvalidationAvc = MediaCodecHelper.decoderSupportsRefFrameInvalidationAvc(avcDecoder.getName(), prefs.height);
@@ -518,10 +519,13 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             }
 
             refFrameInvalidationAv1 = MediaCodecHelper.decoderSupportsRefFrameInvalidationAv1(av1Decoder);
+            av1OptimalSlicesPerFrame = MediaCodecHelper.getDecoderOptimalSlicesPerFrame(av1Decoder.getName());
 
             if (refFrameInvalidationAv1) {
                 LimeLog.info("Decoder "+av1Decoder.getName()+" will use reference frame invalidation for AV1");
             }
+
+            LimeLog.info("Decoder "+av1Decoder.getName()+" wants "+av1OptimalSlicesPerFrame+" slices per frame");
         }
 
         // Direct submit hands frames over on the receive thread, which for MediaCodec is just
@@ -535,8 +539,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             LimeLog.info("Not using direct submit, since the stream may be PyroWave");
         }
 
-        // Use the larger of the two slices per frame preferences
-        optimalSlicesPerFrame = (byte)Math.max(avcOptimalSlicesPerFrame, hevcOptimalSlicesPerFrame);
+        // Use the largest slices per frame preference across the candidate decoders
+        optimalSlicesPerFrame = (byte)Math.max(avcOptimalSlicesPerFrame, Math.max(hevcOptimalSlicesPerFrame, av1OptimalSlicesPerFrame));
         LimeLog.info("Requesting "+optimalSlicesPerFrame+" slices per frame");
 
         if (consecutiveCrashCount % 2 == 1) {

@@ -646,17 +646,9 @@ public class StreamSettings extends Activity {
             else {
                 Display.HdrCapabilities hdrCaps = display.getHdrCapabilities();
 
-                // We must now ensure our display is compatible with HDR10
-                boolean foundHdr10 = false;
-                if (hdrCaps != null) {
-                    // getHdrCapabilities() returns null on Lenovo Lenovo Mirage Solo (vega), Android 8.0
-                    for (int hdrType : hdrCaps.getSupportedHdrTypes()) {
-                        if (hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10) {
-                            foundHdr10 = true;
-                            break;
-                        }
-                    }
-                }
+                // We must now ensure our display is compatible with HDR10 / HDR10+
+                boolean foundHdr10 = hdrCaps != null &&
+                        com.limelight.Game.isDisplayHdr10Capable(hdrCaps.getSupportedHdrTypes());
 
                 if (!foundHdr10) {
                     LimeLog.info("Excluding HDR toggle based on display capabilities");

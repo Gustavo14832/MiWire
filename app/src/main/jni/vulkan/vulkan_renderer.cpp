@@ -85,7 +85,7 @@ namespace {
     constexpr int64_t kRecentSkipsNs = 10'000'000'000;
 
     // Imported buffers are kept while the decoder keeps cycling through the same ones
-    constexpr size_t kMaxImports = 24;
+    constexpr size_t kMaxImports = 16;
 
     // Images we may hold at once: the waiting queue, the ones the GPU is reading, the one on
     // screen, and one being acquired
@@ -761,6 +761,7 @@ bool VulkanRenderer::createPyrowaveDecoder() {
 void VulkanRenderer::pyrowaveWaiterMain() {
     // Frames are timed from here, as they are on the image reader's thread
     raiseThreadPriority("PyroWave wait");
+    perfHint_.addThread();
 
     for (;;) {
         FramePtr frame;
@@ -2014,8 +2015,10 @@ bool VulkanRenderer::createSwapchain() {
     }
 
     // Frames presented ahead wait in the swapchain until their vsync: up to the jitter buffer
-    // plus the present delay's worth of them at once
-    uint32_t imageCount = std::max(caps.minImageCount, presentAhead_ ? 6u : 3u);
+    // plus the present delay's worth of them at once. MiBox60Hz targets 1 vsync ahead, so 4
+    // swapchain images suffice and save ~33-67 MB of DMA-BUF memory on 2 GB devices.
+    const uint32_t aheadImageCount = (pacer_.mode() == PacingMode::MiBox60Hz) ? 4u : 6u;
+    uint32_t imageCount = std::max(caps.minImageCount, presentAhead_ ? aheadImageCount : 3u);
     if (caps.maxImageCount != 0) {
         imageCount = std::min(imageCount, caps.maxImageCount);
     }

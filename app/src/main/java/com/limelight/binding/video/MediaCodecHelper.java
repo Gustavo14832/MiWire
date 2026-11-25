@@ -230,6 +230,7 @@ public class MediaCodecHelper {
         knownVendorLowLatencyOptions.add("vendor.low-latency.enable");
         knownVendorLowLatencyOptions.add("vendor.amlogic.low-latency");
         knownVendorLowLatencyOptions.add("vendor.amlogic.vdec.low-latency");
+        knownVendorLowLatencyOptions.add("vendor.vdec.low-latency");
     }
 
     static {
@@ -712,22 +713,53 @@ public class MediaCodecHelper {
                 }
             }
             else if (isAmlogic) {
-                if (tryNumber < 4) {
-                    int fps = 60;
-                    if (videoFormat.containsKey(MediaFormat.KEY_FRAME_RATE)) {
-                        fps = videoFormat.getInteger(MediaFormat.KEY_FRAME_RATE);
+                int fps = 60;
+                if (videoFormat.containsKey(MediaFormat.KEY_FRAME_RATE)) {
+                    fps = videoFormat.getInteger(MediaFormat.KEY_FRAME_RATE);
+                }
+                if (tryNumber == 0) {
+                    int width = videoFormat.containsKey(MediaFormat.KEY_WIDTH)
+                            ? videoFormat.getInteger(MediaFormat.KEY_WIDTH) : 1920;
+                    int height = videoFormat.containsKey(MediaFormat.KEY_HEIGHT)
+                            ? videoFormat.getInteger(MediaFormat.KEY_HEIGHT) : 1080;
+                    double maxSupportedFps = -1;
+                    try {
+                        String mime = videoFormat.getString(MediaFormat.KEY_MIME);
+                        if (mime != null && decoderInfo != null) {
+                            MediaCodecInfo.VideoCapabilities caps = decoderInfo
+                                    .getCapabilitiesForType(mime)
+                                    .getVideoCapabilities();
+                            if (caps != null && caps.isSizeSupported(width, height)) {
+                                maxSupportedFps = caps.getSupportedFrameRatesFor(width, height).getUpper();
+                            }
+                        }
+                    } catch (Exception ignored) {
                     }
-                    int amlOperatingRate = Math.max(240, Math.min(fps * 2, 480));
+                    int amlOperatingRate = computeAmlogicOperatingRate(fps, width, height, maxSupportedFps);
                     setNewOption |= safeSet(videoFormat, MediaFormat.KEY_OPERATING_RATE, amlOperatingRate, tryNumber, false);
                     setNewOption |= safeSet(videoFormat, MediaFormat.KEY_PRIORITY, 0, tryNumber, false);
-                    // Amlogic low latency vendor extensions
-                    // https://github.com/codewalkerster/android_vendor_amlogic_common_prebuilt_libstagefrighthw/commit/41fefc4e035c476d58491324a5fe7666bfc2989e
+                    // Amlogic low latency vendor extensions (S905X5M c2.amlogic / OMX)
                     setNewOption |= safeSet(videoFormat, "vendor.low-latency.enable", 1, tryNumber, false);
                     setNewOption |= safeSet(videoFormat, "vendor.amlogic.low-latency", 1, tryNumber, false);
                     setNewOption |= safeSet(videoFormat, "vendor.amlogic.vdec.low-latency", 1, tryNumber, false);
                     setNewOption |= safeSet(videoFormat, "vendor.vdec.low-latency", 1, tryNumber, false);
                     setNewOption |= safeSet(videoFormat, "vendor.media.omx.gamemode", 1, tryNumber, false);
                     setNewOption |= safeSet(videoFormat, "vendor.amlogic.vdec.boost", 1, tryNumber, false);
+                }
+                else if (tryNumber == 1) {
+                    // Fallback 1: omit high operating rate & experimental boost flags while keeping core low latency
+                    setNewOption |= safeSet(videoFormat, MediaFormat.KEY_PRIORITY, 0, tryNumber, false);
+                    setNewOption |= safeSet(videoFormat, "vendor.low-latency.enable", 1, tryNumber, false);
+                    setNewOption |= safeSet(videoFormat, "vendor.amlogic.vdec.low-latency", 1, tryNumber, false);
+                }
+                else if (tryNumber == 2) {
+                    // Fallback 2: universal Android Codec2 vendor low-latency flag + realtime priority
+                    setNewOption |= safeSet(videoFormat, MediaFormat.KEY_PRIORITY, 0, tryNumber, false);
+                    setNewOption |= safeSet(videoFormat, "vendor.low-latency.enable", 1, tryNumber, false);
+                }
+                else if (tryNumber == 3 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    // Fallback 3: realtime priority only before giving up on try 4
+                    setNewOption |= safeSet(videoFormat, MediaFormat.KEY_PRIORITY, 0, tryNumber, false);
                 }
             }
         }
@@ -901,10 +933,45 @@ public class MediaCodecHelper {
         return isDecoderInList(whitelistedHevcDecoders, decoderInfo.getName());
     }
 
+    /**
+     * Computes Amlogic Codec2 operating rate: 240+ fps floor up to 1080p for rapid decode scheduling,
+     * while honoring hardware VideoCapabilities bounds at >1080p (e.g., 4K on S905X5M) so configure() succeeds.
+     */
+    public static int computeAmlogicOperatingRate(int fps, int width, int height, double maxSupportedFps) {
+        int safeFps = fps > 0 ? fps : 60;
+        int defaultRate = Math.max(240, Math.min(safeFps * 2, 480));
+        if (width > 1920 || height > 1080) {
+            if (maxSupportedFps > 0 && Double.isFinite(maxSupportedFps)) {
+                int cap = (int) Math.floor(maxSupportedFps);
+                return Math.max(safeFps, Math.min(defaultRate, cap));
+            }
+            return Math.max(safeFps * 2, Math.min(120, defaultRate));
+        }
+        return defaultRate;
+    }
+
+    public static boolean isHardwareAv1DecoderWhitelisted(int sdkInt, String decoderName,
+                                                         boolean hardwareAccelerated, boolean softwareOnly,
+                                                         boolean lowLatencySupported) {
+        if (sdkInt < Build.VERSION_CODES.Q || decoderName == null) {
+            return false;
+        }
+        String lower = decoderName.toLowerCase(Locale.ENGLISH);
+        if (softwareOnly || !hardwareAccelerated || lower.contains("sw") ||
+                lower.startsWith("c2.android.") || lower.startsWith("omx.google.") ||
+                lower.contains("dav1d") || lower.contains("gav1")) {
+            return false;
+        }
+        if (lower.startsWith("c2.amlogic.") || lower.startsWith("omx.amlogic.")) {
+            return true;
+        }
+        return sdkInt >= Build.VERSION_CODES.S && lowLatencySupported;
+    }
+
     public static boolean isDecoderWhitelistedForAv1(MediaCodecInfo decoderInfo) {
         // Google didn't have official support for AV1 (or more importantly, a CTS test) until
         // Android 10, so don't use any decoder before then.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || decoderInfo == null) {
             return false;
         }
 
@@ -923,8 +990,12 @@ public class MediaCodecHelper {
             return false;
         }
 
-        // TODO: Test some AV1 decoders
-        return false;
+        return isHardwareAv1DecoderWhitelisted(
+                Build.VERSION.SDK_INT,
+                decoderInfo.getName(),
+                decoderInfo.isHardwareAccelerated(),
+                decoderInfo.isSoftwareOnly(),
+                decoderSupportsAndroidRLowLatency(decoderInfo, "video/av01"));
     }
 
     @SuppressWarnings("deprecation")

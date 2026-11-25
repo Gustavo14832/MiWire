@@ -1,9 +1,11 @@
 #include <jni.h>
 
+#include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/resource.h>
 #include <time.h>
 
@@ -135,12 +137,27 @@ static void addTimespecNs(struct timespec* value, int64_t deltaNs) {
     }
 }
 
+static void RaiseCurrentThreadPriority(int targetNice) {
+    errno = 0;
+    int currentNice = getpriority(PRIO_PROCESS, 0);
+    if (errno != 0 || currentNice > targetNice) {
+        // Never downgrade a higher-priority streaming worker (e.g. -16 in moonlight-common-c)
+        setpriority(PRIO_PROCESS, 0, targetNice);
+    }
+#ifdef PR_SET_TIMERSLACK
+    // Collapse kernel timer slack on latency-sensitive audio/video/mic threads
+    prctl(PR_SET_TIMERSLACK, 1UL, 0, 0, 0);
+#endif
+}
+
 static void* MicEncoderWorker(void* context) {
     opus_int16 frame[MIC_FRAME_SIZE];
     unsigned char encodedPacket[MIC_MAX_ENCODED_PACKET];
     const int64_t frameDurationNs = (1000000000LL * MIC_FRAME_SIZE) / MIC_SAMPLE_RATE;
     struct timespec nextSendDeadline = {0};
     bool pacingActive = false;
+
+    RaiseCurrentThreadPriority(-10);
 
     while (true) {
         struct timespec now;
@@ -319,8 +336,8 @@ int BridgeDrSetup(int videoFormat, int width, int height, int redrawRate, void* 
         return err;
     }
 
-    // Pre-size buffer for high-bitrate 1080p60 HEVC IDR frames to avoid repeated reallocation
-    DecodedFrameBuffer = (*env)->NewGlobalRef(env, (*env)->NewByteArray(env, 524288));
+    // Pre-size 1 MB buffer for high-bitrate 1080p/4K HEVC/AV1 IDR frames to avoid repeated reallocation
+    DecodedFrameBuffer = (*env)->NewGlobalRef(env, (*env)->NewByteArray(env, 1048576));
 
     return 0;
 }
@@ -351,7 +368,7 @@ int BridgeDrSubmitDecodeUnit(PDECODE_UNIT decodeUnit) {
 
     if (!VideoThreadPrioritySet) {
         VideoThreadPrioritySet = true;
-        setpriority(PRIO_PROCESS, 0, -8);
+        RaiseCurrentThreadPriority(-16);
     }
 
     // Increase the size of our frame data buffer if our frame won't fit
@@ -557,7 +574,7 @@ void BridgeArDecodeAndPlaySample(char* sampleData, int sampleLength) {
 
     if (!AudioThreadPrioritySet) {
         AudioThreadPrioritySet = true;
-        setpriority(PRIO_PROCESS, 0, -8);
+        RaiseCurrentThreadPriority(-16);
     }
 
     jshort* decodedData = (*env)->GetPrimitiveArrayCritical(env, DecodedAudioBuffer, NULL);

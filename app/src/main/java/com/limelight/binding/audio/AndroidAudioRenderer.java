@@ -1,8 +1,10 @@
 package com.limelight.binding.audio;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioAttributes;
+import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -94,6 +96,89 @@ public class AndroidAudioRenderer implements AudioRenderer {
         // On Android 12+ (API 31+, including Android 14 TV), AudioTrack PERFORMANCE_MODE_LOW_LATENCY
         // supports resampling via FastMixer even when HDMI initially reports 44.1 kHz before switching to 48 kHz.
         return nativeSampleRate == streamSampleRate || sdkInt >= Build.VERSION_CODES.S;
+    }
+
+    /**
+     * Computes a tight playback threshold in PCM frames for AudioTrack.setBufferSizeInFrames()
+     * using the HAL burst size (PROPERTY_OUTPUT_FRAMES_PER_BUFFER) on low-latency wired/HDMI outputs.
+     * Returns -1 when buffer trimming should not be applied (standard mode or Bluetooth output).
+     */
+    public static int computeLowLatencyBufferFrames(int halFramesPerBurst, int packetFrames,
+                                                    int capacityFrames, boolean lowLatency,
+                                                    boolean bluetoothOutput) {
+        if (!lowLatency || bluetoothOutput || capacityFrames <= 0) {
+            return -1;
+        }
+        int safePacketFrames = Math.max(1, packetFrames);
+        int burstFrames = halFramesPerBurst > 0 ? halFramesPerBurst : Math.max(240, safePacketFrames);
+        int minSafeFrames = Math.max(safePacketFrames, burstFrames);
+        int desiredFrames = Math.max(safePacketFrames * 2, burstFrames * 2);
+        return Math.max(minSafeFrames, Math.min(desiredFrames, capacityFrames));
+    }
+
+    @TargetApi(Build.VERSION_CODES.S)
+    public static boolean isBluetoothAudioDeviceType(int sdkInt, int deviceType) {
+        if (sdkInt < Build.VERSION_CODES.M) {
+            return false;
+        }
+        if (deviceType == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                deviceType == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) {
+            return true;
+        }
+        if (sdkInt >= Build.VERSION_CODES.P && deviceType == AudioDeviceInfo.TYPE_HEARING_AID) {
+            return true;
+        }
+        return sdkInt >= Build.VERSION_CODES.S &&
+                (deviceType == AudioDeviceInfo.TYPE_BLE_HEADSET ||
+                        deviceType == AudioDeviceInfo.TYPE_BLE_SPEAKER);
+    }
+
+    private static int parsePositiveInt(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return -1;
+        }
+        try {
+            int parsed = Integer.parseInt(raw.trim());
+            return parsed > 0 ? parsed : -1;
+        } catch (NumberFormatException ignored) {
+            return -1;
+        }
+    }
+
+    private boolean isBluetoothOutput(AudioTrack audioTrack, AudioManager audioManager) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && audioTrack != null) {
+            AudioDeviceInfo routed = audioTrack.getRoutedDevice();
+            if (routed != null) {
+                return isBluetoothAudioDeviceType(Build.VERSION.SDK_INT, routed.getType());
+            }
+        }
+        return audioManager != null && (audioManager.isBluetoothA2dpOn() || audioManager.isBluetoothScoOn());
+    }
+
+    private void applyLowLatencyBufferSizing(AudioTrack audioTrack, int packetFrames, boolean lowLatency) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || audioTrack == null || !lowLatency) {
+            return;
+        }
+        try {
+            AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+            int halFramesPerBurst = parsePositiveInt(
+                    audioManager != null ? audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER) : null);
+            boolean bluetooth = isBluetoothOutput(audioTrack, audioManager);
+            int capacityFrames = audioTrack.getBufferCapacityInFrames();
+            int targetFrames = computeLowLatencyBufferFrames(
+                    halFramesPerBurst, packetFrames, capacityFrames, true, bluetooth);
+            if (targetFrames > 0) {
+                int appliedFrames = audioTrack.setBufferSizeInFrames(targetFrames);
+                LimeLog.info("AudioTrack FastMixer buffer trimmed: target=" + targetFrames +
+                        " applied=" + appliedFrames + " capacity=" + capacityFrames +
+                        " halBurst=" + halFramesPerBurst);
+            } else {
+                LimeLog.info("AudioTrack buffer kept at full capacity (bluetooth=" + bluetooth +
+                        ", halBurst=" + halFramesPerBurst + ")");
+            }
+        } catch (Throwable t) {
+            LimeLog.warning("AudioTrack buffer sizing failed: " + t.getMessage());
+        }
     }
 
     @Override
@@ -190,6 +275,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
             try {
                 track = createAudioTrack(channelConfig, sampleRate, bufferSize, lowLatency);
                 track.play();
+                applyLowLatencyBufferSizing(track, samplesPerFrame, lowLatency);
 
                 // Successfully created working AudioTrack. We're done here.
                 LimeLog.info("Audio track configuration: "+bufferSize+" "+lowLatency);

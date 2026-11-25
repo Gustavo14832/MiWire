@@ -29,6 +29,7 @@ import com.limelight.binding.video.DisplayRefreshMeter;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.binding.video.PerfOverlayListener;
+import com.limelight.grid.assets.MemoryAssetLoader;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.NvConnectionListener;
 import com.limelight.nvstream.StreamConfiguration;
@@ -42,6 +43,7 @@ import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.AppPreferences;
 import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.ui.AppIcons;
 import com.limelight.ui.BrightnessSliderView;
 import com.limelight.ui.FloatingButton;
 import com.limelight.ui.GameGestures;
@@ -67,6 +69,7 @@ import android.app.Service;
 import android.app.UiModeManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.ComponentCallbacks2;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -82,6 +85,8 @@ import android.graphics.Rect;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.PowerManager;
@@ -338,6 +343,99 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private WifiManager.WifiLock highPerfWifiLock;
     private WifiManager.WifiLock lowLatencyWifiLock;
+    private ConnectivityManager.NetworkCallback wifiLockNetworkCallback;
+
+    public static boolean isWiredEthernetOnly(boolean hasEthernet, boolean hasWifi) {
+        return hasEthernet && !hasWifi;
+    }
+
+    @TargetApi(Build.VERSION_CODES.N)
+    public static boolean isDisplayHdr10Capable(int[] supportedHdrTypes) {
+        if (supportedHdrTypes == null) {
+            return false;
+        }
+        for (int hdrType : supportedHdrTypes) {
+            if (hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10 ||
+                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                            hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void acquireWifiLocks() {
+        WifiManager wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        if (wifiMgr == null) {
+            return;
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                if (lowLatencyWifiLock == null) {
+                    lowLatencyWifiLock = wifiMgr.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "MiWire Low Latency Lock");
+                    lowLatencyWifiLock.setReferenceCounted(false);
+                }
+                if (!lowLatencyWifiLock.isHeld()) {
+                    lowLatencyWifiLock.acquire();
+                }
+            } else {
+                if (highPerfWifiLock == null) {
+                    highPerfWifiLock = wifiMgr.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "MiWire High Perf Lock");
+                    highPerfWifiLock.setReferenceCounted(false);
+                }
+                if (!highPerfWifiLock.isHeld()) {
+                    highPerfWifiLock.acquire();
+                }
+            }
+        } catch (SecurityException e) {
+            // Some Samsung Galaxy S10+/S10e devices throw a SecurityException from
+            // WifiLock.acquire() even though we have android.permission.WAKE_LOCK in our manifest.
+            e.printStackTrace();
+        }
+    }
+
+    private void releaseWifiLocks() {
+        if (lowLatencyWifiLock != null) {
+            try {
+                if (lowLatencyWifiLock.isHeld()) {
+                    lowLatencyWifiLock.release();
+                }
+            } catch (Throwable ignored) {}
+            lowLatencyWifiLock = null;
+        }
+        if (highPerfWifiLock != null) {
+            try {
+                if (highPerfWifiLock.isHeld()) {
+                    highPerfWifiLock.release();
+                }
+            } catch (Throwable ignored) {}
+            highPerfWifiLock = null;
+        }
+    }
+
+    private void updateWifiLocksForCapabilities(NetworkCapabilities netCaps) {
+        boolean wiredEthernetOnly = netCaps != null && isWiredEthernetOnly(
+                netCaps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET),
+                netCaps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI));
+        if (wiredEthernetOnly) {
+            releaseWifiLocks();
+        } else {
+            acquireWifiLocks();
+        }
+    }
+
+    private void applyMinimalPostProcessingIfSupported() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                getWindow().setPreferMinimalPostProcessing(true);
+                Display display = getDisplay();
+                if (display != null) {
+                    LimeLog.info("Display minimal post-processing (ALLM) supported: " +
+                            display.isMinimalPostProcessingSupported());
+                }
+            } catch (Throwable ignored) {}
+        }
+    }
 
     private boolean connectedToUsbDriverService = false;
     private ServiceConnection usbDriverServiceConnection = new ServiceConnection() {
@@ -572,33 +670,38 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         // Only wake/lock the Wi-Fi radio when Wi-Fi is actually in use. Keeping Wi-Fi locked
         // high-power on a wired Ethernet TV box creates unnecessary 2.4 GHz radio contention with
+        // Free launcher poster caches before codec/Vulkan allocate DMA-BUF/swapchain memory on 2 GB devices
+        AppIcons.clearCache();
+        MemoryAssetLoader.clearStaticCache();
+
         // wireless USB gamepad dongles.
-        boolean wiredEthernetOnly = false;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            android.net.Network activeNet = connMgr.getActiveNetwork();
-            android.net.NetworkCapabilities netCaps = activeNet != null ? connMgr.getNetworkCapabilities(activeNet) : null;
-            wiredEthernetOnly = netCaps != null &&
-                    netCaps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) &&
-                    !netCaps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI);
+            Network activeNet = connMgr.getActiveNetwork();
+            updateWifiLocksForCapabilities(activeNet != null ? connMgr.getNetworkCapabilities(activeNet) : null);
+        } else {
+            acquireWifiLocks();
         }
 
-        if (!wiredEthernetOnly) {
-            // Make sure Wi-Fi is fully powered up
-            WifiManager wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-            try {
-                highPerfWifiLock = wifiMgr.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Moonlight High Perf Lock");
-                highPerfWifiLock.setReferenceCounted(false);
-                highPerfWifiLock.acquire();
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    lowLatencyWifiLock = wifiMgr.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "Moonlight Low Latency Lock");
-                    lowLatencyWifiLock.setReferenceCounted(false);
-                    lowLatencyWifiLock.acquire();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            wifiLockNetworkCallback = new ConnectivityManager.NetworkCallback() {
+                @Override
+                public void onCapabilitiesChanged(Network network, NetworkCapabilities networkCapabilities) {
+                    runOnUiThread(() -> updateWifiLocksForCapabilities(networkCapabilities));
                 }
-            } catch (SecurityException e) {
-                // Some Samsung Galaxy S10+/S10e devices throw a SecurityException from
-                // WifiLock.acquire() even though we have android.permission.WAKE_LOCK in our manifest.
-                e.printStackTrace();
+
+                @Override
+                public void onLost(Network network) {
+                    runOnUiThread(() -> {
+                        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+                        Network activeNet = cm != null ? cm.getActiveNetwork() : null;
+                        updateWifiLocksForCapabilities(activeNet != null ? cm.getNetworkCapabilities(activeNet) : null);
+                    });
+                }
+            };
+            try {
+                connMgr.registerDefaultNetworkCallback(wifiLockNetworkCallback);
+            } catch (Throwable ignored) {
+                wifiLockNetworkCallback = null;
             }
         }
 
@@ -652,15 +755,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 Display display = getWindowManager().getDefaultDisplay();
                 Display.HdrCapabilities hdrCaps = display.getHdrCapabilities();
 
-                // We must now ensure our display is compatible with HDR10
+                // We must now ensure our display is compatible with HDR10 / HDR10+
                 if (hdrCaps != null) {
                     // getHdrCapabilities() returns null on Lenovo Lenovo Mirage Solo (vega), Android 8.0
-                    for (int hdrType : hdrCaps.getSupportedHdrTypes()) {
-                        if (hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10) {
-                            willStreamHdr = true;
-                            break;
-                        }
-                    }
+                    willStreamHdr = isDisplayHdr10Capable(hdrCaps.getSupportedHdrTypes());
                 }
 
                 if (!willStreamHdr) {
@@ -755,6 +853,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         // Set to the optimal mode for streaming
         float displayRefreshRate = prepareDisplayForRendering();
+        applyMinimalPostProcessingIfSupported();
         LimeLog.info("Display refresh rate: "+displayRefreshRate);
 
         // If the user requested frame pacing using a capped FPS, we will need to change our
@@ -1371,6 +1470,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     // Apply the display mode change
                     windowLayoutParams.preferredDisplayModeId = bestMode.getModeId();
                     getWindow().setAttributes(windowLayoutParams);
+                    applyMinimalPostProcessingIfSupported();
                 }
                 else {
                     LimeLog.info("Using setFrameRate() instead of preferredDisplayModeId due to matching resolution");
@@ -1546,12 +1646,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             inputManager.unregisterInputDeviceListener(keyboardTranslator);
         }
 
-        if (lowLatencyWifiLock != null) {
-            lowLatencyWifiLock.release();
+        if (wifiLockNetworkCallback != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            try {
+                ConnectivityManager connMgr = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+                if (connMgr != null) {
+                    connMgr.unregisterNetworkCallback(wifiLockNetworkCallback);
+                }
+            } catch (Throwable ignored) {}
+            wifiLockNetworkCallback = null;
         }
-        if (highPerfWifiLock != null) {
-            highPerfWifiLock.release();
-        }
+        releaseWifiLocks();
 
         if (connectedToUsbDriverService) {
             // Unbind from the discovery service
@@ -1565,6 +1669,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         // Destroy the capture provider
         inputCaptureProvider.destroy();
+    }
+
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            // Reclaim launcher poster/title bitmaps immediately under 2 GB memory pressure
+            AppIcons.clearCache();
+            MemoryAssetLoader.clearStaticCache();
+        }
     }
 
     @Override

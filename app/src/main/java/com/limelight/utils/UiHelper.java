@@ -29,7 +29,7 @@ public class UiHelper {
     private static final int TV_VERTICAL_PADDING_DP = 15;
     private static final int TV_HORIZONTAL_PADDING_DP = 15;
 
-    private static void setGameModeStatus(Context context, boolean streaming, boolean interruptible) {
+    private static void setGameModeStatus(Context context, boolean isLoading, boolean streaming, boolean interruptible) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             try {
                 GameManager gameManager = context.getSystemService(GameManager.class);
@@ -38,7 +38,7 @@ public class UiHelper {
                 }
 
                 if (streaming) {
-                    gameManager.setGameState(new GameState(false, interruptible ? GameState.MODE_GAMEPLAY_INTERRUPTIBLE : GameState.MODE_GAMEPLAY_UNINTERRUPTIBLE));
+                    gameManager.setGameState(new GameState(isLoading, interruptible ? GameState.MODE_GAMEPLAY_INTERRUPTIBLE : GameState.MODE_GAMEPLAY_UNINTERRUPTIBLE));
                 } else {
                     gameManager.setGameState(new GameState(false, GameState.MODE_NONE));
                 }
@@ -49,23 +49,23 @@ public class UiHelper {
     }
 
     public static void notifyStreamConnecting(Context context) {
-        setGameModeStatus(context, true, true);
+        setGameModeStatus(context, true, true, true);
     }
 
     public static void notifyStreamConnected(Context context) {
-        setGameModeStatus(context, true, false);
+        setGameModeStatus(context, false, true, false);
     }
 
     public static void notifyStreamEnteringPiP(Context context) {
-        setGameModeStatus(context, true, true);
+        setGameModeStatus(context, false, true, true);
     }
 
     public static void notifyStreamExitingPiP(Context context) {
-        setGameModeStatus(context, true, false);
+        setGameModeStatus(context, false, true, false);
     }
 
     public static void notifyStreamEnded(Context context) {
-        setGameModeStatus(context, false, false);
+        setGameModeStatus(context, false, false, false);
     }
 
     public static void setLocale(Activity activity)

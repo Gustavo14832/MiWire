@@ -242,6 +242,11 @@ public final class AppIcons {
         return bitmap;
     }
 
+    /** Evicts cached generated tile bitmaps to reclaim heap memory during video streaming. */
+    public static void clearCache() {
+        MISSING_COVERS.evictAll();
+    }
+
     // The launcher icon's colours: the ring flows blue, violet, red, orange
     private static final int[] RAINBOW = {0xFF0894FF, 0xFFC959DD, 0xFFFF2E54, 0xFFFF9004, 0xFF0894FF};
 

@@ -6,11 +6,13 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.media.AudioDeviceInfo;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
 import android.preference.PreferenceManager;
+import android.view.Display;
 
 import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.input.ControllerHandler;
@@ -20,8 +22,10 @@ import com.limelight.binding.video.AdpfHelper;
 import com.limelight.binding.video.DecoderInputBufferSizing;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.binding.video.PacingStats;
+import com.limelight.grid.assets.MemoryAssetLoader;
 import com.limelight.nvstream.StreamConfiguration;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.ui.AppIcons;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -83,9 +87,10 @@ public class MiBoxOptimizationTest {
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v7", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v8", false));
         assertTrue(prefs.getBoolean("checkbox_sustained_performance", false));
         assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
-        assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
+        assertFalse(prefs.getBoolean("checkbox_enable_audiofx", true));
         assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
         assertTrue(prefs.getBoolean("checkbox_small_icon_mode", false));
         assertTrue(prefs.getBoolean("checkbox_disable_warnings", false));
@@ -129,9 +134,10 @@ public class MiBoxOptimizationTest {
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v7", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v8", false));
         assertTrue(prefs.getBoolean("checkbox_sustained_performance", false));
         assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
-        assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
+        assertFalse(prefs.getBoolean("checkbox_enable_audiofx", true));
         assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
         assertTrue(prefs.getBoolean("checkbox_small_icon_mode", false));
         assertTrue(prefs.getBoolean("checkbox_disable_warnings", false));
@@ -173,9 +179,10 @@ public class MiBoxOptimizationTest {
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v7", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v8", false));
         assertTrue(prefs.getBoolean("checkbox_sustained_performance", false));
         assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
-        assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
+        assertFalse(prefs.getBoolean("checkbox_enable_audiofx", true));
         assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
         assertTrue(prefs.getBoolean("checkbox_small_icon_mode", false));
         assertTrue(prefs.getBoolean("checkbox_disable_warnings", false));
@@ -303,9 +310,10 @@ public class MiBoxOptimizationTest {
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v5", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v6", false));
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v7", false));
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v8", false));
         assertTrue(prefs.getBoolean("checkbox_sustained_performance", false));
         assertTrue(prefs.getBoolean("checkbox_stretch_video", false));
-        assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
+        assertFalse(prefs.getBoolean("checkbox_enable_audiofx", true));
         assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
         assertTrue(prefs.getBoolean("checkbox_small_icon_mode", false));
         assertTrue(prefs.getBoolean("checkbox_disable_warnings", false));
@@ -495,5 +503,109 @@ public class MiBoxOptimizationTest {
         assertEquals(10, AndroidAudioRenderer.clampMaxPendingAudioMs(5));
         assertEquals(20, AndroidAudioRenderer.clampMaxPendingAudioMs(20));
         assertEquals(100, AndroidAudioRenderer.clampMaxPendingAudioMs(250));
+    }
+
+    @Test
+    public void tvDefaultsV7UpgradesCleanlyToV8AndUnlocksLowLatencyAudio() {
+        prefs.edit()
+                .putBoolean("mibox_tv_gaming_defaults_v1", true)
+                .putBoolean("mibox_tv_gaming_defaults_v2", true)
+                .putBoolean("mibox_tv_gaming_defaults_v3", true)
+                .putBoolean("mibox_tv_gaming_defaults_v4", true)
+                .putBoolean("mibox_tv_gaming_defaults_v5", true)
+                .putBoolean("mibox_tv_gaming_defaults_v6", true)
+                .putBoolean("mibox_tv_gaming_defaults_v7", true)
+                .putBoolean("checkbox_enable_audiofx", true)
+                .commit();
+
+        PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
+
+        assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v8", false));
+        boolean audioFx = prefs.getBoolean("checkbox_enable_audiofx", true);
+        assertFalse(audioFx);
+        assertTrue(AndroidAudioRenderer.shouldAttemptLowLatencyAudio(34, 48000, 48000, audioFx));
+
+        // Explicit user opt-in after v8 persists
+        prefs.edit().putBoolean("checkbox_enable_audiofx", true).commit();
+        PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
+        assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
+    }
+
+    @Test
+    public void audioRendererHalBurstSizingTrimsHdmiAndSkipsBluetooth() {
+        assertEquals(480, AndroidAudioRenderer.computeLowLatencyBufferFrames(240, 240, 2400, true, false));
+        assertEquals(600, AndroidAudioRenderer.computeLowLatencyBufferFrames(480, 240, 600, true, false));
+        assertEquals(-1, AndroidAudioRenderer.computeLowLatencyBufferFrames(240, 240, 2400, true, true));
+        assertEquals(-1, AndroidAudioRenderer.computeLowLatencyBufferFrames(240, 240, 2400, false, false));
+        assertTrue(AndroidAudioRenderer.isBluetoothAudioDeviceType(34, AudioDeviceInfo.TYPE_BLUETOOTH_A2DP));
+        assertTrue(AndroidAudioRenderer.isBluetoothAudioDeviceType(34, AudioDeviceInfo.TYPE_BLE_HEADSET));
+        assertFalse(AndroidAudioRenderer.isBluetoothAudioDeviceType(34, AudioDeviceInfo.TYPE_HDMI));
+    }
+
+    @Test
+    public void hardwareAv1WhitelistAndAmlogicProgressiveFallbacksWork() {
+        assertTrue(MediaCodecHelper.isHardwareAv1DecoderWhitelisted(34, "c2.amlogic.av1.decoder", true, false, false));
+        assertFalse(MediaCodecHelper.isHardwareAv1DecoderWhitelisted(34, "c2.android.av1-dav1d.decoder", false, true, false));
+        assertFalse(MediaCodecHelper.isHardwareAv1DecoderWhitelisted(34, "OMX.google.av1.decoder.sw", true, false, true));
+        assertTrue(MediaCodecHelper.isHardwareAv1DecoderWhitelisted(34, "c2.qti.av1.decoder", true, false, true));
+
+        assertEquals(240, MediaCodecHelper.computeAmlogicOperatingRate(60, 1920, 1080, -1));
+        assertEquals(75, MediaCodecHelper.computeAmlogicOperatingRate(60, 3840, 2160, 75.0));
+        assertEquals(120, MediaCodecHelper.computeAmlogicOperatingRate(60, 3840, 2160, -1));
+
+        MediaCodecHelper.initialize(context, "Mali-G310");
+        CodecProfileLevel av1Profile = new CodecProfileLevel();
+        av1Profile.profile = CodecProfileLevel.AV1ProfileMain10;
+        av1Profile.level = CodecProfileLevel.AV1Level51;
+        MediaCodecInfo amlogic = MediaCodecInfoBuilder.newBuilder()
+                .setName("c2.amlogic.av1.decoder")
+                .setIsSoftwareOnly(false)
+                .setIsHardwareAccelerated(true)
+                .setCapabilities(MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
+                        .setMediaFormat(MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AV1, 3840, 2160))
+                        .setIsEncoder(false)
+                        .setProfileLevels(new CodecProfileLevel[] {av1Profile})
+                        .setColorFormats(new int[] {CodecCapabilities.COLOR_FormatYUV420Flexible})
+                        .setRequiredFeatures(new String[] {CodecCapabilities.FEATURE_LowLatency})
+                        .build())
+                .build();
+
+        MediaFormat try1 = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AV1, 3840, 2160);
+        try1.setInteger(MediaFormat.KEY_FRAME_RATE, 60);
+        assertTrue(MediaCodecHelper.setDecoderLowLatencyOptions(try1, amlogic, false, 1));
+        assertEquals(1, try1.getInteger("vendor.low-latency.enable"));
+        assertEquals(1, try1.getInteger("vendor.amlogic.vdec.low-latency"));
+        assertEquals(0, try1.getInteger(MediaFormat.KEY_PRIORITY));
+        assertFalse(try1.containsKey(MediaFormat.KEY_OPERATING_RATE));
+        assertFalse(try1.containsKey("vendor.media.omx.gamemode"));
+
+        MediaFormat try2 = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AV1, 3840, 2160);
+        assertTrue(MediaCodecHelper.setDecoderLowLatencyOptions(try2, amlogic, false, 2));
+        assertEquals(1, try2.getInteger("vendor.low-latency.enable"));
+        assertEquals(0, try2.getInteger(MediaFormat.KEY_PRIORITY));
+        assertFalse(try2.containsKey("vendor.amlogic.vdec.low-latency"));
+
+        MediaFormat try3 = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AV1, 3840, 2160);
+        assertTrue(MediaCodecHelper.setDecoderLowLatencyOptions(try3, amlogic, false, 3));
+        assertEquals(0, try3.getInteger(MediaFormat.KEY_PRIORITY));
+        assertFalse(try3.containsKey("vendor.low-latency.enable"));
+
+        MediaFormat try4 = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AV1, 3840, 2160);
+        assertFalse(MediaCodecHelper.setDecoderLowLatencyOptions(try4, amlogic, false, 4));
+    }
+
+    @Test
+    public void displayHdr10WiredNetworkAndMemoryTrimHelpersWork() {
+        assertTrue(Game.isDisplayHdr10Capable(new int[] {Display.HdrCapabilities.HDR_TYPE_HDR10}));
+        assertTrue(Game.isDisplayHdr10Capable(new int[] {Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS}));
+        assertFalse(Game.isDisplayHdr10Capable(new int[] {Display.HdrCapabilities.HDR_TYPE_HLG}));
+        assertFalse(Game.isDisplayHdr10Capable(null));
+
+        assertTrue(Game.isWiredEthernetOnly(true, false));
+        assertFalse(Game.isWiredEthernetOnly(true, true));
+        assertFalse(Game.isWiredEthernetOnly(false, true));
+
+        AppIcons.clearCache();
+        MemoryAssetLoader.clearStaticCache();
     }
 }

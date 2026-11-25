@@ -18,6 +18,9 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH) $(LOCAL_PATH)/../moonlight-core/moonlight-comm
 LOCAL_CPPFLAGS += -std=c++17 -Wall
 ifneq ($(NDK_DEBUG),1)
 LOCAL_CPPFLAGS += -O3 -flto
+ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
+LOCAL_CPPFLAGS += -mtune=cortex-a55
+endif
 LOCAL_LDFLAGS += -flto
 endif
 

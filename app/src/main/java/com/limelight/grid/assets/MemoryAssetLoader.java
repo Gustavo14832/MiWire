@@ -67,6 +67,11 @@ public class MemoryAssetLoader {
     }
 
     public void clearCache() {
+        clearStaticCache();
+    }
+
+    /** Clears shared thumbnail/cover bitmaps from Java heap (e.g. before entering 2 GB stream). */
+    public static void clearStaticCache() {
         // We must evict first because that will push all items into the eviction cache
         memoryCache.evictAll();
         evictionCache.clear();
