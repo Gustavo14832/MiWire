@@ -757,7 +757,7 @@ public class MediaCodecHelper {
                     setNewOption |= safeSet(videoFormat, MediaFormat.KEY_PRIORITY, 0, tryNumber, false);
                     setNewOption |= safeSet(videoFormat, "vendor.low-latency.enable", 1, tryNumber, false);
                 }
-                else if (tryNumber == 3 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                else if (tryNumber == 3) {
                     // Fallback 3: realtime priority only before giving up on try 4
                     setNewOption |= safeSet(videoFormat, MediaFormat.KEY_PRIORITY, 0, tryNumber, false);
                 }

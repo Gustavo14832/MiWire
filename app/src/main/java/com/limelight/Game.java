@@ -349,9 +349,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         return hasEthernet && !hasWifi;
     }
 
-    @TargetApi(Build.VERSION_CODES.N)
     public static boolean isDisplayHdr10Capable(int[] supportedHdrTypes) {
-        if (supportedHdrTypes == null) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || supportedHdrTypes == null) {
             return false;
         }
         for (int hdrType : supportedHdrTypes) {

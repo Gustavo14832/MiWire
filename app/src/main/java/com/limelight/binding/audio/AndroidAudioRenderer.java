@@ -1,6 +1,5 @@
 package com.limelight.binding.audio;
 
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioAttributes;
@@ -116,19 +115,19 @@ public class AndroidAudioRenderer implements AudioRenderer {
         return Math.max(minSafeFrames, Math.min(desiredFrames, capacityFrames));
     }
 
-    @TargetApi(Build.VERSION_CODES.S)
     public static boolean isBluetoothAudioDeviceType(int sdkInt, int deviceType) {
-        if (sdkInt < Build.VERSION_CODES.M) {
+        if (sdkInt < Build.VERSION_CODES.M || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             return false;
         }
         if (deviceType == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
                 deviceType == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) {
             return true;
         }
-        if (sdkInt >= Build.VERSION_CODES.P && deviceType == AudioDeviceInfo.TYPE_HEARING_AID) {
+        if (sdkInt >= Build.VERSION_CODES.P && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                deviceType == AudioDeviceInfo.TYPE_HEARING_AID) {
             return true;
         }
-        return sdkInt >= Build.VERSION_CODES.S &&
+        return sdkInt >= Build.VERSION_CODES.S && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                 (deviceType == AudioDeviceInfo.TYPE_BLE_HEADSET ||
                         deviceType == AudioDeviceInfo.TYPE_BLE_SPEAKER);
     }
