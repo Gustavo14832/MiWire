@@ -453,14 +453,12 @@ public class AppViewTest {
             }
             AppView[] screen = new AppView[1];
             Object[] game = new Object[1];
-            Object[] glow = new Object[1];
             android.view.View[] cover = new android.view.View[1];
             int[] coverWidth = new int[1];
             scenario.onActivity(activity -> {
                 screen[0] = activity;
                 game[0] = field(activity, "selectedApp");
                 assertNotNull("hero picked no game", game[0]);
-                glow[0] = field(activity, "glowAnimator");
                 cover[0] = activity.findViewById(R.id.heroCover);
                 coverWidth[0] = cover[0].getLayoutParams().width;
             });
@@ -482,8 +480,8 @@ public class AppViewTest {
                     assertEquals(activity.getResources().getDimensionPixelSize(R.dimen.cg_hero_cover_width), newWidth);
                     assertNotEquals("the new size's cover size didn't apply", coverWidth[0], newWidth);
                     checkStillShowing(activity, game[0]);
-                    // The old views' endless animations stop with them
-                    assertFalse("the old glow still runs", ((android.animation.Animator) glow[0]).isStarted());
+                    assertFalse("the previous cover is still attached", cover[0].isAttachedToWindow());
+                    assertTrue("the replacement cover is detached", newCover.isAttachedToWindow());
                 });
             }
             finally {

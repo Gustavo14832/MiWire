@@ -20,13 +20,13 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-/** The app calls itself Starwire in every language, not Moonlight (left over from upstream). */
+/** The client name and credits for upstream projects must remain distinct in translations. */
 @RunWith(AndroidJUnit4.class)
 public class StringsTest {
     // Right to say Moonlight: its test servers, its privacy policy, and the credits
     private static final Set<String> ABOUT_MOONLIGHT = new HashSet<>(Arrays.asList(
             "nettest_text_inconclusive", "summary_privacy_policy",
-            "summary_about_credits", "credits_section_moonlight"));
+            "summary_about_credits", "credits_section_moonlight", "credit_moonlight"));
     // Moonlight's own Internet Hosting Tool, named in nettest_text_success
     private static final Pattern HOSTING_TOOL =
             Pattern.compile("Moonlight(\\s+(Internet|İnternet|Internett)|互联网)");
@@ -34,7 +34,7 @@ public class StringsTest {
     private static final String[] WRITTEN_OUT = {"מונלייט", "மூன்லைட்", "நிலவொளி"};
 
     @Test
-    public void theAppIsCalledStarwireInEveryLanguage() throws Exception {
+    public void theAppIsCalledMiWireInEveryLanguage() throws Exception {
         Context target = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Set<String> languages = new HashSet<>();
         for (String tag : target.getAssets().getLocales()) {
@@ -49,7 +49,7 @@ public class StringsTest {
         Configuration hebrew = new Configuration(target.getResources().getConfiguration());
         hebrew.setLocale(Locale.forLanguageTag("iw"));
         String waiting = target.createConfigurationContext(hebrew).getString(R.string.nettest_text_waiting);
-        assertTrue(waiting, waiting.startsWith("Starwire בודק"));
+        assertTrue(waiting, waiting.startsWith("MiWire בודק"));
 
         List<String> wrong = new ArrayList<>();
         Field[] strings = R.string.class.getFields();

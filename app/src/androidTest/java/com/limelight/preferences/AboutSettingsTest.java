@@ -71,7 +71,7 @@ public class AboutSettingsTest {
     @Test
     public void versionDetailsTellBuildsApart() {
         String details = StreamSettings.SettingsFragment.versionDetails();
-        assertTrue(details, details.startsWith("Starwire " + BuildConfig.VERSION_NAME));
+        assertTrue(details, details.startsWith("MiWire " + BuildConfig.VERSION_NAME));
         assertTrue(details, details.contains(BuildConfig.GIT_COMMIT));
         assertTrue(details, details.contains(BuildConfig.BUILD_TYPE));
         assertTrue(details, details.contains("API " + Build.VERSION.SDK_INT));

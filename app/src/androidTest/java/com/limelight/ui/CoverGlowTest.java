@@ -426,20 +426,25 @@ public class CoverGlowTest {
         Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         icon.setBounds(0, 0, size, size);
         icon.draw(new Canvas(bitmap));
-        // Not blank: the void in the middle is dark and the ring around it is bright
-        int middle = bitmap.getPixel(size / 2, size / 2);
-        assertTrue("middle " + Integer.toHexString(middle), Color.alpha(middle) > 200 && luminanceOf(middle) < 0.05);
-        File out = TestFiles.file(target, "starwire_icon.png");
+        // Launcher masks can crop the edges. Check the colours inside the icon.
+        int amber = target.getResources().getColor(R.color.mw_amber);
+        int blackSamples = 0, amberSamples = 0;
+        for (int y = size / 4; y < 3 * size / 4; y += 8) {
+            for (int x = size / 4; x < 3 * size / 4; x += 8) {
+                int pixel = bitmap.getPixel(x, y);
+                if (pixel == amber) amberSamples++;
+                if (pixel == Color.BLACK) blackSamples++;
+            }
+        }
+        assertTrue("amber mark is missing", amberSamples >= 50);
+        assertTrue("black background is missing", blackSamples >= 50);
+        File out = TestFiles.file(target, "miwire_icon.png");
         try (FileOutputStream stream = new FileOutputStream(out)) {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
         }
         catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private static double luminanceOf(int color) {
-        return luminance(color);
     }
 
     @Test
