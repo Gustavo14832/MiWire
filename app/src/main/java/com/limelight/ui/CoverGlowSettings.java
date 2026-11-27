@@ -16,6 +16,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
 import android.widget.HorizontalScrollView;
+import android.widget.ScrollView;
 import android.widget.LinearLayout;
 import android.widget.ListAdapter;
 import android.widget.ListView;
@@ -50,7 +51,7 @@ public final class CoverGlowSettings {
     public static void attach(PreferenceFragment fragment, View fragmentView) {
         Activity activity = fragment.getActivity();
         LinearLayout pills = activity.findViewById(R.id.settingsSections);
-        HorizontalScrollView pillScroll = activity.findViewById(R.id.settingsSectionsScroll);
+        ViewGroup pillScroll = activity.findViewById(R.id.settingsSectionsScroll);
         ListView list = fragmentView.findViewById(android.R.id.list);
         if (pills == null || list == null) {
             return;
@@ -84,20 +85,23 @@ public final class CoverGlowSettings {
         }
         pillScroll.setVisibility(View.VISIBLE);
 
+        boolean rail = pills.getOrientation() == LinearLayout.VERTICAL;
         Sections state = new Sections(sections, pills, pillScroll, list);
         for (int i = 0; i < sections.size(); i++) {
             TextView pill = new TextView(activity);
             pill.setText(shortName(sections.get(i).getTitle()));
             pill.setTextSize(15);
-            pill.setGravity(Gravity.CENTER);
+            pill.setGravity(rail ? Gravity.START | Gravity.CENTER_VERTICAL : Gravity.CENTER);
             pill.setMinHeight((int) (44 * d));
             pill.setPadding((int) (18 * d), 0, (int) (18 * d), 0);
             pill.setFocusable(true);
             final int index = i;
             pill.setOnClickListener(v -> state.jumpTo(index));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            params.setMarginEnd((int) (8 * d));
+                    rail ? ViewGroup.LayoutParams.MATCH_PARENT : ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+            if (rail) params.bottomMargin = Math.round(4 * d);
+            else params.setMarginEnd(Math.round(8 * d));
             pills.addView(pill, params);
         }
         state.highlight(0);
@@ -348,7 +352,7 @@ public final class CoverGlowSettings {
     private static final class Sections {
         final List<PreferenceCategory> sections;
         final LinearLayout pills;
-        final HorizontalScrollView pillScroll;
+        final ViewGroup pillScroll;
         final ListView list;
         int selected = -1;
         // A tapped section stays highlighted until the list is dragged, even if it is too
@@ -356,7 +360,7 @@ public final class CoverGlowSettings {
         int pinned = -1;
 
         Sections(List<PreferenceCategory> sections, LinearLayout pills,
-                 HorizontalScrollView pillScroll, ListView list) {
+                 ViewGroup pillScroll, ListView list) {
             this.sections = sections;
             this.pills = pills;
             this.pillScroll = pillScroll;
@@ -423,8 +427,15 @@ public final class CoverGlowSettings {
                 pill.setSelected(on);
             }
             View pill = pills.getChildAt(index);
-            pill.post(() -> pillScroll.smoothScrollTo(
-                    pill.getLeft() - (pillScroll.getWidth() - pill.getWidth()) / 2, 0));
+            pill.post(() -> {
+                if (pillScroll instanceof ScrollView) {
+                    ((ScrollView) pillScroll).smoothScrollTo(0,
+                            pill.getTop() - (pillScroll.getHeight() - pill.getHeight()) / 2);
+                } else {
+                    ((HorizontalScrollView) pillScroll).smoothScrollTo(
+                            pill.getLeft() - (pillScroll.getWidth() - pill.getWidth()) / 2, 0);
+                }
+            });
         }
     }
 }

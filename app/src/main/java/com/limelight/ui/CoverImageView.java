@@ -24,6 +24,7 @@ public class CoverImageView extends ImageView {
 
     public CoverImageView(Context context, AttributeSet attrs) {
         super(context, attrs);
+        setClipToOutline(true);
     }
 
     public CoverImageView(Context context, AttributeSet attrs, int defStyleAttr) {

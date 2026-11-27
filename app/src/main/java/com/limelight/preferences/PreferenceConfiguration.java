@@ -862,211 +862,121 @@ public class PreferenceConfiguration {
         if (!isTvOrAmlogic || prefs == null) {
             return;
         }
-        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, false)) {
-            SharedPreferences.Editor editor = prefs.edit()
-                    .putBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V8_SEEDED_PREF_STRING, true)
-                    .putBoolean(TV_GAMING_DEFAULTS_V9_SEEDED_PREF_STRING, true);
-            if (!prefs.contains(RESOLUTION_PREF_STRING)) {
-                editor.putString(RESOLUTION_PREF_STRING, RES_1080P);
-            }
-            if (!prefs.contains(FPS_PREF_STRING)) {
-                editor.putString(FPS_PREF_STRING, "60");
-            }
-            if (!prefs.contains(BITRATE_PREF_STRING)) {
-                editor.putInt(BITRATE_PREF_STRING, 35000);
-            }
-            if (!prefs.contains(VIDEO_FORMAT_PREF_STRING)) {
-                editor.putString(VIDEO_FORMAT_PREF_STRING, "forceh265");
-            }
-            if (!prefs.contains(VIDEO_RENDERER_PREF_STRING)) {
-                editor.putString(VIDEO_RENDERER_PREF_STRING, "vulkan");
-            }
-            if (!prefs.contains(SPATIAL_DITHERING_PREF_STRING)) {
-                editor.putString(SPATIAL_DITHERING_PREF_STRING, "high");
-            }
-            if (!prefs.contains(VULKAN_SHARPENING_PREF_STRING)) {
-                editor.putString(VULKAN_SHARPENING_PREF_STRING, "balanced");
-            }
-            if (!prefs.contains(FULL_RANGE_PREF_STRING)) {
-                editor.putBoolean(FULL_RANGE_PREF_STRING, true);
-            }
-            if (!prefs.contains(FRAME_PACING_PREF_STRING)) {
-                editor.putString(FRAME_PACING_PREF_STRING, "mibox-60hz");
-            }
-            if (!prefs.contains(VSYNC_MODE_PREF_STRING)) {
-                editor.putString(VSYNC_MODE_PREF_STRING, "off");
-            }
-            if (!prefs.contains(ASYNC_DECODE_PREF_STRING)) {
-                editor.putBoolean(ASYNC_DECODE_PREF_STRING, false);
-            }
-            if (!prefs.contains(ASYNC_LFR_PREF_STRING)) {
-                editor.putBoolean(ASYNC_LFR_PREF_STRING, false);
-            }
-            if (!prefs.contains(USB_DRIVER_PREF_SRING)) {
-                editor.putBoolean(USB_DRIVER_PREF_SRING, false);
-            }
-            if (!prefs.contains(VIBRATE_FALLBACK_PREF_STRING)) {
-                editor.putBoolean(VIBRATE_FALLBACK_PREF_STRING, false);
-            }
-            if (!prefs.contains(OVERLAY_TRIGGER_BUTTON_PREF_STRING)) {
-                editor.putString(OVERLAY_TRIGGER_BUTTON_PREF_STRING, "lb_rb");
-            }
-            if (!prefs.contains(ENABLE_FLOATING_BUTTON_PREF_STRING)) {
-                editor.putBoolean(ENABLE_FLOATING_BUTTON_PREF_STRING, false);
-            }
-            if (!prefs.contains(DEADZONE_PREF_STRING)) {
-                editor.putInt(DEADZONE_PREF_STRING, 3);
-            }
-            if (!prefs.contains(GAMEPAD_MOTION_SENSORS_PREF_STRING)) {
-                editor.putBoolean(GAMEPAD_MOTION_SENSORS_PREF_STRING, false);
-            }
-            if (!prefs.contains(SOPS_PREF_STRING)) {
-                editor.putBoolean(SOPS_PREF_STRING, false);
-            }
-            if (!prefs.contains(EXACT_SLICES_PREF_STRING)) {
-                editor.putBoolean(EXACT_SLICES_PREF_STRING, false);
-            }
-            if (!prefs.contains(MAX_PENDING_AUDIO_MS_PREF_STRING)) {
-                editor.putInt(MAX_PENDING_AUDIO_MS_PREF_STRING, 20);
-            }
-            if (!prefs.contains(STRETCH_PREF_STRING)) {
-                editor.putBoolean(STRETCH_PREF_STRING, true);
-            }
-            if (!prefs.contains(ENABLE_AUDIO_FX_PREF_STRING)) {
-                // Keep Android AudioTrack FastMixer / PERFORMANCE_MODE_LOW_LATENCY unlocked on TV/HDMI
-                editor.putBoolean(ENABLE_AUDIO_FX_PREF_STRING, false);
-            }
-            if (!prefs.contains(BACK_AS_META_PREF_STRING)) {
-                editor.putBoolean(BACK_AS_META_PREF_STRING, true);
-            }
-            if (!prefs.contains(SMALL_ICONS_PREF_STRING)) {
-                editor.putBoolean(SMALL_ICONS_PREF_STRING, true);
-            }
-            if (!prefs.contains(DISABLE_TOASTS_PREF_STRING)) {
-                editor.putBoolean(DISABLE_TOASTS_PREF_STRING, true);
-            }
-            if (!prefs.contains(BACK_OPENS_MENU_PREF_STRING)) {
-                editor.putBoolean(BACK_OPENS_MENU_PREF_STRING, false);
-            }
-            if (!prefs.contains(TOUCHSCREEN_TRACKPAD_PREF_STRING)) {
-                editor.putBoolean(TOUCHSCREEN_TRACKPAD_PREF_STRING, false);
-            }
-            if (!prefs.contains("checkbox_pinch_to_zoom")) {
-                editor.putBoolean("checkbox_pinch_to_zoom", false);
-            }
-            if (!prefs.contains(KEYBOARD_VIBRATE_PREF_STRING)) {
-                editor.putBoolean(KEYBOARD_VIBRATE_PREF_STRING, false);
-            }
-            if (!prefs.contains(VIBRATE_OSC_PREF_STRING)) {
-                editor.putBoolean(VIBRATE_OSC_PREF_STRING, false);
-            }
-            if (!prefs.contains(GAMEPAD_MOTION_FALLBACK_PREF_STRING)) {
-                editor.putBoolean(GAMEPAD_MOTION_FALLBACK_PREF_STRING, false);
-            }
-            if (!prefs.contains(SUSTAINED_PERFORMANCE_PREF_STRING)) {
-                // Leave ADPF free to boost Cortex-A55/Mali-G310 clocks cleanly on bursts
-                editor.putBoolean(SUSTAINED_PERFORMANCE_PREF_STRING, false);
-            }
-            editor.apply();
+        if (prefs.getBoolean(TV_GAMING_DEFAULTS_V9_SEEDED_PREF_STRING, false)) return;
+        // Older releases could not distinguish a seeded value from one the owner selected.
+        // Fill missing keys only and publish the values and migration markers together.
+        SharedPreferences.Editor editor = prefs.edit()
+                .putBoolean(TV_GAMING_DEFAULTS_SEEDED_PREF_STRING, true)
+                .putBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, true)
+                .putBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, true)
+                .putBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, true)
+                .putBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, true)
+                .putBoolean(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING, true)
+                .putBoolean(TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING, true)
+                .putBoolean(TV_GAMING_DEFAULTS_V8_SEEDED_PREF_STRING, true)
+                .putBoolean(TV_GAMING_DEFAULTS_V9_SEEDED_PREF_STRING, true);
+        if (!prefs.contains(RESOLUTION_PREF_STRING)) {
+            editor.putString(RESOLUTION_PREF_STRING, RES_1080P);
         }
-        else if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, false)) {
-            SharedPreferences.Editor editor = prefs.edit()
-                    .putBoolean(TV_GAMING_DEFAULTS_V2_SEEDED_PREF_STRING, true);
-            if (!prefs.contains(VIDEO_RENDERER_PREF_STRING)) {
-                editor.putString(VIDEO_RENDERER_PREF_STRING, "vulkan");
-            }
-            if (!prefs.contains(SPATIAL_DITHERING_PREF_STRING)) {
-                editor.putString(SPATIAL_DITHERING_PREF_STRING, "high");
-            }
-            if (!prefs.contains(USB_DRIVER_PREF_SRING)) {
-                editor.putBoolean(USB_DRIVER_PREF_SRING, false);
-            }
-            if (!prefs.contains(VIBRATE_FALLBACK_PREF_STRING)) {
-                editor.putBoolean(VIBRATE_FALLBACK_PREF_STRING, false);
-            }
-            if ("latency".equals(prefs.getString(FRAME_PACING_PREF_STRING, null))) {
-                editor.putString(FRAME_PACING_PREF_STRING, "mibox-60hz");
-            }
-            if ("fast".equals(prefs.getString(VSYNC_MODE_PREF_STRING, null))) {
-                editor.putString(VSYNC_MODE_PREF_STRING, "off");
-            }
+        if (!prefs.contains(FPS_PREF_STRING)) {
+            editor.putString(FPS_PREF_STRING, "60");
+        }
+        if (!prefs.contains(BITRATE_PREF_STRING)) {
+            editor.putInt(BITRATE_PREF_STRING, 35000);
+        }
+        if (!prefs.contains(VIDEO_FORMAT_PREF_STRING)) {
+            editor.putString(VIDEO_FORMAT_PREF_STRING, "forceh265");
+        }
+        if (!prefs.contains(VIDEO_RENDERER_PREF_STRING)) {
+            editor.putString(VIDEO_RENDERER_PREF_STRING, "vulkan");
+        }
+        if (!prefs.contains(SPATIAL_DITHERING_PREF_STRING)) {
+            editor.putString(SPATIAL_DITHERING_PREF_STRING, "high");
+        }
+        if (!prefs.contains(VULKAN_SHARPENING_PREF_STRING)) {
+            editor.putString(VULKAN_SHARPENING_PREF_STRING, "balanced");
+        }
+        if (!prefs.contains(FULL_RANGE_PREF_STRING)) {
+            editor.putBoolean(FULL_RANGE_PREF_STRING, true);
+        }
+        if (!prefs.contains(FRAME_PACING_PREF_STRING)) {
+            editor.putString(FRAME_PACING_PREF_STRING, "mibox-60hz");
+        }
+        if (!prefs.contains(VSYNC_MODE_PREF_STRING)) {
+            editor.putString(VSYNC_MODE_PREF_STRING, "off");
+        }
+        if (!prefs.contains(ASYNC_DECODE_PREF_STRING)) {
             editor.putBoolean(ASYNC_DECODE_PREF_STRING, false);
+        }
+        if (!prefs.contains(ASYNC_LFR_PREF_STRING)) {
             editor.putBoolean(ASYNC_LFR_PREF_STRING, false);
-            editor.apply();
         }
-        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, false)) {
-            SharedPreferences.Editor editor = prefs.edit()
-                    .putBoolean(TV_GAMING_DEFAULTS_V3_SEEDED_PREF_STRING, true);
-            if (!prefs.contains(VULKAN_SHARPENING_PREF_STRING)) {
-                editor.putString(VULKAN_SHARPENING_PREF_STRING, "balanced");
-            }
-            if (!prefs.contains(FULL_RANGE_PREF_STRING)) {
-                editor.putBoolean(FULL_RANGE_PREF_STRING, true);
-            }
-            if (!prefs.contains(SPATIAL_DITHERING_PREF_STRING) ||
-                    "low".equals(prefs.getString(SPATIAL_DITHERING_PREF_STRING, null))) {
-                editor.putString(SPATIAL_DITHERING_PREF_STRING, "high");
-            }
-            editor.apply();
+        if (!prefs.contains(USB_DRIVER_PREF_SRING)) {
+            editor.putBoolean(USB_DRIVER_PREF_SRING, false);
         }
-        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, false)) {
-            prefs.edit()
-                    .putBoolean(TV_GAMING_DEFAULTS_V4_SEEDED_PREF_STRING, true)
-                    .apply();
+        if (!prefs.contains(VIBRATE_FALLBACK_PREF_STRING)) {
+            editor.putBoolean(VIBRATE_FALLBACK_PREF_STRING, false);
         }
-        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, false)) {
-            SharedPreferences.Editor editor = prefs.edit()
-                    .putBoolean(TV_GAMING_DEFAULTS_V5_SEEDED_PREF_STRING, true)
-                    .putBoolean(EXACT_SLICES_PREF_STRING, false);
-            if (!prefs.contains(MAX_PENDING_AUDIO_MS_PREF_STRING)) {
-                editor.putInt(MAX_PENDING_AUDIO_MS_PREF_STRING, 20);
-            }
-            editor.apply();
+        if (!prefs.contains(OVERLAY_TRIGGER_BUTTON_PREF_STRING)) {
+            editor.putString(OVERLAY_TRIGGER_BUTTON_PREF_STRING, "lb_rb");
         }
-        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING, false)) {
-            prefs.edit()
-                    .putBoolean(TV_GAMING_DEFAULTS_V6_SEEDED_PREF_STRING, true)
-                    .putBoolean(STRETCH_PREF_STRING, true)
-                    .putBoolean(ENABLE_AUDIO_FX_PREF_STRING, false)
-                    .putBoolean(BACK_AS_META_PREF_STRING, true)
-                    .putBoolean(SMALL_ICONS_PREF_STRING, true)
-                    .putBoolean(DISABLE_TOASTS_PREF_STRING, true)
-                    .putBoolean(GAMEPAD_MOTION_SENSORS_PREF_STRING, false)
-                    .putBoolean(ENABLE_FLOATING_BUTTON_PREF_STRING, false)
-                    .putBoolean(BACK_OPENS_MENU_PREF_STRING, false)
-                    .putBoolean(TOUCHSCREEN_TRACKPAD_PREF_STRING, false)
-                    .putBoolean("checkbox_pinch_to_zoom", false)
-                    .putBoolean(KEYBOARD_VIBRATE_PREF_STRING, false)
-                    .putBoolean(VIBRATE_OSC_PREF_STRING, false)
-                    .putBoolean(VIBRATE_FALLBACK_PREF_STRING, false)
-                    .putBoolean(GAMEPAD_MOTION_FALLBACK_PREF_STRING, false)
-                    .apply();
+        if (!prefs.contains(ENABLE_FLOATING_BUTTON_PREF_STRING)) {
+            editor.putBoolean(ENABLE_FLOATING_BUTTON_PREF_STRING, false);
         }
-        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING, false)) {
-            prefs.edit()
-                    .putBoolean(TV_GAMING_DEFAULTS_V7_SEEDED_PREF_STRING, true)
-                    .putBoolean(SUSTAINED_PERFORMANCE_PREF_STRING, true)
-                    .apply();
+        if (!prefs.contains(DEADZONE_PREF_STRING)) {
+            editor.putInt(DEADZONE_PREF_STRING, 3);
         }
-        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V8_SEEDED_PREF_STRING, false)) {
-            prefs.edit()
-                    .putBoolean(TV_GAMING_DEFAULTS_V8_SEEDED_PREF_STRING, true)
-                    .putBoolean(ENABLE_AUDIO_FX_PREF_STRING, false)
-                    .apply();
+        if (!prefs.contains(GAMEPAD_MOTION_SENSORS_PREF_STRING)) {
+            editor.putBoolean(GAMEPAD_MOTION_SENSORS_PREF_STRING, false);
         }
-        if (!prefs.getBoolean(TV_GAMING_DEFAULTS_V9_SEEDED_PREF_STRING, false)) {
-            prefs.edit()
-                    .putBoolean(TV_GAMING_DEFAULTS_V9_SEEDED_PREF_STRING, true)
-                    .putBoolean(SUSTAINED_PERFORMANCE_PREF_STRING, false)
-                    .apply();
+        if (!prefs.contains(SOPS_PREF_STRING)) {
+            editor.putBoolean(SOPS_PREF_STRING, false);
         }
+        if (!prefs.contains(EXACT_SLICES_PREF_STRING)) {
+            editor.putBoolean(EXACT_SLICES_PREF_STRING, false);
+        }
+        if (!prefs.contains(MAX_PENDING_AUDIO_MS_PREF_STRING)) {
+            editor.putInt(MAX_PENDING_AUDIO_MS_PREF_STRING, 20);
+        }
+        if (!prefs.contains(STRETCH_PREF_STRING)) {
+            editor.putBoolean(STRETCH_PREF_STRING, true);
+        }
+        if (!prefs.contains(ENABLE_AUDIO_FX_PREF_STRING)) {
+            // Keep Android AudioTrack FastMixer / PERFORMANCE_MODE_LOW_LATENCY unlocked on TV/HDMI
+            editor.putBoolean(ENABLE_AUDIO_FX_PREF_STRING, false);
+        }
+        if (!prefs.contains(BACK_AS_META_PREF_STRING)) {
+            editor.putBoolean(BACK_AS_META_PREF_STRING, true);
+        }
+        if (!prefs.contains(SMALL_ICONS_PREF_STRING)) {
+            editor.putBoolean(SMALL_ICONS_PREF_STRING, true);
+        }
+        if (!prefs.contains(DISABLE_TOASTS_PREF_STRING)) {
+            editor.putBoolean(DISABLE_TOASTS_PREF_STRING, true);
+        }
+        if (!prefs.contains(BACK_OPENS_MENU_PREF_STRING)) {
+            editor.putBoolean(BACK_OPENS_MENU_PREF_STRING, false);
+        }
+        if (!prefs.contains(TOUCHSCREEN_TRACKPAD_PREF_STRING)) {
+            editor.putBoolean(TOUCHSCREEN_TRACKPAD_PREF_STRING, false);
+        }
+        if (!prefs.contains("checkbox_pinch_to_zoom")) {
+            editor.putBoolean("checkbox_pinch_to_zoom", false);
+        }
+        if (!prefs.contains(KEYBOARD_VIBRATE_PREF_STRING)) {
+            editor.putBoolean(KEYBOARD_VIBRATE_PREF_STRING, false);
+        }
+        if (!prefs.contains(VIBRATE_OSC_PREF_STRING)) {
+            editor.putBoolean(VIBRATE_OSC_PREF_STRING, false);
+        }
+        if (!prefs.contains(GAMEPAD_MOTION_FALLBACK_PREF_STRING)) {
+            editor.putBoolean(GAMEPAD_MOTION_FALLBACK_PREF_STRING, false);
+        }
+        if (!prefs.contains(SUSTAINED_PERFORMANCE_PREF_STRING)) {
+            // Leave ADPF free to boost Cortex-A55/Mali-G310 clocks cleanly on bursts
+            editor.putBoolean(SUSTAINED_PERFORMANCE_PREF_STRING, false);
+        }
+        editor.apply();
     }
 
     public static void completeLanguagePreferenceMigration(Context context) {

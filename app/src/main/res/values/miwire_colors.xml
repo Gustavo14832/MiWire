@@ -1,0 +1,8 @@
+<resources>
+    <color name="mw_black">#000000</color>
+    <color name="mw_surface">#111315</color>
+    <color name="mw_edge">#383A3C</color>
+    <color name="mw_amber">#FF963E</color>
+    <color name="mw_text">#F7F3ED</color>
+    <color name="mw_secondary">#BAB8B4</color>
+</resources>

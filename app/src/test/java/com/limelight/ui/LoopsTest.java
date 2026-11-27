@@ -125,15 +125,15 @@ public class LoopsTest {
     }
 
     @Test
-    public void theGameScreenMovesWithAnimationsOnAndStopsOutOfSight() {
+    public void theOledLibraryStaysStillWhileShownAndAfterResume() {
         setAnimations(true);
         ActivityController<AppView> controller = openGameScreen();
         wait(1000);
         float[] before = moving(controller.get());
         wait(500);
         float[] shown = moving(controller.get());
-        assertNotEquals("the glow doesn't drift", before[0], shown[0], 0f);
-        assertNotEquals("the cover doesn't float", before[2], shown[2], 0f);
+        assertEquals("the accent moved", before[0], shown[0], 0f);
+        assertEquals("the cover moved", before[2], shown[2], 0f);
 
         // A stream opens over it
         controller.pause().stop();
@@ -143,10 +143,10 @@ public class LoopsTest {
         assertEquals("the glow drifted out of sight", hidden[0], later[0], 0f);
         assertEquals("the cover floated out of sight", hidden[2], later[2], 0f);
 
-        // And it carries on when the screen comes back
+        // Reopening the library also keeps the cover still
         controller.start().resume();
         wait(500);
-        assertNotEquals("the glow didn't carry on", later[0], moving(controller.get())[0], 0f);
+        assertEquals("the accent moved on resume", later[0], moving(controller.get())[0], 0f);
     }
 
     @Test

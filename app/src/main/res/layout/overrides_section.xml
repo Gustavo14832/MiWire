@@ -7,7 +7,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="12dp"
-    android:background="?android:attr/selectableItemBackground">
+    android:background="@drawable/cg_feel_panel">
 
     <!-- Overrides Controls - Vertical stack for portrait -->
     <LinearLayout
@@ -51,7 +51,7 @@
                 android:layout_width="wrap_content"
                 android:minWidth="150dp"
                 android:layout_height="wrap_content"
-                android:text="Stats overlay: Default"
+                android:text="@string/mw_stats_default"
                 android:textSize="14sp"
                 android:textColor="#FFFFFFFF"
                 android:textStyle="bold"
@@ -82,7 +82,7 @@
                 android:layout_width="wrap_content"
                 android:minWidth="100dp"
                 android:layout_height="wrap_content"
-                android:text="Codec: Default"
+                android:text="@string/mw_codec_default"
                 android:textSize="14sp"
                 android:textColor="#FFFFFFFF"
                 android:textStyle="bold"

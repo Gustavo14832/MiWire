@@ -22,9 +22,7 @@
     <string name="addpc_fail">Não foi possível conectar ao computador especificado. Certifique-se de que as portas necessárias sejam permitidas pelo firewall.</string>
     <string name="conn_error_msg">Falha ao iniciar</string>
     <string name="ip_hint">Endereço de IP do PC GeForce</string>
-    <string name="searching_pc">Procurando por PCs rodando o GameStream...
-\n
-\nCertifique-se de que o GameStream esteja ativado nas configurações do SHIELD do GeForce Experience.</string>
+    <string name="searching_pc">Seu PC está em outra rede? Conecte pelo endereço dele.</string>
     <string name="nettest_text_success">Sua rede não parece estar bloqueando o MiWire. Se você ainda tiver problemas para se conectar, verifique as configurações de firewall do seu PC.
 \n
 \nSe você estiver tentando transmitir pela Internet, instale o Moonlight Internet Hosting Tool em seu PC e execute o Internet Streaming Tester para verificar a conexão com a Internet do seu PC.</string>
@@ -121,6 +119,8 @@
     <string name="perf_overlay_streamdetails">Transmissão: %1$s %2$.2f FPS</string>
     <string name="perf_overlay_netlatency">Latência média da rede: %1$d ms (variação: %2$d ms)</string>
     <string name="perf_overlay_dectime">Tempo médio de decodificação: %1$.2f ms</string>
+    <string name="perf_overlay_codec_samples">Entrada até saída do decoder: média %1$.2f ms · máx. %2$.2f ms · quadros: %3$d</string>
+    <string name="perf_overlay_codec_wait">Entrada até saída do decoder: aguardando amostras</string>
     <string name="applist_connect_msg">Conectando ao PC…</string>
     <string name="applist_menu_resume">Retornar ao Jogo</string>
     <string name="applist_menu_quit">Sair do Jogo</string>
@@ -145,7 +145,7 @@
     <string name="addpc_success">Computador adicionado com sucesso</string>
     <string name="addpc_unknown_host">Não foi possível encontrar o PC. Certifique-se de que não cometeu um erro de digitação no endereço.</string>
     <string name="addpc_enter_ip">Você deve inserir um endereço de IP</string>
-    <string name="category_input_settings">Configurações de Controles</string>
+    <string name="category_input_settings">Configurações de mouse e toque</string>
     <string name="category_basic_settings">Configurações Básicas</string>
     <string name="title_resolution_list">Resolução</string>
     <string name="summary_resolution_list">Aumente para melhorar a clareza da imagem. Diminua para melhor desempenho em dispositivos de baixo custo e redes mais lentas.</string>
@@ -271,15 +271,15 @@
     <!-- Added comprehensive translations for MiWire -->
     <string name="perf_overlay_hostprocessinglatency">Latência do host mín/máx/méd: %1$.1f/%2$.1f/%3$.1f ms</string>
     <string name="perf_overlay_netdrops_partial">Quadros descartados: %1$.2f%% (parciais %2$.2f%%)</string>
-    <string name="perf_overlay_bandwidth">Largura de banda de rede: %1$.1f Mbps</string>
+    <string name="perf_overlay_bandwidth">Tráfego do app (entrada + saída): %1$.1f Mb/s</string>
     <string name="perf_overlay_pacing">Pacing de quadros: %1$s</string>
     <string name="perf_overlay_pacing_details">└ %1$s</string>
     <string name="perf_overlay_lite_bandwidth">%1$.0f Mbps</string>
     <string name="perf_overlay_lite_delay">Ping %1$d ms · Decod %2$.1f ms</string>
     <string name="perf_overlay_lite_loss">Perda %1$.1f%%</string>
     <string name="perf_overlay_lite_fps">%1$.0f FPS</string>
-    <string name="perf_overlay_lite_one_percent_low"> (1%% mín %1$.0f)</string>
-    <string name="perf_overlay_one_percent_low">, 1%% mín %1$.1f FPS</string>
+    <string name="perf_overlay_lite_one_percent_low"> (chegada 1%% mín %1$.0f)</string>
+    <string name="perf_overlay_one_percent_low">, chegada do vídeo 1%% mín %1$.1f FPS</string>
     <string name="title_checkbox_enable_perf_overlay_lite">Exibir overlay de desempenho compacto</string>
     <string name="summary_checkbox_enable_perf_overlay_lite">Mostra uma linha discreta com ping, FPS, decodificação e perda de pacotes no topo da tela</string>
     <string name="title_checkbox_auto_resume_stream">Retomada automática da transmissão</string>
@@ -923,4 +923,22 @@
     <string name="credit_apollo_sunshine">LizardByte e comunidade Sunshine pelo melhor servidor de streaming para PC de código aberto.</string>
     <string name="credit_claude_code">Anthropic Claude Code e Google Gemini pelo auxílio na arquitetura de código, testes e refatoração.</string>
     <string name="credit_rea">Rea pelos testes de hardware, calibrações de rede e validação em campo.</string>
+    <string name="perf_overlay_default_network">Rede padrão: %1$s</string>
+    <string name="network_unavailable">indisponível</string>
+    <string name="network_other">outra</string>
+    <string name="perf_overlay_no_rtt">RTT da rede indisponível</string>
+    <string name="perf_overlay_lite_no_rtt">Ping — · Decod %1$.1f ms</string>
+    <string name="perf_overlay_mouse_dispatch">Mouse Android → app · p95 recente/antigo: %1$s/%2$s ms · lotes: %3$d</string>
+    <string name="mw_stations">Computadores</string>
+    <string name="mw_discovering">Procurando seu PC…</string>
+    <string name="mw_add_address">Adicionar por endereço</string>
+    <string name="mw_stats_default">Painel: padrão</string>
+    <string name="mw_stats_on">Painel: ligado</string>
+    <string name="mw_stats_off">Painel: desligado</string>
+    <string name="mw_codec_default">Codec: padrão</string>
+    <string name="mw_codec_value">Codec: %1$s</string>
+    <string name="mw_bitrate_value">Taxa de bits: %1$d Mb/s</string>
+    <string name="mw_bitrate_prompt">Informe a taxa em Mb/s (0 para usar o padrão, máximo de %1$d).</string>
+    <string name="mw_bitrate_limit">O máximo é %1$d Mb/s</string>
+    <string name="mw_invalid_number">Número inválido</string>
 </resources>

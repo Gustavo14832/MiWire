@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.AudioDeviceInfo;
 import android.media.MediaCodecInfo;
@@ -34,6 +35,7 @@ import com.limelight.grid.assets.CachedAppAssetLoader;
 import com.limelight.grid.assets.DiskAssetLoader;
 import com.limelight.grid.assets.MemoryAssetLoader;
 import com.limelight.grid.assets.NetworkAssetLoader;
+import com.limelight.grid.assets.ScaledBitmap;
 import com.limelight.nvstream.StreamConfiguration;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
@@ -209,7 +211,7 @@ public class MiBoxOptimizationTest {
         assertTrue(prefs.getBoolean("checkbox_disable_warnings", false));
         assertFalse(prefs.getBoolean("checkbox_exact_slices", true));
         assertEquals(20, prefs.getInt("seekbar_max_pending_audio_ms", 0));
-        assertEquals("high", prefs.getString("spatial_dithering", ""));
+        assertEquals("low", prefs.getString("spatial_dithering", ""));
         assertEquals("balanced", prefs.getString("vulkan_sharpening", ""));
         assertTrue(prefs.getBoolean("checkbox_full_range", false));
 
@@ -557,6 +559,8 @@ public class MiBoxOptimizationTest {
     public void audioRendererHalBurstSizingTrimsHdmiAndSkipsBluetooth() {
         assertEquals(480, AndroidAudioRenderer.computeLowLatencyBufferFrames(240, 240, 2400, true, false));
         assertEquals(600, AndroidAudioRenderer.computeLowLatencyBufferFrames(480, 240, 600, true, false));
+        assertEquals(120, AndroidAudioRenderer.computeLowLatencyBufferFrames(480, 240, 120, true, false));
+        assertEquals(600, AndroidAudioRenderer.computeLowLatencyBufferFrames(Integer.MAX_VALUE, 240, 600, true, false));
         assertEquals(-1, AndroidAudioRenderer.computeLowLatencyBufferFrames(240, 240, 2400, true, true));
         assertEquals(-1, AndroidAudioRenderer.computeLowLatencyBufferFrames(240, 240, 2400, false, false));
         assertTrue(AndroidAudioRenderer.isBluetoothAudioDeviceType(34, AudioDeviceInfo.TYPE_BLUETOOTH_A2DP));
@@ -617,6 +621,34 @@ public class MiBoxOptimizationTest {
     }
 
     @Test
+    public void secondaryCoverCacheHasABoundedKeyBudget() throws Exception {
+        java.lang.reflect.Field cache = MemoryAssetLoader.class.getDeclaredField("evictionCache");
+        cache.setAccessible(true);
+        android.util.LruCache<?, ?> secondary = (android.util.LruCache<?, ?>) cache.get(null);
+        assertEquals(64, secondary.maxSize());
+        MemoryAssetLoader.clearStaticCache();
+        assertEquals(0, secondary.size());
+    }
+
+    @Test
+    public void smallCoversUseCacheBudgetAndClearAcrossInstances() throws Exception {
+        ComputerDetails host = new ComputerDetails();
+        host.uuid = "cache-test";
+        CachedAppAssetLoader.LoaderTuple tuple = new CachedAppAssetLoader.LoaderTuple(host, new NvApp("Card", 3, false));
+        MemoryAssetLoader loader = new MemoryAssetLoader();
+        MemoryAssetLoader.clearStaticCache();
+        Bitmap bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888);
+        ScaledBitmap cover = new ScaledBitmap(2, 2, bitmap);
+        loader.populateCache(tuple, cover);
+        java.lang.reflect.Field cache = MemoryAssetLoader.class.getDeclaredField("memoryCache");
+        cache.setAccessible(true);
+        assertEquals(1, ((android.util.LruCache<?, ?>) cache.get(null)).size());
+        assertEquals(cover, new MemoryAssetLoader().loadBitmapFromCache(tuple));
+        new MemoryAssetLoader().clearCache();
+        org.junit.Assert.assertNull(loader.loadBitmapFromCache(tuple));
+    }
+
+    @Test
     public void displayHdr10WiredNetworkAndMemoryTrimHelpersWork() {
         assertTrue(Game.isDisplayHdr10Capable(new int[] {Display.HdrCapabilities.HDR_TYPE_HDR10}));
         assertTrue(Game.isDisplayHdr10Capable(new int[] {Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS}));
@@ -643,12 +675,14 @@ public class MiBoxOptimizationTest {
                 .putBoolean("mibox_tv_gaming_defaults_v7", true)
                 .putBoolean("mibox_tv_gaming_defaults_v8", true)
                 .putBoolean("checkbox_sustained_performance", true)
+                .putBoolean("checkbox_enable_audiofx", true)
                 .commit();
 
         PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
 
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v9", false));
-        assertFalse(prefs.getBoolean("checkbox_sustained_performance", true));
+        assertTrue(prefs.getBoolean("checkbox_sustained_performance", false));
+        assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
 
         PreferenceConfiguration offCfg = new PreferenceConfiguration();
         offCfg.enableSustainedPerformance = false;

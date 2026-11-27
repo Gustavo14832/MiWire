@@ -1876,6 +1876,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         if (context == null) {
             return false;
         }
+        InputDevice device = event.getDevice();
+        if (device == null || (device.getSources() & InputDevice.SOURCE_CLASS_JOYSTICK) == 0) {
+            return false;
+        }
 
         // When we're working with a mouse source instead of a touchpad, we're quite limited in
         // what useful input we can provide via the controller API. The ABS_X/ABS_Y values are

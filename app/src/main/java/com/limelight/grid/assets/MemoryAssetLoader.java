@@ -2,10 +2,7 @@ package com.limelight.grid.assets;
 
 import android.util.LruCache;
 
-import com.limelight.LimeLog;
-
 import java.lang.ref.SoftReference;
-import java.util.HashMap;
 
 public class MemoryAssetLoader {
     private static final int maxMemory = (int) (Runtime.getRuntime().maxMemory() / 1024);
@@ -13,7 +10,7 @@ public class MemoryAssetLoader {
         @Override
         protected int sizeOf(String key, ScaledBitmap bitmap) {
             // Sizeof returns kilobytes
-            return bitmap.bitmap.getByteCount() / 1024;
+            return (int) ((bitmap.bitmap.getByteCount() + 1023L) / 1024);
         }
 
         @Override
@@ -26,44 +23,35 @@ public class MemoryAssetLoader {
             }
         }
     };
-    private static final HashMap<String, SoftReference<ScaledBitmap>> evictionCache = new HashMap<>();
+    // Cleared soft references still retain keys; bound the secondary index as well.
+    private static final LruCache<String, SoftReference<ScaledBitmap>> evictionCache = new LruCache<>(64);
 
     private static String constructKey(CachedAppAssetLoader.LoaderTuple tuple) {
         return tuple.computer.uuid+"-"+tuple.app.getAppId();
     }
 
     public ScaledBitmap loadBitmapFromCache(CachedAppAssetLoader.LoaderTuple tuple) {
-        final String key = constructKey(tuple);
-
-        ScaledBitmap bmp = memoryCache.get(key);
-        if (bmp != null) {
-            LimeLog.info("LRU cache hit for tuple: "+tuple);
-            return bmp;
-        }
-
-        SoftReference<ScaledBitmap> bmpRef = evictionCache.get(key);
-        if (bmpRef != null) {
-            bmp = bmpRef.get();
+        String key = constructKey(tuple);
+        synchronized (memoryCache) {
+            ScaledBitmap bmp = memoryCache.get(key);
             if (bmp != null) {
-                LimeLog.info("Eviction cache hit for tuple: "+tuple);
-
-                // Put this entry back into the LRU cache
-                evictionCache.remove(key);
-                memoryCache.put(key, bmp);
-
                 return bmp;
             }
-            else {
-                // The data is gone, so remove the dangling SoftReference now
-                evictionCache.remove(key);
+            SoftReference<ScaledBitmap> ref = evictionCache.remove(key);
+            bmp = ref != null ? ref.get() : null;
+            if (bmp != null) {
+                memoryCache.put(key, bmp);
             }
+            return bmp;
         }
-
-        return null;
     }
 
     public void populateCache(CachedAppAssetLoader.LoaderTuple tuple, ScaledBitmap bitmap) {
-        memoryCache.put(constructKey(tuple), bitmap);
+        String key = constructKey(tuple);
+        synchronized (memoryCache) {
+            evictionCache.remove(key);
+            memoryCache.put(key, bitmap);
+        }
     }
 
     public void clearCache() {
@@ -73,7 +61,9 @@ public class MemoryAssetLoader {
     /** Clears shared thumbnail/cover bitmaps from Java heap (e.g. before entering 2 GB stream). */
     public static void clearStaticCache() {
         // We must evict first because that will push all items into the eviction cache
-        memoryCache.evictAll();
-        evictionCache.clear();
+        synchronized (memoryCache) {
+            memoryCache.evictAll();
+            evictionCache.evictAll();
+        }
     }
 }

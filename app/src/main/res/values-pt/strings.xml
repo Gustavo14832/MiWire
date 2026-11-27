@@ -56,9 +56,7 @@
     <string name="conn_terminated_title">Conexão Encerrada</string>
     <string name="conn_terminated_msg">A conexão foi encerrada</string>
     <string name="ip_hint">Endereço de IP do PC GeForce</string>
-    <string name="searching_pc">Procurando por PCs a executar o GameStream...
-\n
-\nCertifique-se de que o GameStream esteja ativado nas configurações do SHIELD do GeForce Experience.</string>
+    <string name="searching_pc">O PC está noutra rede? Ligue-se através do endereço.</string>
     <string name="perf_overlay_netdrops">Quadros dropados pela rede: %1$.2f%%</string>
     <string name="perf_overlay_netlatency">Latência média da rede: %1$d ms (variação: %2$d ms)</string>
     <string name="applist_menu_scut">Criar Atalho</string>
@@ -148,6 +146,8 @@
     <string name="perf_overlay_decoder">Decodificador: %1$s</string>
     <string name="perf_overlay_fps">FPS in/render: %1$.2f / %2$.2f FPS (%3$+.1f%%)</string>
     <string name="perf_overlay_dectime">Tempo médio de decodificação: %1$.2f ms</string>
+    <string name="perf_overlay_codec_samples">Entrada até saída do descodificador: média %1$.2f ms · máx. %2$.2f ms · fotogramas: %3$d</string>
+    <string name="perf_overlay_codec_wait">Entrada até saída do descodificador: a aguardar amostras</string>
     <string name="applist_connect_msg">Conectando ao PC…</string>
     <string name="applist_menu_resume">Retomar Sessão</string>
     <string name="applist_menu_quit">Sair da Sessão</string>
@@ -177,7 +177,7 @@
     <string name="resolution_prefix_native_fullscreen">Ecrã Cheio Nativo</string>
     <string name="category_audio_settings">Configurações de Áudio</string>
     <string name="summary_audio_config_list">Ativa o som Surround 5.1 ou 7.1 para sistemas de home theater</string>
-    <string name="category_input_settings">Configurações de Controles</string>
+    <string name="category_input_settings">Configurações de mouse e toque</string>
     <string name="title_checkbox_touchscreen_trackpad">Usar o ecrã como um trackpad</string>
     <string name="summary_checkbox_touchscreen_trackpad">Se ativado, o ecrã sensível ao toque funciona como um trackpad. Se desativado, o ecrã controla diretamente o cursor do rato.</string>
     <string name="summary_checkbox_multi_controller">Desmarque esta opção para forçar o gamepad a estar sempre presente</string>
@@ -241,4 +241,22 @@
     <string name="analogscroll_left">Stick analógico esquerdo</string>
     <string name="title_analog_scrolling">Usar um stick analógico para fazer scroll</string>
     <string name="summary_analog_scrolling">Selecciona um stick analógico para fazer scroll quando a emulação de rato está ativada</string>
+    <string name="perf_overlay_default_network">Rede predefinida: %1$s</string>
+    <string name="network_unavailable">indisponível</string>
+    <string name="network_other">outra</string>
+    <string name="perf_overlay_no_rtt">RTT da rede indisponível</string>
+    <string name="perf_overlay_lite_no_rtt">Ping — · Descod %1$.1f ms</string>
+    <string name="perf_overlay_mouse_dispatch">Rato Android → app · p95 recente/antigo: %1$s/%2$s ms · lotes: %3$d</string>
+    <string name="mw_stations">Computadores</string>
+    <string name="mw_discovering">A procurar o seu PC…</string>
+    <string name="mw_add_address">Adicionar por endereço</string>
+    <string name="mw_stats_default">Painel: padrão</string>
+    <string name="mw_stats_on">Painel: ligado</string>
+    <string name="mw_stats_off">Painel: desligado</string>
+    <string name="mw_codec_default">Codec: padrão</string>
+    <string name="mw_codec_value">Codec: %1$s</string>
+    <string name="mw_bitrate_value">Taxa de bits: %1$d Mb/s</string>
+    <string name="mw_bitrate_prompt">Informe a taxa em Mb/s (0 para usar o padrão, máximo de %1$d).</string>
+    <string name="mw_bitrate_limit">O máximo é %1$d Mb/s</string>
+    <string name="mw_invalid_number">Número inválido</string>
 </resources>

@@ -167,14 +167,15 @@ void PacerTrace::received(int64_t hostPtsNs, int64_t receiveNs, int64_t enqueueN
 }
 
 void PacerTrace::vsync(int64_t vsyncNs, size_t queued, int choice, int64_t shownPtsNs, const FramePacer& pacer,
-                       int64_t callbackLateNs, uint64_t presentId, int presentDelayVsyncs) {
+                       int64_t callbackLateNs, uint64_t presentId, int presentDelayVsyncs, int64_t dispatchNs) {
     presentDelay_ = presentDelayVsyncs;
-    write("V,%lld,%zu,%d,%lld,%d,%lld,%lld,%lld,%lld,%lld,%.1f,%lld,%llu,%d\n", static_cast<long long>(vsyncNs), queued, choice,
+    write("V,%lld,%zu,%d,%lld,%d,%lld,%lld,%lld,%lld,%lld,%.1f,%lld,%llu,%d,%lld\n", static_cast<long long>(vsyncNs), queued, choice,
           static_cast<long long>(shownPtsNs), pacer.phaseLocked() ? 1 : 0,
           static_cast<long long>(pacer.slotVsyncs()), static_cast<long long>(pacer.slotParity()),
           static_cast<long long>(pacer.scheduleDelayNs()), static_cast<long long>(pacer.timeline().bufferNs()),
           static_cast<long long>(pacer.vsyncPeriodNs()), pacer.phaseDriftPerFrame() * 1e6,
-          static_cast<long long>(callbackLateNs), static_cast<unsigned long long>(presentId), presentDelayVsyncs);
+          static_cast<long long>(callbackLateNs), static_cast<unsigned long long>(presentId), presentDelayVsyncs,
+          static_cast<long long>(dispatchNs));
 
     if (callbackLateNs * 2 > pacer.vsyncPeriodNs()) {
         lateCallbacks_++;

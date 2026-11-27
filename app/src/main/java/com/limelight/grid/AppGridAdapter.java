@@ -1,6 +1,7 @@
 package com.limelight.grid;
 
 import android.content.Context;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.util.SparseBooleanArray;
 import android.view.Gravity;
@@ -14,7 +15,7 @@ import com.limelight.AppView;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.ui.AppIcons;
-import com.limelight.ui.Rainbow;
+
 import com.limelight.grid.assets.CachedAppAssetLoader;
 import com.limelight.grid.assets.DiskAssetLoader;
 import com.limelight.grid.assets.MemoryAssetLoader;
@@ -40,7 +41,6 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
     private final ComputerDetails computer;
     private final String uniqueId;
     private final boolean showHiddenApps;
-    private final float density;
 
     private CachedAppAssetLoader loader;
     private int selectedAppId = -1;
@@ -48,7 +48,7 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
     private ArrayList<AppView.AppObject> allApps = new ArrayList<>();
     private final SparseBooleanArray customSettingsCache = new SparseBooleanArray();
     private final SparseBooleanArray customSettingsCached = new SparseBooleanArray();
-    private Rainbow.Ring selectionRing;
+    private Drawable selectionRing;
     private WeakReference<View> lastSelectedTile;
     private WeakReference<AbsListView> attachedListView;
 
@@ -58,7 +58,6 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
         this.computer = computer;
         this.uniqueId = uniqueId;
         this.showHiddenApps = showHiddenApps;
-        this.density = context.getResources().getDisplayMetrics().density;
 
         updateLayoutWithPreferences(context, prefs);
     }
@@ -140,9 +139,6 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
     }
 
     public void shutdown() {
-        if (selectionRing != null) {
-            selectionRing.stop();
-        }
         if (lastSelectedTile != null) {
             View prev = lastSelectedTile.get();
             if (prev != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -155,9 +151,9 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
         }
     }
 
-    private Rainbow.Ring getOrCreateSelectionRing() {
+    private Drawable getOrCreateSelectionRing() {
         if (selectionRing == null) {
-            selectionRing = new Rainbow.Ring(26 * density, 3 * density);
+            selectionRing = context.getDrawable(R.drawable.cg_cover_ring);
         }
         return selectionRing;
     }
@@ -171,7 +167,7 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
                         prev.setForeground(null);
                     }
                 }
-                Rainbow.Ring ring = getOrCreateSelectionRing();
+                Drawable ring = getOrCreateSelectionRing();
                 if (tile.getForeground() != ring) {
                     tile.setForeground(ring);
                 }

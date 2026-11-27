@@ -306,6 +306,7 @@ size_t FramePacer::maxQueued() const {
 
 void FramePacer::resetPhase() {
     phaseSamples_.clear();
+    fallbackReserve_ = false;
     frameIndex_ = 0;
     shiftNs_ = 0;
     slotParity_ = 0;
@@ -702,7 +703,8 @@ void FramePacer::updatePhase(FrameTiming& frame) {
     }
 }
 
-int FramePacer::onVsync(int64_t vsyncNs, const FrameTiming* frames, size_t count) {
+int FramePacer::onVsync(int64_t vsyncNs, const FrameTiming* frames, size_t count, int64_t dispatchNs) {
+    const int64_t callbackGap = vsyncNs - lastVsyncNs_;
     trackVsync(vsyncNs);
 
     int choice = -1;
@@ -726,7 +728,22 @@ int FramePacer::onVsync(int64_t vsyncNs, const FrameTiming* frames, size_t count
 
         case PacingMode::HostTimed:
         case PacingMode::MiBox60Hz: {
-            if (count == 0) {
+            if (count == 0 || callbackGap >= periodNs_ * 3 / 2) {
+                fallbackReserve_ = false;
+            }
+            if (count == 0 || (mode_ == PacingMode::MiBox60Hz && presentAhead_ && lastPresentVsyncNs_ != 0 &&
+                    lastPresentVsyncNs_ >= vsyncNs - periodNs_ / 2)) {
+                break;
+            }
+            // The intervening callback was missed and a frame had to wait for
+            // the commit window to move. The scheduler still gives this slot
+            // a full refresh before its requested screen time.
+            if (mode_ == PacingMode::MiBox60Hz && presentAhead_ &&
+                    callbackGap >= periodNs_ * 3 / 2 && callbackGap < periodNs_ * 5 / 2 &&
+                    lastPresentVsyncNs_ >= vsyncNs - periodNs_ * 3 / 2 &&
+                    dispatchNs >= vsyncNs && dispatchNs - vsyncNs + presentGuardNs() < periodNs_ &&
+                    frames[0].arrivalNs <= vsyncNs && frames[0].targetNs <= vsyncNs) {
+                choice = 0;
                 break;
             }
 
@@ -785,19 +802,36 @@ int FramePacer::onVsync(int64_t vsyncNs, const FrameTiming* frames, size_t count
                         frames[newestDue].targetNs + shiftNs_ > vsyncNs - tolerance) {
                     choice = newestDue - 1;
                 }
+                if (mode_ == PacingMode::MiBox60Hz && !presentAhead_ && newestDue >= 1 &&
+                        callbackGap < periodNs_ * 3 / 2) {
+                    const FrameTiming& older = frames[newestDue - 1];
+                    const int64_t spacing = frames[newestDue].hostPtsNs - older.hostPtsNs;
+                    const int64_t arrivalSpacing = frames[newestDue].arrivalNs - older.arrivalNs;
+                    // After arrivals bunch up, keep one consecutive frame in reserve
+                    // while the older one is still fresh. A deeper backlog catches up.
+                    fallbackReserve_ = (fallbackReserve_ || arrivalSpacing < periodNs_ * 3 / 4) &&
+                            spacing >= periodNs_ * 3 / 4 && spacing <= periodNs_ * 5 / 4 &&
+                            vsyncNs - older.arrivalNs < 2 * periodNs_;
+                    if (fallbackReserve_) {
+                        choice = newestDue - 1;
+                    }
+                }
             }
             break;
         }
     }
 
     if (choice >= 0) {
+        if (static_cast<size_t>(choice + 1) == count) {
+            fallbackReserve_ = false;
+        }
         framesSkipped_ += static_cast<uint64_t>(choice);
         lastPresentVsyncNs_ = vsyncNs;
     }
     return choice;
 }
 
-int64_t FramePacer::frameVsyncNs(const FrameTiming& frame, bool committable) const {
+int64_t FramePacer::frameVsyncNs(const FrameTiming& frame, bool committable, int64_t nowNs) const {
     if (!isHostTimed() || lastVsyncNs_ == 0) {
         return 0;
     }
@@ -862,7 +896,15 @@ int64_t FramePacer::frameVsyncNs(const FrameTiming& frame, bool committable) con
     // Not further ahead than presentAheadVsyncs(). A frame due later is presented at the vsync
     // that brings its own within that, still that far early.
     if (committable && index - vsyncIndex_ > presentAheadVsyncs()) {
-        return 0;
+        // A decoded frame can be ready while the choreographer is one callback behind.
+        // Once the already reserved slot has elapsed, the next slot is only one
+        // refresh ahead of the wall clock. Do not extend the horizon across a stall.
+        const int64_t elapsed = nowNs - lastVsyncNs_;
+        if (mode_ != PacingMode::MiBox60Hz || index != vsyncIndex_ + 2 ||
+                elapsed < periodNs_ || elapsed >= 2 * periodNs_ ||
+                lastPresentVsyncNs_ < lastVsyncNs_ + periodNs_ / 2) {
+            return 0;
+        }
     }
 
     const int64_t vsync = lastVsyncNs_ + (index - vsyncIndex_) * periodNs_;

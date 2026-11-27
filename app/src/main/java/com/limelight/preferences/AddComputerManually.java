@@ -40,18 +40,17 @@ import android.widget.Toast;
 
 public class AddComputerManually extends Activity {
     private TextView hostText;
-    private ComputerManagerService.ComputerManagerBinder managerBinder;
+    private boolean serviceBound;
     private final LinkedBlockingQueue<String> computersToAdd = new LinkedBlockingQueue<>();
-    private Thread addThread;
+    private volatile Thread addThread;
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, final IBinder binder) {
-            managerBinder = ((ComputerManagerService.ComputerManagerBinder)binder);
-            startAddThread();
+            stopAddThread();
+            startAddThread((ComputerManagerService.ComputerManagerBinder) binder);
         }
 
         public void onServiceDisconnected(ComponentName className) {
-            joinAddThread();
-            managerBinder = null;
+            stopAddThread();
         }
     };
 
@@ -70,19 +69,8 @@ public class AddComputerManually extends Activity {
                         continue;
                     }
 
-                    byte[] targetAddrBytes = targetAddress.getAddress();
-                    byte[] ifaceAddrBytes = addr.getAddress().getAddress();
-
-                    // Compare prefix to ensure it's the same
-                    boolean addressMatches = true;
-                    for (int i = 0; i < addr.getNetworkPrefixLength(); i++) {
-                        if ((ifaceAddrBytes[i / 8] & (1 << (i % 8))) != (targetAddrBytes[i / 8] & (1 << (i % 8)))) {
-                            addressMatches = false;
-                            break;
-                        }
-                    }
-
-                    if (addressMatches) {
+                    if (sameIpv4Subnet(targetAddress.getAddress(), addr.getAddress().getAddress(),
+                            addr.getNetworkPrefixLength())) {
                         return false;
                     }
                 }
@@ -98,12 +86,28 @@ public class AddComputerManually extends Activity {
         }
     }
 
-    private URI parseRawUserInputToUri(String rawUserInput) {
+    static boolean sameIpv4Subnet(byte[] target, byte[] local, int prefix) {
+        if (target.length != 4 || local.length != 4 || prefix < 0 || prefix > 32) return false;
+        for (int bit = 0; bit < prefix; bit++) {
+            int mask = 0x80 >>> (bit % 8);
+            if (((target[bit / 8] ^ local[bit / 8]) & mask) != 0) return false;
+        }
+        return true;
+    }
+
+    private static boolean isHostAndPort(URI uri) {
+        int port = uri.getPort();
+        return uri.getHost() != null && uri.getUserInfo() == null && uri.getRawPath().isEmpty() &&
+                uri.getQuery() == null && uri.getFragment() == null && !uri.getRawAuthority().endsWith(":") &&
+                (port == -1 || (port > 0 && port <= 65535));
+    }
+
+    static URI parseRawUserInputToUri(String rawUserInput) {
         try {
             // Try adding a scheme and parsing the remaining input.
             // This handles input like 127.0.0.1:47989, [::1], [::1]:47989, and 127.0.0.1.
             URI uri = new URI("moonlight://" + rawUserInput);
-            if (uri.getHost() != null && !uri.getHost().isEmpty()) {
+            if (isHostAndPort(uri)) {
                 return uri;
             }
         } catch (URISyntaxException ignored) {}
@@ -112,7 +116,7 @@ public class AddComputerManually extends Activity {
             // Attempt to escape the input as an IPv6 literal.
             // This handles input like ::1.
             URI uri = new URI("moonlight://[" + rawUserInput + "]");
-            if (uri.getHost() != null && !uri.getHost().isEmpty()) {
+            if (isHostAndPort(uri)) {
                 return uri;
             }
         } catch (URISyntaxException ignored) {}
@@ -120,7 +124,7 @@ public class AddComputerManually extends Activity {
         return null;
     }
 
-    private void doAddPc(String rawUserInput) throws InterruptedException {
+    private void doAddPc(String rawUserInput, ComputerManagerService.ComputerManagerBinder binder) throws InterruptedException {
         boolean wrongSiteLocal = false;
         boolean invalidInput = false;
         boolean success;
@@ -144,8 +148,8 @@ public class AddComputerManually extends Activity {
                 }
 
                 details.manualAddress = new ComputerDetails.AddressTuple(host, port);
-                success = managerBinder.addComputerBlocking(details);
-                if (!success){
+                success = binder.addComputerBlocking(details);
+                if (!success && Thread.currentThread() == addThread) {
                     wrongSiteLocal = isWrongSubnetSiteLocalAddress(host);
                 }
             } else {
@@ -166,7 +170,7 @@ public class AddComputerManually extends Activity {
         }
 
         // Keep the SpinnerDialog open while testing connectivity
-        if (!success && !wrongSiteLocal && !invalidInput) {
+        if (Thread.currentThread() == addThread && !success && !wrongSiteLocal && !invalidInput) {
             // Run the test before dismissing the spinner because it can take a few seconds.
             portTestResult = MoonBridge.testClientConnectivity(ServerHelper.CONNECTION_TEST_SERVER, 443,
                     MoonBridge.ML_PORT_FLAG_TCP_47984 | MoonBridge.ML_PORT_FLAG_TCP_47989);
@@ -177,46 +181,41 @@ public class AddComputerManually extends Activity {
 
         dialog.dismiss();
 
-        if (invalidInput) {
-            Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title), getResources().getString(R.string.addpc_unknown_host), false);
-        }
-        else if (wrongSiteLocal) {
-            Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title), getResources().getString(R.string.addpc_wrong_sitelocal), false);
-        }
-        else if (!success) {
-            String dialogText;
-            if (portTestResult != MoonBridge.ML_TEST_RESULT_INCONCLUSIVE && portTestResult != 0)  {
-                dialogText = getResources().getString(R.string.nettest_text_blocked);
+        Thread worker = Thread.currentThread();
+        final boolean invalid = invalidInput, wrongSubnet = wrongSiteLocal, added = success;
+        runOnUiThread(() -> {
+            if (worker != addThread || isFinishing() || isDestroyed()) return;
+            if (invalid) {
+                Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title), getResources().getString(R.string.addpc_unknown_host), false);
+            }
+            else if (wrongSubnet) {
+                Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title), getResources().getString(R.string.addpc_wrong_sitelocal), false);
+            }
+            else if (!added) {
+                String dialogText;
+                if (portTestResult != MoonBridge.ML_TEST_RESULT_INCONCLUSIVE && portTestResult != 0)  {
+                    dialogText = getResources().getString(R.string.nettest_text_blocked);
+                }
+                else {
+                    dialogText = getResources().getString(R.string.addpc_fail);
+                }
+                Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title), dialogText, false);
             }
             else {
-                dialogText = getResources().getString(R.string.addpc_fail);
+                Toast.makeText(this, R.string.addpc_success, Toast.LENGTH_LONG).show();
+                finish();
             }
-            Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title), dialogText, false);
-        }
-        else {
-            AddComputerManually.this.runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                Toast.makeText(AddComputerManually.this, getResources().getString(R.string.addpc_success), Toast.LENGTH_LONG).show();
-
-                if (!isFinishing()) {
-                    // Close the activity
-                    AddComputerManually.this.finish();
-                }
-                }
-            });
-        }
-
+        });
     }
 
-    private void startAddThread() {
+    private void startAddThread(ComputerManagerService.ComputerManagerBinder binder) {
         addThread = new Thread() {
             @Override
             public void run() {
-                while (!isInterrupted()) {
+                while (Thread.currentThread() == addThread && !isInterrupted()) {
                     try {
                         String computer = computersToAdd.take();
-                        doAddPc(computer);
+                        doAddPc(computer, binder);
                     } catch (InterruptedException e) {
                         return;
                     }
@@ -227,23 +226,10 @@ public class AddComputerManually extends Activity {
         addThread.start();
     }
 
-    private void joinAddThread() {
-        if (addThread != null) {
-            addThread.interrupt();
-
-            try {
-                addThread.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-
-                // InterruptedException clears the thread's interrupt status. Since we can't
-                // handle that here, we will re-interrupt the thread to set the interrupt
-                // status back to true.
-                Thread.currentThread().interrupt();
-            }
-
-            addThread = null;
-        }
+    private void stopAddThread() {
+        Thread worker = addThread;
+        addThread = null;
+        if (worker != null) worker.interrupt();
     }
 
     @Override
@@ -258,8 +244,8 @@ public class AddComputerManually extends Activity {
     protected void onDestroy() {
         super.onDestroy();
 
-        if (managerBinder != null) {
-            joinAddThread();
+        stopAddThread();
+        if (serviceBound) {
             unbindService(serviceConnection);
         }
     }
@@ -304,7 +290,7 @@ public class AddComputerManually extends Activity {
         });
 
         // Bind to the ComputerManager service
-        bindService(new Intent(AddComputerManually.this,
+        serviceBound = bindService(new Intent(AddComputerManually.this,
                     ComputerManagerService.class), serviceConnection, Service.BIND_AUTO_CREATE);
     }
 

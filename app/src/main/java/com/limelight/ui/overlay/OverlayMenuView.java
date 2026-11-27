@@ -301,7 +301,8 @@ public class OverlayMenuView extends LinearLayout {
         }
 
         sheetBackground = new GradientDrawable();
-        sheetBackground.setCornerRadius(dp(28));
+        sheetBackground.setCornerRadius(dp(10));
+        sheetBackground.setStroke(dp(1), getResources().getColor(R.color.mw_edge));
         setBackground(sheetBackground);
         setElevation(dp(12));
 
@@ -328,13 +329,17 @@ public class OverlayMenuView extends LinearLayout {
         titleView.setText(R.string.overlay_menu_title);
         texts.addView(titleView);
         detailView = new TextView(context);
-        detailView.setTextColor(0xFFE2E8F0);
+        detailView.setTextColor(getResources().getColor(R.color.mw_secondary));
         detailView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         detailView.setVisibility(GONE);
         texts.addView(detailView);
         LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1);
         textParams.setMarginStart(dp(14));
         header.addView(texts, textParams);
+        ImageView mark = new ImageView(context);
+        mark.setImageResource(R.drawable.mw_mark);
+        mark.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+        header.addView(mark, new LinearLayout.LayoutParams(dp(30), dp(30)));
         addView(header, new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
         // The tools grid scrolls when it doesn't fit (on a phone, a Fold's cover screen, or with
@@ -385,7 +390,7 @@ public class OverlayMenuView extends LinearLayout {
         detailView.setText(detail);
         detailView.setVisibility(detail != null && !detail.isEmpty() ? VISIBLE : GONE);
 
-        sheetBackground.setColor(CoverGlow.panel(tint));
+        sheetBackground.setColor(getResources().getColor(R.color.mw_black));
         GradientDrawable swatch = new GradientDrawable();
         swatch.setCornerRadius(dp(10));
         swatch.setColor(tint);

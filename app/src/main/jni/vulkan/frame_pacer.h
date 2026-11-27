@@ -148,7 +148,7 @@ public:
 
     // Called at each vsync with the waiting frames, oldest first. Returns the index of the
     // frame to show (the caller drops the ones before it), or -1 to keep the current one.
-    int onVsync(int64_t vsyncNs, const FrameTiming* frames, size_t count);
+    int onVsync(int64_t vsyncNs, const FrameTiming* frames, size_t count, int64_t dispatchNs = 0);
 
     // The caller showed a frame outside onVsync (lowest latency mode presenting on arrival)
     void onPresentedImmediately(int64_t nowNs);
@@ -160,7 +160,9 @@ public:
     // must be within presentAheadVsyncs() of the last vsync. Every frame presented ahead holds
     // a swapchain image until it's on screen; with too many, the render thread blocks waiting
     // for a free one, which makes it late for vsyncs and for frames arriving.
-    int64_t plannedVsyncNs(const FrameTiming& frame) const { return frameVsyncNs(frame, true); }
+    int64_t plannedVsyncNs(const FrameTiming& frame, int64_t nowNs = 0) const {
+        return frameVsyncNs(frame, true, nowNs);
+    }
 
     // How many vsyncs ahead frames may be committed: one, or with several vsyncs a frame, that
     // many, which still holds about one frame waiting at a time. A frame then has up to that
@@ -236,7 +238,7 @@ public:
 private:
     // plannedVsyncNs(), or with committable false, the vsync even if it's too far off to
     // commit the frame to yet
-    int64_t frameVsyncNs(const FrameTiming& frame, bool committable) const;
+    int64_t frameVsyncNs(const FrameTiming& frame, bool committable, int64_t nowNs = 0) const;
     void trackVsync(int64_t vsyncNs);
     void updateSlot(const FrameTiming& frame);
     void updatePhase(FrameTiming& frame);
@@ -266,6 +268,7 @@ private:
     int64_t shiftNs_ = 0;
     bool phaseLocked_ = false;
     bool presentAhead_ = false;
+    bool fallbackReserve_ = false;
     int64_t presentGuardNs_ = 0;
     double driftPerFrame_ = 0;
     double lateNs_ = 0;  // How far after the fitted line frames are scheduled

@@ -5,6 +5,8 @@ import android.os.SystemClock;
 class VideoStats {
 
     long decoderTimeMs;
+    int decoderSamples;
+    long decoderPeakNs;
     long totalTimeMs;
     int totalFrames;
     int totalFramesReceived;
@@ -18,8 +20,16 @@ class VideoStats {
     int framesWithHostProcessingLatency;
     long measurementStartTimestamp;
 
+    float averageDecodeMs(boolean pyrowave) {
+        // PyroWave reports aggregate GPU time per window. MediaCodec reports matched output samples.
+        int count = pyrowave ? totalFramesReceived : decoderSamples;
+        return count == 0 ? 0f : (float) decoderTimeMs / count;
+    }
+
     void add(VideoStats other) {
         this.decoderTimeMs += other.decoderTimeMs;
+        this.decoderSamples += other.decoderSamples;
+        this.decoderPeakNs = Math.max(this.decoderPeakNs, other.decoderPeakNs);
         this.totalTimeMs += other.totalTimeMs;
         this.totalFrames += other.totalFrames;
         this.totalFramesReceived += other.totalFramesReceived;
@@ -30,7 +40,7 @@ class VideoStats {
 
         if (this.minHostProcessingLatency == 0) {
             this.minHostProcessingLatency = other.minHostProcessingLatency;
-        } else {
+        } else if (other.minHostProcessingLatency != 0) {
             this.minHostProcessingLatency = (char) Math.min(this.minHostProcessingLatency, other.minHostProcessingLatency);
         }
         this.maxHostProcessingLatency = (char) Math.max(this.maxHostProcessingLatency, other.maxHostProcessingLatency);
@@ -46,6 +56,8 @@ class VideoStats {
 
     void copy(VideoStats other) {
         this.decoderTimeMs = other.decoderTimeMs;
+        this.decoderSamples = other.decoderSamples;
+        this.decoderPeakNs = other.decoderPeakNs;
         this.totalTimeMs = other.totalTimeMs;
         this.totalFrames = other.totalFrames;
         this.totalFramesReceived = other.totalFramesReceived;
@@ -62,6 +74,8 @@ class VideoStats {
 
     void clear() {
         this.decoderTimeMs = 0;
+        this.decoderSamples = 0;
+        this.decoderPeakNs = 0;
         this.totalTimeMs = 0;
         this.totalFrames = 0;
         this.totalFramesReceived = 0;

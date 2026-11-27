@@ -7,6 +7,7 @@
 // grid through the pacer.
 
 #include "frame_pacer.h"
+#include "display_cadence.h"
 
 #include <algorithm>
 #include <cmath>
@@ -228,6 +229,67 @@ void report(const Scenario& s, const Result& r) {
 }  // namespace
 
 int main() {
+    {
+        constexpr int64_t tick = 5'000'000'000;
+        constexpr int64_t p = 16'666'667;
+        FramePacer pacer(PacingMode::MiBox60Hz, 60, p, JitterBuffer::MiBox60Hz);
+        pacer.setPresentAhead(true);
+        pacer.setPresentGuardNs(2'000'000);
+        pacer.onVsync(tick, nullptr, 0);
+        pacer.onPresentedAhead(tick + p);
+        const FrameTiming next {2 * p, tick + p + 1, tick + 2 * p - 3'000'000};
+        check(pacer.plannedVsyncNs(next, tick + p - 1) == 0, "callback horizon", "reserved too early");
+        check(pacer.plannedVsyncNs(next, tick + p + 1) == tick + 2 * p,
+              "callback horizon", "missed a free slot while the callback was absent");
+        check(pacer.plannedVsyncNs(next, tick + 2 * p) == 0, "callback horizon", "extrapolated across a stall");
+        pacer.onPresentedAhead(tick + 2 * p);
+        check(pacer.onVsync(tick + 2 * p, &next, 1, tick + 2 * p + 100) == -1,
+              "callback horizon", "two frames claimed the same reserved slot");
+    }
+    {
+        constexpr int64_t tick = 5'000'000'000;
+        constexpr int64_t p = 16'666'667;
+        for (bool late : {false, true}) {
+            FramePacer pacer(PacingMode::MiBox60Hz, 60, p, JitterBuffer::MiBox60Hz);
+            pacer.setPresentAhead(true);
+            pacer.setPresentGuardNs(2'000'000);
+            pacer.onVsync(tick, nullptr, 0);
+            pacer.onPresentedAhead(tick + p);
+            FrameTiming ready {p, tick + p - 200, tick + 2 * p - 100};
+            int choice = pacer.onVsync(tick + 2 * p, &ready, 1, tick + 2 * p + (late ? p : 100));
+            check(choice == (late ? -1 : 0), "callback recovery", "did not respect the remaining margin");
+        }
+    }
+    {
+        const int64_t p = 16'666'667, tick = 5'000'000'000;
+        FramePacer pacer(PacingMode::MiBox60Hz, 60, p, JitterBuffer::MiBox60Hz);
+        pacer.onVsync(tick - p, nullptr, 0);
+        FrameTiming frames[] = {{p, tick - p / 2, tick - p}, {2 * p, tick - 100, tick - 100}};
+        check(pacer.onVsync(tick, frames, 2) == 0,
+              "fallback burst", "skipped a fresh consecutive frame");
+        frames[0].arrivalNs = tick - 3 * p;
+        check(pacer.onVsync(tick + p, frames, 2) == 1,
+              "fallback burst", "kept a stale frame from a backlog");
+    }
+    {
+        constexpr int64_t p = 16'666'667;
+        DisplayCadence cadence;
+        int64_t t = 5'000'000'000;
+        cadence.record(t, p);
+        for (int i = 0; i < 599; ++i) cadence.record(t += p, p);
+        cadence.record(t += 2 * p, p);
+        cadence.record(t, p);
+        cadence.record(t - 1, p);
+        auto sample = cadence.snapshot(t);
+        // Six worst intervals span seven periods. The 99th percentile still looks perfect.
+        check(std::abs(sample.sortAndGetLowFps() - 60.0 * 6 / 7) < 0.001 &&
+              sample.intervals[594] == p && sample.longGaps == 1 && sample.longestGapNs == 2 * p,
+              "display cadence", "rare gap lost or counted twice");
+        check(cadence.snapshot(t + 60'000'000'000).longGaps == 0, "display cadence", "stale minute");
+        cadence.record(t += 6'000'000'000, p);
+        check(cadence.snapshot(t).longestGapNs == 6'000'000'000,
+              "display cadence", "host or display pause was hidden");
+    }
     const double seconds = 57.0;  // After warm-up
 
     {

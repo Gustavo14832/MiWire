@@ -1,0 +1,25 @@
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+    <include layout="@layout/quick_launch_section" />
+    <include layout="@layout/overrides_section" />
+    <TextView
+        android:id="@+id/mwStationTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="4dp"
+        android:fontFamily="sans-serif-black"
+        android:letterSpacing="-0.025"
+        android:text="@string/mw_stations"
+        android:textColor="@color/mw_text"
+        android:textSize="30sp" />
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+        <FrameLayout
+            android:id="@+id/pcFragmentContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+        <include layout="@layout/mw_discovery" />
+    </FrameLayout>
+</merge>

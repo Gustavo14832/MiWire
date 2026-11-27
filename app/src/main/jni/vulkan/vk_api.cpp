@@ -27,6 +27,7 @@ namespace {
 
     // libadrenotools only checks that the driver file exists, so catch files that can't be a
     // driver here (not a 64-bit ARM shared library) instead of failing later inside Vulkan
+#if defined(__aarch64__)
     bool isArm64SharedLibrary(const std::string& path) {
         unsigned char header[20] = {};
         FILE* file = fopen(path.c_str(), "rb");
@@ -42,7 +43,6 @@ namespace {
                header[18] == 183 && header[19] == 0;        // EM_AARCH64
     }
 
-#if defined(__aarch64__)
     int deviceApiLevel() {
         char value[PROP_VALUE_MAX] = {};
         if (__system_property_get("ro.build.version.sdk", value) > 0) {

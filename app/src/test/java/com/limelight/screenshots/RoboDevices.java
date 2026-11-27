@@ -5,6 +5,7 @@ package com.limelight.screenshots;
  * (pixels / density), which is what the layouts and values-w480dp switch on.
  */
 enum RoboDevices {
+    MI_BOX_1080P("pt-rBR-w960dp-h540dp-large-long-land-television-xhdpi", 1f),
     // 720 x 1280 px at 320 dpi: an old or budget phone (minSdk 21 users)
     SMALL_PHONE("w360dp-h640dp-normal-notlong-port-xhdpi", 1f),
     // Galaxy Z Fold5 cover screen, 904 x 2316 px at 420 dpi. The 0.2.0 blank-settings bug was here

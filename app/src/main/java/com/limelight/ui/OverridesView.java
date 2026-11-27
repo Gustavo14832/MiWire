@@ -251,14 +251,14 @@ public class OverridesView {
             bitrateOverrideValue.setText(R.string.bitrate_use_default);
         } else {
             int bitrateMbps = seekBarPosition * (BITRATE_STEP / 1000);
-            bitrateOverrideValue.setText(String.format("Bitrate: %d Mbps", bitrateMbps));
+            bitrateOverrideValue.setText(activity.getString(R.string.mw_bitrate_value, bitrateMbps));
         }
     }
 
     private void showBitrateInputDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(activity);
-        builder.setTitle("Set Bitrate Override");
-        builder.setMessage("Enter bitrate in Mbps (0 for default, max " + MAX_BITRATE_MBPS + ")");
+        builder.setTitle(R.string.title_bitrate_override);
+        builder.setMessage(activity.getString(R.string.mw_bitrate_prompt, MAX_BITRATE_MBPS));
 
         final EditText input = new EditText(activity);
         input.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -278,7 +278,7 @@ public class OverridesView {
 
         builder.setView(container);
 
-        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+        builder.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 String text = input.getText().toString().trim();
@@ -293,7 +293,7 @@ public class OverridesView {
                     if (bitrateMbps < 0) {
                         bitrateMbps = 0;
                     } else if (bitrateMbps > MAX_BITRATE_MBPS) {
-                        Toast.makeText(activity, "Maximum bitrate is " + MAX_BITRATE_MBPS + " Mbps", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(activity, activity.getString(R.string.mw_bitrate_limit, MAX_BITRATE_MBPS), Toast.LENGTH_SHORT).show();
                         bitrateMbps = MAX_BITRATE_MBPS;
                     }
 
@@ -307,12 +307,12 @@ public class OverridesView {
                     showBitrate(bitrateKbps);
 
                 } catch (NumberFormatException e) {
-                    Toast.makeText(activity, "Invalid number", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(activity, R.string.mw_invalid_number, Toast.LENGTH_SHORT).show();
                 }
             }
         });
 
-        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+        builder.setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 dialog.cancel();
@@ -370,15 +370,15 @@ public class OverridesView {
         if (override == 1) {
             // Force enabled - green icon
             perfOverlayIcon.setImageResource(R.drawable.ic_perf_overlay_enabled);
-            perfOverlayLabel.setText("Stats overlay: Enabled");
+            perfOverlayLabel.setText(R.string.mw_stats_on);
         } else if (override == 2) {
             // Force disabled - white icon with red slash
             perfOverlayIcon.setImageResource(R.drawable.ic_perf_overlay);
-            perfOverlayLabel.setText("Stats overlay: Disabled");
+            perfOverlayLabel.setText(R.string.mw_stats_off);
         } else {
             // Use default - gray icon to indicate auto/default mode
             perfOverlayIcon.setImageResource(R.drawable.ic_perf_overlay_default);
-            perfOverlayLabel.setText("Stats overlay: Default");
+            perfOverlayLabel.setText(R.string.mw_stats_default);
         }
     }
 
@@ -424,7 +424,8 @@ public class OverridesView {
         if (override < 0 || override >= CODEC_LABELS.length) {
             override = 0;
         }
-        codecLabel.setText("Codec: " + CODEC_LABELS[override]);
+        codecLabel.setText(override == 0 ? activity.getString(R.string.mw_codec_default)
+                : activity.getString(R.string.mw_codec_value, CODEC_LABELS[override]));
     }
 
     private void reloadBitrateSlider() {
@@ -444,7 +445,7 @@ public class OverridesView {
                 bitrateOverrideValue.setText(R.string.bitrate_use_default);
             }
             else {
-                bitrateOverrideValue.setText(String.format("Bitrate: %d Mbps", bitrateKbps / 1000));
+                bitrateOverrideValue.setText(activity.getString(R.string.mw_bitrate_value, bitrateKbps / 1000));
             }
         }
     }

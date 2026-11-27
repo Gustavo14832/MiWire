@@ -20,9 +20,7 @@ import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.ui.AppIcons;
 import com.limelight.ui.CollapsingHeader;
 import com.limelight.ui.CoverGlow;
-import com.limelight.ui.Rainbow;
 import com.limelight.ui.CoverImageView;
-import com.limelight.ui.Loops;
 import com.limelight.utils.QuickLaunchManager;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
@@ -31,12 +29,8 @@ import com.limelight.utils.ShortcutHelper;
 import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.UiHelper;
 
-import android.animation.ObjectAnimator;
-import android.animation.PropertyValuesHolder;
-import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.Service;
-import android.content.res.ColorStateList;
 import android.util.TypedValue;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.Button;
@@ -87,7 +81,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
 
     // Cover Glow home: the hero shows the selected game, and the screen takes its cover's colour
     private static final String COVER_GLOW_PREF_FILENAME = "CoverGlow";
-    private View appRoot, coverGlow, heroDetails;
+    private View coverGlow, heroDetails;
     // The game screen has four sets of sizes (cover_glow_dimens.xml): narrow below 480 dp wide,
     // the same with a smaller wordmark below 360 dp wide, a smaller header on wide screens under
     // 520 dp tall (a phone held sideways), and the full one
@@ -105,10 +99,6 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
     private CollapsingHeader collapsingHeader;
     private AppObject selectedApp;
     private int currentTint = CoverGlow.DEFAULT_TINT;
-    private ValueAnimator tintAnimator;
-    private ObjectAnimator glowAnimator;
-    private ObjectAnimator coverFloat;
-    private ValueAnimator wordmarkRainbow;
 
     private final static int START_OR_RESUME_ID = 1;
     private final static int QUIT_ID = 2;
@@ -130,18 +120,22 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
     public final static String NEW_PAIR_EXTRA = "NewPair";
     public final static String SHOW_HIDDEN_APPS_EXTRA = "ShowHiddenApps";
 
-    private ComputerManagerService.ComputerManagerBinder managerBinder;
+    private boolean serviceBound;
+    private Thread bindingWorker;
+    private volatile ComputerManagerService.ComputerManagerBinder managerBinder;
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder binder) {
             final ComputerManagerService.ComputerManagerBinder localBinder =
                     ((ComputerManagerService.ComputerManagerBinder)binder);
 
             // Wait in a separate thread to avoid stalling the UI
-            new Thread() {
+            if (bindingWorker != null) bindingWorker.interrupt();
+            bindingWorker = new Thread() {
                 @Override
                 public void run() {
                     // Wait for the binder to be ready
                     localBinder.waitForReady();
+                    if (isInterrupted()) return;
 
                     // Get the computer object
                     computer = localBinder.getComputer(uuidString);
@@ -170,6 +164,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                     // Now make the binder visible. We must do this after appGridAdapter
                     // is set to prevent us from reaching updateUiWithServerinfo() and
                     // touching the appGridAdapter prior to initialization.
+                    if (isInterrupted()) return;
                     managerBinder = localBinder;
 
                     // Load the app grid with cached data (if possible).
@@ -201,10 +196,12 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                         }
                     });
                 }
-            }.start();
+            };
+            bindingWorker.start();
         }
 
         public void onServiceDisconnected(ComponentName className) {
+            if (bindingWorker != null) bindingWorker.interrupt();
             managerBinder = null;
         }
     };
@@ -377,7 +374,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         buildScreen(getResources().getConfiguration());
 
         // Bind to the computer manager service
-        bindService(new Intent(this, ComputerManagerService.class), serviceConnection,
+        serviceBound = bindService(new Intent(this, ComputerManagerService.class), serviceConnection,
                 Service.BIND_AUTO_CREATE);
     }
 
@@ -426,12 +423,12 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         SpinnerDialog.closeDialogs(this);
         Dialog.closeDialogs(this);
 
-        cancelAnimations();
         if (appGridAdapter != null) {
             appGridAdapter.shutdown();
         }
 
-        if (managerBinder != null) {
+        if (bindingWorker != null) bindingWorker.interrupt();
+        if (serviceBound) {
             unbindService(serviceConnection);
         }
     }
@@ -445,7 +442,6 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
 
         inForeground = true;
         startComputerUpdates();
-        setLoopsRunning(true);
     }
 
     @Override
@@ -454,29 +450,6 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
 
         inForeground = false;
         stopComputerUpdates();
-        setLoopsRunning(false);
-    }
-
-    @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        setLoopsRunning(hasFocus && inForeground);
-    }
-
-    // The screen's endless animations stop while it's out of sight (during a stream, say), so they
-    // don't keep waking the CPU every frame
-    private void setLoopsRunning(boolean running) {
-        for (ValueAnimator loop : new ValueAnimator[] {glowAnimator, coverFloat, wordmarkRainbow}) {
-            if (loop == null) {
-                continue;
-            }
-            if (running) {
-                Loops.run(this, loop);
-            }
-            else {
-                Loops.hold(loop);
-            }
-        }
     }
 
     @Override
@@ -844,9 +817,6 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
     // Inflates the screen for the current set of sizes and wires it up. It runs again on the same
     // screen when the sizes change; the games, the selected game and the PC stay as they are.
     private void buildScreen(Configuration config) {
-        // The endless animations move the views being replaced
-        cancelAnimations();
-
         setContentView(R.layout.activity_app_view);
         builtSizes = sizesFor(config);
         builtFontScale = config.fontScale;
@@ -856,21 +826,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         TextView label = findViewById(R.id.appListText);
         label.setText(computerName);
         setUpHero(computerName);
-
-        // Built while out of sight, the new loops wait for onResume
-        setLoopsRunning(inForeground);
-    }
-
-    private void cancelAnimations() {
-        for (android.animation.Animator animator : new android.animation.Animator[] {tintAnimator, glowAnimator, coverFloat, wordmarkRainbow}) {
-            if (animator != null) {
-                animator.cancel();
-            }
-        }
     }
 
     private void setUpHero(String computerName) {
-        appRoot = findViewById(R.id.appRoot);
         coverGlow = findViewById(R.id.coverGlow);
         heroDetails = findViewById(R.id.heroDetails);
         heroCover = findViewById(R.id.heroCover);
@@ -902,7 +860,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
             @Override
             public void onCoverLoaded(Bitmap cover) {
                 int tint = CoverGlow.tintFromBitmap(cover);
-                animateTint(tint);
+                applyTint(tint);
                 if (selectedApp != null) {
                     CoverGlow.rememberTint(AppView.this, uuidString, selectedApp.app.getAppId(), tint);
                 }
@@ -924,30 +882,6 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         });
 
         applyTint(currentTint);
-
-        // The glow drifts slowly behind everything. Like the loops below, it stays still when
-        // the user has animations off (Loops).
-        float drift = dp(30);
-        glowAnimator = ObjectAnimator.ofPropertyValuesHolder(coverGlow,
-                PropertyValuesHolder.ofFloat(View.TRANSLATION_X, 0, -drift),
-                PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, 0, drift * 0.7f),
-                PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.08f),
-                PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.08f));
-        glowAnimator.setDuration(4500);
-        glowAnimator.setRepeatCount(ValueAnimator.INFINITE);
-        glowAnimator.setRepeatMode(ValueAnimator.REVERSE);
-        Loops.run(this, glowAnimator);
-
-        // The hero's cover floats gently (moving a view redraws nothing, so it costs little)
-        coverFloat = ObjectAnimator.ofFloat(heroCover, View.TRANSLATION_Y, 0, -dp(5));
-        coverFloat.setDuration(3200);
-        coverFloat.setRepeatCount(ValueAnimator.INFINITE);
-        coverFloat.setRepeatMode(ValueAnimator.REVERSE);
-        coverFloat.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
-        Loops.run(this, coverFloat);
-
-        // The wordmark slowly flows through the rainbow
-        wordmarkRainbow = Rainbow.applyTo((TextView) findViewById(R.id.cgWordmark));
     }
 
     private static int sizesFor(Configuration config) {
@@ -1000,13 +934,13 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         if (AppIcons.useIcon(this, app.app.getAppName())) {
             // Icon tiles never load a cover, so the screen takes the tile's colour
             int tint = AppIcons.accentFor(app.app.getAppName());
-            animateTint(tint);
+            applyTint(tint);
             CoverGlow.rememberTint(this, uuidString, app.app.getAppId(), tint);
         }
         else if (uuidString != null) {
             int remembered = CoverGlow.rememberedTintOrDefault(this, uuidString, app.app.getAppId(), currentTint);
             if (remembered != currentTint) {
-                animateTint(remembered);
+                applyTint(remembered);
             }
         }
         refreshHero(animate);
@@ -1165,31 +1099,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         startActivityForResult(settingsIntent, REQUEST_APP_SETTINGS);
     }
 
-    // Fades the background and glow to a new cover's colour
-    private void animateTint(int tint) {
-        if (tint == currentTint) {
-            return;
-        }
-        if (tintAnimator != null) {
-            tintAnimator.cancel();
-        }
-        tintAnimator = ValueAnimator.ofArgb(currentTint, tint);
-        tintAnimator.setDuration(600);
-        tintAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator animation) {
-                applyTint((Integer) animation.getAnimatedValue());
-            }
-        });
-        tintAnimator.start();
-    }
-
     private void applyTint(int tint) {
         currentTint = tint;
-        appRoot.setBackgroundColor(CoverGlow.deep(tint));
-        coverGlow.setBackgroundTintList(ColorStateList.valueOf(tint));
-        getWindow().setNavigationBarColor(CoverGlow.deep(tint));
-        getWindow().setStatusBarColor(CoverGlow.deep(tint));
+        coverGlow.setBackgroundColor(tint);
     }
 
     private void addToQuickLaunch(ComputerDetails computer, NvApp app) {

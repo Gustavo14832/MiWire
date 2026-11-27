@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "frame_pacer.h"
+#include "display_cadence.h"
 #include "ndk_api.h"
 #include "pacer_trace.h"
 #include "perf_hint.h"
@@ -409,6 +410,8 @@ private:
     };
     std::deque<SkipSample> skipSamples_;
     static constexpr size_t kPresentDeltaWindow = 128;
+    DisplayCadence displayCadence_;
+    int overlayPresentDelay_ = 0;
     void recordPresentTimestampLocked(int64_t presentNs, int64_t hostPtsNs = 0);
     std::array<int64_t, kPresentDeltaWindow> presentDeltasNs_ {};
     size_t presentDeltaWrite_ = 0;

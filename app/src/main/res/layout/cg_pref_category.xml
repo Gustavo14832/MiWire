@@ -4,10 +4,10 @@
     android:id="@android:id/title"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingTop="28dp"
+    android:paddingTop="18dp"
     android:paddingBottom="8dp"
     android:paddingStart="4dp"
     android:paddingEnd="4dp"
     android:fontFamily="sans-serif-black"
-    android:textColor="#FFC4B5FD"
-    android:textSize="20sp" />
+    android:textColor="@color/mw_amber"
+    android:textSize="17sp" />

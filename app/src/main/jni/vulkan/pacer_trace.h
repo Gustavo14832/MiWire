@@ -22,7 +22,8 @@ namespace vkr {
 //   F,arrivalNs,hostPtsNs,targetNs,queued,queueDrops
 //                                    frame arrived (FramePacer::onFrameArrived())
 //   V,vsyncNs,queued,choice,shownPtsNs,locked,slotVsyncs,slotParity,scheduleDelayNs,
-//     transitBufferNs,periodNs,driftPpm,callbackLateNs,presentId,presentDelayVsyncs
+//     transitBufferNs,periodNs,driftPpm,callbackLateNs,presentId,presentDelayVsyncs,dispatchNs
+//                                    dispatchNs is the decision time after obtaining the render locks.
 //                                    vsync (FramePacer::onVsync()), choice -1 when nothing new
 //                                    was shown; callbackLateNs is how long after the vsync the
 //                                    callback ran, presentId identifies the present (0 if none)
@@ -108,7 +109,7 @@ public:
     void period(int64_t periodNs);
     void frame(const FrameTiming& timing, size_t queued, uint64_t queueDrops);
     void vsync(int64_t vsyncNs, size_t queued, int choice, int64_t shownPtsNs, const FramePacer& pacer,
-               int64_t callbackLateNs, uint64_t presentId, int presentDelayVsyncs);
+               int64_t callbackLateNs, uint64_t presentId, int presentDelayVsyncs, int64_t dispatchNs);
     void immediate(int64_t nowNs);
     void ahead(int64_t nowNs, int64_t showVsyncNs, int64_t hostPtsNs, uint64_t presentId, int presentDelayVsyncs,
                const FramePacer& pacer);

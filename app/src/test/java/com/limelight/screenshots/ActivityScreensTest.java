@@ -28,6 +28,7 @@ import com.limelight.preferences.StreamSettings;
 import com.limelight.ui.AppIcons;
 import com.limelight.ui.CollapsingHeader;
 import com.limelight.ui.CoverImageView;
+import com.limelight.ui.OverridesView;
 import com.limelight.ui.overlay.OverlayMenuButton;
 import com.limelight.ui.overlay.OverlayMenuView;
 
@@ -49,7 +50,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Starwire's screens run by Robolectric (the real framework on the JVM, no device or emulator)
+ * MiWire's screens run by Robolectric (the real framework on the JVM, no device or emulator)
  * at every size in RoboDevices, and saved as pictures by Roborazzi.
  *
  * <ul>
@@ -90,6 +91,10 @@ public class ActivityScreensTest {
 
     public ActivityScreensTest(RoboDevices device) {
         this.device = device;
+    }
+
+    private int streamFps() {
+        return device == RoboDevices.MI_BOX_1080P ? 60 : 120;
     }
 
     @Before
@@ -176,10 +181,14 @@ public class ActivityScreensTest {
         cover.setVisibility(View.VISIBLE);
         ((TextView) activity.findViewById(R.id.coverRowLabel))
                 .setText(activity.getString(R.string.cg_on_pc, "GAMING-PC"));
-        // The chips AppView shows for a game streamed in HEVC at 1080p and 120 FPS with HDR
         ViewGroup chips = activity.findViewById(R.id.heroChips);
-        for (String chip : new String[] {activity.getString(R.string.cg_chip_hevc),
-                activity.getString(R.string.cg_chip_resolution, 1080, 120), activity.getString(R.string.cg_chip_hdr)}) {
+        List<String> labels = new ArrayList<>();
+        labels.add(activity.getString(R.string.cg_chip_hevc));
+        labels.add(activity.getString(R.string.cg_chip_resolution, 1080, streamFps()));
+        if (device != RoboDevices.MI_BOX_1080P) {
+            labels.add(activity.getString(R.string.cg_chip_hdr));
+        }
+        for (String chip : labels) {
             TextView view = (TextView) LayoutInflater.from(activity).inflate(R.layout.cg_hero_chip, chips, false);
             view.setText(chip);
             chips.addView(view);
@@ -218,6 +227,7 @@ public class ActivityScreensTest {
     public void pcList() {
         Activity activity = Robolectric.buildActivity(Activity.class).setup().get();
         activity.setContentView(R.layout.activity_pc_view);
+        new OverridesView(activity);
         // The spinner doesn't show: Robolectric doesn't run its animated drawable
         capture(activity.getWindow().getDecorView(), "pcList");
     }
@@ -234,7 +244,7 @@ public class ActivityScreensTest {
         activity.setContentView(frame);
         controller.start().resume().visible();
         OverlayMenuView menu = frame.findViewById(R.id.overlayMenuView);
-        menu.setGameInfo(GAMES[0], "1920 x 1080, 120 FPS", AppIcons.accentFor(GAMES[0]));
+        menu.setGameInfo(GAMES[0], "1920 x 1080, " + streamFps() + " FPS", AppIcons.accentFor(GAMES[0]));
         menu.setCover(AppIcons.tile(activity, GAMES[0]));
         menu.buildMenu();
         menu.setVisibility(View.VISIBLE);
@@ -266,7 +276,7 @@ public class ActivityScreensTest {
         activity.setContentView(frame);
         controller.start().resume().visible();
         OverlayMenuView menu = frame.findViewById(R.id.overlayMenuView);
-        menu.setGameInfo(GAMES[0], "1920 x 1080, 120 FPS", AppIcons.accentFor(GAMES[0]));
+        menu.setGameInfo(GAMES[0], "1920 x 1080, " + streamFps() + " FPS", AppIcons.accentFor(GAMES[0]));
         menu.setCover(AppIcons.tile(activity, GAMES[0]));
         // The menu acts on a tap only with a listener. This one does nothing; a proxy, so a new
         // menu action needs nothing here.
@@ -355,7 +365,7 @@ public class ActivityScreensTest {
         activity.setContentView(frame);
         controller.start().resume().visible();
         OverlayMenuView menu = frame.findViewById(R.id.overlayMenuView);
-        menu.setGameInfo(GAMES[0], "1920 x 1080, 120 FPS", AppIcons.accentFor(GAMES[0]));
+        menu.setGameInfo(GAMES[0], "1920 x 1080, " + streamFps() + " FPS", AppIcons.accentFor(GAMES[0]));
         menu.setCover(AppIcons.tile(activity, GAMES[0]));
         List<OverlayMenuView.UsbItem> devices = new ArrayList<>();
         devices.add(new OverlayMenuView.UsbItem("1", "Wireless Controller", activity.getString(R.string.usb_share_state_shared)));

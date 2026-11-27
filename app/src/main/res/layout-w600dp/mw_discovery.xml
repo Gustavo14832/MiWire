@@ -1,0 +1,14 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/no_pc_found_layout"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:padding="24dp" android:gravity="center_vertical"
+    android:baselineAligned="false"
+    android:orientation="horizontal" android:background="@drawable/mw_discovery_panel">
+    <include layout="@layout/mw_discovery_actions"
+        android:layout_width="0dp" android:layout_height="wrap_content"
+        android:layout_weight="1" />
+    <ImageView
+        android:layout_width="0dp" android:layout_height="match_parent"
+        android:layout_weight="1" android:scaleType="fitCenter"
+        android:src="@drawable/mw_console" android:importantForAccessibility="no" />
+</LinearLayout>

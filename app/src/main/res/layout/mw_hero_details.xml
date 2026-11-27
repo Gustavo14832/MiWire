@@ -1,0 +1,102 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/heroDetails"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_weight="1">
+
+    <TextView
+        android:id="@+id/heroLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/mw_amber"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <!-- A set number of title lines and a minimum chip-row height keep the header
+         one height whichever game is picked, so the covers under it don't shift -->
+    <TextView
+        android:id="@+id/heroTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/heroLabel"
+        android:layout_marginTop="@dimen/cg_hero_title_margin_top"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-black"
+        android:gravity="bottom"
+        android:lines="@integer/cg_hero_title_lines"
+        android:textColor="#FFFFFFFF"
+        android:textSize="@dimen/cg_hero_title_size" />
+
+    <!-- Chips that don't fit whole are left out rather than squeezed -->
+    <com.limelight.ui.ChipRow
+        android:id="@+id/heroChips"
+        style="@style/CgHeroChipsPlace"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="34dp" />
+
+    <!-- Side by side, or stacked on narrow screens (cover_glow_dimens.xml) -->
+    <LinearLayout
+        android:id="@+id/heroButtons"
+        style="@style/CgHeroButtons"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+
+        <!-- Quit sits beside Play/Resume, so showing it never changes the
+             header's height (CollapsingHeader relies on that) -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/heroPlay"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/cg_hero_button_height"
+                android:background="@drawable/cg_pill_white"
+                android:drawableStart="@drawable/cg_ic_play"
+                android:drawablePadding="10dp"
+                android:paddingStart="26dp"
+                android:paddingEnd="30dp"
+                android:stateListAnimator="@null"
+                android:text="@string/cg_play"
+                android:textAllCaps="false"
+                android:textColor="#FF0B0F14"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/heroQuit"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/cg_hero_button_height"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/cg_pill_frosted"
+                android:drawableStart="@drawable/ic_overlay_stop"
+                android:drawablePadding="8dp"
+                android:paddingStart="20dp"
+                android:paddingEnd="24dp"
+                android:stateListAnimator="@null"
+                android:text="@string/cg_quit"
+                android:textAllCaps="false"
+                android:textColor="#FFFFFFFF"
+                android:textSize="16sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/heroSettings"
+            style="@style/CgHeroSettingsButton"
+            android:layout_width="wrap_content"
+            android:layout_height="@dimen/cg_hero_button_height"
+            android:background="@drawable/cg_pill_frosted"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:stateListAnimator="@null"
+            android:text="@string/cg_game_settings"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFFFF"
+            android:textSize="16sp" />
+    </LinearLayout>
+</RelativeLayout>

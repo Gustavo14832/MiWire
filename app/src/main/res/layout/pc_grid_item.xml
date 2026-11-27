@@ -4,7 +4,7 @@
     android:layout_height="wrap_content"
     android:layout_margin="10dp"
     android:background="@drawable/cg_pc_card"
-    android:padding="20dp">
+    android:padding="12dp">
     <RelativeLayout
         android:id="@+id/grid_image_layout"
         android:layout_width="wrap_content"
@@ -14,23 +14,23 @@
             android:importantForAccessibility="no"
             android:layout_centerHorizontal="true"
             android:layout_width="125dp"
-            android:layout_height="125dp">
+            android:layout_height="80dp">
         </ImageView>
         <ImageView
             android:id="@+id/grid_overlay"
             android:importantForAccessibility="no"
             android:layout_centerHorizontal="true"
-            android:layout_marginTop="28dp"
-            android:layout_width="50dp"
-            android:layout_height="50dp">
+            android:layout_marginTop="16dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp">
         </ImageView>
         <ProgressBar
             android:id="@+id/grid_spinner"
             android:importantForAccessibility="no"
             android:layout_centerHorizontal="true"
-            android:layout_marginTop="28dp"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_marginTop="16dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
             android:indeterminate="true">
         </ProgressBar>
     </RelativeLayout>
@@ -42,9 +42,19 @@
         android:layout_below="@id/grid_image_layout"
         android:layout_marginTop="10dp"
         android:layout_centerHorizontal="true"
-        android:gravity="center"
+        android:gravity="start"
+        android:maxLines="2"
+        android:ellipsize="end"
         android:textColor="#FFFFFFFF"
         android:textStyle="bold"
         android:textSize="18sp" >
     </TextView>
+    <TextView
+        android:id="@+id/mwComputerState"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/grid_text"
+        android:textColor="@color/mw_secondary"
+        android:textSize="13sp"
+        android:importantForAccessibility="no" />
 </RelativeLayout>

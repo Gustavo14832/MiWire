@@ -18,6 +18,7 @@ import org.jcodec.codecs.h264.io.model.VUIParameters;
 import com.limelight.BuildConfig;
 import com.limelight.LimeLog;
 import com.limelight.R;
+import com.limelight.StreamNetworkStatus;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.PreferenceConfiguration;
@@ -36,7 +37,6 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
 import android.os.SystemClock;
-import android.util.LongSparseArray;
 import android.util.Range;
 import android.view.Choreographer;
 import android.view.Surface;
@@ -119,7 +119,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private int refreshRate;
     private PreferenceConfiguration prefs;
 
-    private long lastNetDataNum = 0;
+    private final NetworkRateSample networkRate = new NetworkRateSample();
     private float smoothedFpsVariance = 0;
     private boolean fpsVarianceInitialized = false;
     private static final float VARIANCE_SMOOTHING_FACTOR = 0.7f;
@@ -229,15 +229,12 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private int numFramesIn;
     private int numFramesOut;
 
-    // Decode latency & stall watchdog tracking: map PTS(us) -> enqueue time (ns) under ptsLock
-    private final Object ptsLock = new Object();
-    private final LongSparseArray<Long> enqueueNsByPtsUs = new LongSparseArray<>();
-    private static final int MAX_TRACKED_PTS_ENTRIES = 128;
-    private static final long STALL_WATCHDOG_MS = 1200L;
+    // PTS and decode sample windows share the submission tracker lock.
+    private final DecoderSubmissionTimes submissionTimes = new DecoderSubmissionTimes();
+    private final DecoderSubmissionTimes.Submit submitCodecBuffer = (ptsUs, flags) ->
+            videoDecoder.queueInputBuffer(nextInputBufferIndex, 0, nextInputBuffer.position(), ptsUs, flags);
     private volatile long lastInputQueuedRealtimeMs;
-    private volatile long lastOutputDequeuedRealtimeMs;
-    private int stallStage;
-    private long stallStageTimestampMs;
+    private final DecoderStallWatchdog stallWatchdog = new DecoderStallWatchdog();
     private volatile int requestedMaxInputSize;
 
     // Unified pipeline ADPF session and present-interval statistics (from LavArtemis)
@@ -258,6 +255,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private boolean pyrowaveCenterChroma;
     private long pyrowaveDecodeNs;
     private long mediaCodecDecodeNs;
+    private int mediaCodecDecodeSamples;
+    private long mediaCodecPeakNs;
 
     // Direct renderer in the host frame timing pacing mode
     private HostFrameTimeline hostFrameTimeline;
@@ -1058,11 +1057,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 nextInputBuffer = null;
                 nextInputBufferIndex = -1;
                 outputBufferQueue.clear();
-                synchronized (ptsLock) {
-                    enqueueNsByPtsUs.clear();
-                }
-                stallStage = 0;
-                stallStageTimestampMs = 0L;
+                submissionTimes.clear();
+                boolean flushed = false;
 
                 // Async decode: drop the buffer indices the callbacks queued, as Artemide does
                 if (useAsyncCodec) {
@@ -1082,6 +1078,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                             asyncCodec.resumeAfterFlush();
                             videoDecoder.start();
                         }
+                        flushed = true;
                         codecRecoveryType.set(CR_RECOVERY_TYPE_NONE);
                     } catch (IllegalStateException e) {
                         e.printStackTrace();
@@ -1177,6 +1174,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 }
 
                 // Wake all quiesced threads and allow them to begin work again
+                stallWatchdog.onRecovery(flushed, SystemClock.elapsedRealtime());
                 codecRecoveryThreadQuiescedFlags = 0;
                 codecRecoveryMonitor.notifyAll();
             }
@@ -1409,11 +1407,11 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         pendingInputWorkNs.set(0L);
         pendingReleaseWorkNs.set(0L);
         mediaCodecDecodeNs = 0;
+        mediaCodecDecodeSamples = 0;
+        mediaCodecPeakNs = 0;
         long nowRt = SystemClock.elapsedRealtime();
-        lastOutputDequeuedRealtimeMs = nowRt;
+        stallWatchdog.onOutput(nowRt);
         lastInputQueuedRealtimeMs = 0L;
-        stallStage = 0;
-        stallStageTimestampMs = 0L;
         displayRefreshRateHz = getDisplayRefreshRate();
         if (!(displayRefreshRateHz > 1f)) {
             displayRefreshRateHz = 60f;
@@ -1443,9 +1441,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                             long presentationTimeUs = info.presentationTimeUs;
                             int lastIndex = outIndex;
                             boolean statsUpdated = false;
-                            lastOutputDequeuedRealtimeMs = SystemClock.elapsedRealtime();
-                            stallStage = 0;
-                            stallStageTimestampMs = 0L;
+                            stallWatchdog.onOutput(SystemClock.elapsedRealtime());
 
                             numFramesOut++;
 
@@ -1622,6 +1618,13 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     }
 
     private boolean fetchNextInputBuffer() {
+        return fetchNextInputBuffer(false);
+    }
+
+    private final CodecInputPoller inputPoller = new CodecInputPoller(this::dequeueInput,
+            () -> !stopping && codecRecoveryType.get() == CR_RECOVERY_TYPE_NONE, SystemClock::uptimeMillis);
+
+    private boolean fetchNextInputBuffer(boolean prefetch) {
         long startTime;
         boolean codecRecovered;
 
@@ -1633,13 +1636,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         startTime = SystemClock.uptimeMillis();
 
         try {
-            // If we don't have an input buffer index yet, fetch one now. In async mode a codec
-            // error arrives by callback and no more input buffers will come, so stop waiting once
-            // recovery is pending (sync mode gets an exception from dequeueInputBuffer instead).
+            // Both codec modes must allow the output watchdog to quiesce the input thread.
             long waitStartNs = System.nanoTime();
-            while (nextInputBufferIndex < 0 && !stopping &&
-                    (!useAsyncCodec || codecRecoveryType.get() == CR_RECOVERY_TYPE_NONE)) {
-                nextInputBufferIndex = dequeueInput(10000);
+            if (nextInputBufferIndex < 0) {
+                nextInputBufferIndex = inputPoller.next(prefetch, startTime);
             }
             inputBufferWaitNs += Math.max(0L, System.nanoTime() - waitStartNs);
 
@@ -1675,9 +1675,12 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         }
 
         if (nextInputBuffer == null) {
+            if (prefetch || stopping) {
+                return !stopping && prefetch;
+            }
             // We've been hung for 5 seconds and no other exception was reported,
             // so generate a decoder hung exception
-            if (deltaMs >= 5000 && initialException == null) {
+            if (deltaMs >= CodecInputPoller.HANG_TIMEOUT_MS && initialException == null) {
                 DecoderHungException decoderHungException = new DecoderHungException(deltaMs);
                 if (!reportedCrash) {
                     reportedCrash = true;
@@ -1837,20 +1840,11 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         boolean codecRecovered;
 
         try {
-            videoDecoder.queueInputBuffer(nextInputBufferIndex,
-                    0, nextInputBuffer.position(),
-                    timestampUs, codecFlags);
-
-            // Track enqueue time for frame inputs (skip codec config CSD buffers)
             if ((codecFlags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0) {
+                submissionTimes.submit(timestampUs, codecFlags, System.nanoTime(), submitCodecBuffer);
                 lastInputQueuedRealtimeMs = SystemClock.elapsedRealtime();
-                long nowNs = System.nanoTime();
-                synchronized (ptsLock) {
-                    if (enqueueNsByPtsUs.size() >= MAX_TRACKED_PTS_ENTRIES) {
-                        enqueueNsByPtsUs.removeAt(0);
-                    }
-                    enqueueNsByPtsUs.put(timestampUs, nowNs);
-                }
+            } else {
+                submitCodecBuffer.queue(timestampUs, codecFlags);
             }
 
             // We need a new buffer now
@@ -1886,7 +1880,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         // We must propagate the return value here in order to properly handle
         // codec recovery happening in fetchNextInputBuffer(). If we don't, we'll
         // never get an IDR frame to complete the recovery process.
-        return fetchNextInputBuffer();
+        boolean prefetch = directSubmit && vulkanRenderer != null &&
+                prefs.framePacing == PreferenceConfiguration.FRAME_PACING_MIBOX_60HZ &&
+                (codecFlags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0;
+        return fetchNextInputBuffer(prefetch);
     }
 
     private void doProfileSpecificSpsPatching(SeqParameterSet sps) {
@@ -1972,6 +1969,20 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 }
             }
 
+            if (!pyrowave) {
+                synchronized (submissionTimes) {
+                    long elapsedMs = mediaCodecDecodeNs / 1_000_000L;
+                    mediaCodecDecodeNs %= 1_000_000L;
+                    activeWindowVideoStats.decoderTimeMs += elapsedMs;
+                    activeWindowVideoStats.decoderSamples += mediaCodecDecodeSamples;
+                    activeWindowVideoStats.decoderPeakNs = mediaCodecPeakNs;
+                    mediaCodecPeakNs = 0;
+                    if (!USE_FRAME_RENDER_TIME) {
+                        activeWindowVideoStats.totalTimeMs += elapsedMs;
+                    }
+                    mediaCodecDecodeSamples = 0;
+                }
+            }
             if (prefs.enablePerfOverlay && perfListener != null) {
                 VideoStats lastTwo = new VideoStats();
                 lastTwo.add(lastWindowVideoStats);
@@ -1991,7 +2002,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                     decoder = "(Unknown decoder)";
                 }
 
-                float decodeTimeMs = (float)lastTwo.decoderTimeMs / lastTwo.totalFramesReceived;
+                float decodeTimeMs = lastTwo.averageDecodeMs(pyrowave);
                 long rttInfo = MoonBridge.getEstimatedRttInfo();
 
                 // Calculate FPS variance and apply exponential moving average for smoothing (only calculate when variance >= 1 FPS to ignore normal minor fluctuation)
@@ -2005,9 +2016,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 }
 
                 // Network bandwidth in Mbps since the last update (unknown on the first one)
-                long netData = TrafficStatsHelper.getPackageRxBytes(Process.myUid()) + TrafficStatsHelper.getPackageTxBytes(Process.myUid());
-                float realtimeNetData = lastNetDataNum != 0 ? (netData - lastNetDataNum) * 8 / 1000000f : -1;
-                lastNetDataNum = netData;
+                int uid = Process.myUid();
+                float realtimeNetData = networkRate.update(TrafficStatsHelper.getPackageRxBytes(uid),
+                        TrafficStatsHelper.getPackageTxBytes(uid), SystemClock.elapsedRealtime());
 
                 float droppedPercent = (float)lastTwo.framesLost / lastTwo.totalFrames * 100;
 
@@ -2017,7 +2028,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                     if (realtimeNetData >= 0) {
                         lite.append(context.getString(R.string.perf_overlay_lite_bandwidth, realtimeNetData)).append(" \u00b7 ");
                     }
-                    lite.append(context.getString(R.string.perf_overlay_lite_delay, (int)(rttInfo >> 32), decodeTimeMs)).append(" \u00b7 ");
+                    lite.append(StreamNetworkStatus.formatRtt(context, rttInfo, true, decodeTimeMs)).append(" \u00b7 ");
                     lite.append(context.getString(R.string.perf_overlay_lite_loss, droppedPercent)).append(" \u00b7 ");
                     lite.append(context.getString(R.string.perf_overlay_lite_fps, fps.totalFps));
                     float low = onePercentLowFps(frameIntervalsNs, frameIntervalCount);
@@ -2057,8 +2068,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                     else {
                         sb.append(context.getString(R.string.perf_overlay_netdrops, droppedPercent)).append('\n');
                     }
-                    sb.append(context.getString(R.string.perf_overlay_netlatency,
-                            (int)(rttInfo >> 32), (int)rttInfo)).append('\n');
+                    sb.append(StreamNetworkStatus.formatRtt(context, rttInfo, false, decodeTimeMs)).append('\n');
 
                     if (realtimeNetData >= 0) {
                         sb.append(context.getString(R.string.perf_overlay_bandwidth, realtimeNetData)).append('\n');
@@ -2070,7 +2080,14 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                 (float)lastTwo.maxHostProcessingLatency / 10,
                                 (float)lastTwo.totalHostProcessingLatency / 10 / lastTwo.framesWithHostProcessingLatency)).append('\n');
                     }
-                    sb.append(context.getString(R.string.perf_overlay_dectime, decodeTimeMs));
+                    if (vulkanRenderer != null && !pyrowave && lastTwo.decoderSamples == 0) {
+                        sb.append(context.getString(R.string.perf_overlay_codec_wait));
+                    } else if (vulkanRenderer != null && !pyrowave) {
+                        sb.append(context.getString(R.string.perf_overlay_codec_samples, decodeTimeMs,
+                                lastTwo.decoderPeakNs / 1_000_000.0, lastTwo.decoderSamples));
+                    } else {
+                        sb.append(context.getString(R.string.perf_overlay_dectime, decodeTimeMs));
+                    }
                     if (pacingText != null) {
                         // The buffer on the pacing line, and the lock state and skipped frames below
                         // it, like the stream details below the decoder
@@ -2099,6 +2116,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                         perfListener.onPerfUpdate(sb.toString());
                     }
                 }
+            }
+            else {
+                networkRate.reset();
             }
 
             globalVideoStats.add(activeWindowVideoStats);
@@ -2528,59 +2548,25 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     }
 
     public int getAverageDecoderLatency() {
-        if (globalVideoStats.totalFramesReceived == 0) {
-            return 0;
-        }
-        return (int)(globalVideoStats.decoderTimeMs / globalVideoStats.totalFramesReceived);
+        return (int) globalVideoStats.averageDecodeMs(pyrowave);
     }
 
     private void markPtsDequeuedWithoutRender(long presentationTimeUs) {
-        synchronized (ptsLock) {
-            for (int i = enqueueNsByPtsUs.size() - 1; i >= 0; i--) {
-                long pts = enqueueNsByPtsUs.keyAt(i);
-                if (useAsyncCodec ? (pts <= presentationTimeUs) : (pts == presentationTimeUs)) {
-                    enqueueNsByPtsUs.removeAt(i);
-                }
-            }
-        }
+        submissionTimes.discard(presentationTimeUs, useAsyncCodec);
     }
 
     private void markPtsDequeuedBefore(long latestPtsUs) {
-        synchronized (ptsLock) {
-            for (int i = enqueueNsByPtsUs.size() - 1; i >= 0; i--) {
-                if (enqueueNsByPtsUs.keyAt(i) < latestPtsUs) {
-                    enqueueNsByPtsUs.removeAt(i);
-                }
-            }
-        }
+        submissionTimes.discardBefore(latestPtsUs);
     }
 
     // Update stats using real decode time: enqueue->dequeue, excluding downstream render/swap time.
     private void updateDecodeLatencyStats(long presentationTimeUs, long dequeueDoneNs) {
-        Long enqNs = null;
-        synchronized (ptsLock) {
-            for (int i = enqueueNsByPtsUs.size() - 1; i >= 0; i--) {
-                long pts = enqueueNsByPtsUs.keyAt(i);
-                if (pts == presentationTimeUs) {
-                    enqNs = enqueueNsByPtsUs.valueAt(i);
-                    enqueueNsByPtsUs.removeAt(i);
-                }
-                else if (pts < presentationTimeUs) {
-                    enqueueNsByPtsUs.removeAt(i);
-                }
-            }
-        }
-
-        if (enqNs != null) {
-            long decNs = dequeueDoneNs - enqNs;
+        synchronized (submissionTimes) {
+            long decNs = submissionTimes.takeElapsedNs(presentationTimeUs, dequeueDoneNs);
             if (decNs >= 0 && decNs < 1_000_000_000L) {
                 mediaCodecDecodeNs += decNs;
-                long decMs = mediaCodecDecodeNs / 1_000_000L;
-                mediaCodecDecodeNs -= decMs * 1_000_000L;
-                activeWindowVideoStats.decoderTimeMs += decMs;
-                if (!USE_FRAME_RENDER_TIME) {
-                    activeWindowVideoStats.totalTimeMs += decMs;
-                }
+                mediaCodecPeakNs = Math.max(mediaCodecPeakNs, decNs);
+                mediaCodecDecodeSamples++;
             }
         }
     }
@@ -2590,38 +2576,19 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         if (stopping || pyrowave || codecRecoveryType.get() != CR_RECOVERY_TYPE_NONE) {
             return;
         }
-        int pendingCount;
-        synchronized (ptsLock) {
-            pendingCount = enqueueNsByPtsUs.size();
-        }
-        if (pendingCount < 4) {
-            return;
-        }
-        long nowMs = SystemClock.elapsedRealtime();
-        if (lastInputQueuedRealtimeMs < lastOutputDequeuedRealtimeMs) {
-            return;
-        }
-        long refMs = stallStage == 0 ? lastOutputDequeuedRealtimeMs : stallStageTimestampMs;
-        if (nowMs - refMs < STALL_WATCHDOG_MS) {
-            return;
-        }
-
-        if (stallStage == 0) {
-            stallStage = 1;
-            stallStageTimestampMs = nowMs;
+        int pendingCount = submissionTimes.size();
+        DecoderStallWatchdog.Action action = stallWatchdog.poll(
+                SystemClock.elapsedRealtime(), pendingCount, lastInputQueuedRealtimeMs);
+        if (action == DecoderStallWatchdog.Action.REQUEST_IDR) {
             LimeLog.warning("Decoder output stalled with " + pendingCount + " queued frames; requesting IDR");
             MoonBridge.requestIdrFrame();
         }
-        else if (stallStage == 1) {
-            stallStage = 2;
-            stallStageTimestampMs = nowMs;
+        else if (action == DecoderStallWatchdog.Action.FLUSH) {
             LimeLog.warning("Decoder output still stalled after IDR; flushing decoder");
             codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_NONE, CR_RECOVERY_TYPE_FLUSH);
             MoonBridge.requestIdrFrame();
         }
-        else {
-            stallStage = 0;
-            stallStageTimestampMs = nowMs;
+        else if (action == DecoderStallWatchdog.Action.RESTART) {
             if (codecRecoveryAttempts < CR_MAX_TRIES) {
                 LimeLog.warning("Decoder output stalled after flush; restarting decoder");
                 if (!codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_NONE, CR_RECOVERY_TYPE_RESTART)) {

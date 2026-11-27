@@ -1,0 +1,30 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center_vertical">
+        <ProgressBar
+            android:id="@+id/pcs_loading"
+            android:layout_width="18dp" android:layout_height="18dp"
+            android:indeterminateTint="@color/mw_amber" />
+        <TextView
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginStart="10dp" android:fontFamily="sans-serif-black"
+            android:text="@string/mw_discovering" android:textColor="@color/mw_text"
+            android:textSize="21sp" />
+    </LinearLayout>
+    <TextView
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="6dp" android:text="@string/searching_pc"
+        android:textSize="15sp" android:textColor="@color/mw_secondary" />
+    <Button
+        android:id="@+id/mwAddByAddress"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:minHeight="48dp" android:layout_marginTop="12dp"
+        android:paddingStart="16dp" android:paddingEnd="16dp"
+        android:background="@drawable/cg_pill_white" android:stateListAnimator="@null"
+        android:text="@string/mw_add_address" android:textAllCaps="false"
+        android:textStyle="bold" android:textSize="15sp" android:textColor="@color/mw_black" />
+</LinearLayout>

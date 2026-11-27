@@ -1,0 +1,71 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Video sharpen regression test</title>
+<pre id="result">Running</pre>
+<script>
+// Serve this directory and ../shaders from the same origin. Test the actual filter
+// with five decoded RGB samples, before output dithering and HDMI conversion.
+async function run() {
+    const response = await fetch('../shaders/video_common.glsl');
+    if (!response.ok) throw new Error('Cannot load video_common.glsl');
+    const source = await response.text();
+    const filter = source.match(/^vec3 applyRcas\([\s\S]*?^}/m)[0];
+    const gl = document.createElement('canvas').getContext('webgl2', {antialias: false});
+    if (!gl) throw new Error('WebGL 2 unavailable');
+    gl.disable(gl.DITHER);
+    gl.viewport(0, 0, 1, 1);
+    const program = gl.createProgram();
+    function attach(type, body) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, '#version 300 es\nprecision highp float;\n' + body);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+        gl.attachShader(program, shader);
+    }
+    attach(gl.VERTEX_SHADER, 'void main(){gl_Position=vec4(0,0,0,1);gl_PointSize=1.0;}');
+    attach(gl.FRAGMENT_SHADER, filter + `
+        uniform vec3 p[5];
+        uniform float peak;
+        out vec4 color;
+        void main() { color = vec4(applyRcas(p[0], p[1], p[2], p[3], p[4], peak), 1); }`);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+    gl.useProgram(program);
+    const pixels = gl.getUniformLocation(program, 'p[0]');
+    const peak = gl.getUniformLocation(program, 'peak');
+    const gray = value => [value, value, value];
+    const lo = gray(64), hi = gray(192);
+    const cases = [
+        ['dark side', [lo, lo, lo, hi, lo]],
+        ['bright side', [hi, hi, lo, hi, hi]],
+        ['flat', Array(5).fill(gray(119))],
+        ['one-pixel dot', [hi, lo, lo, lo, lo]],
+        ['color edge', [[180,65,110],[180,65,110],[180,65,110],[75,190,135],[180,65,110]]],
+        ['soft transition', [170,170,96,182,170].map(gray)]
+    ];
+    const report = [];
+    let failures = 0;
+    for (const strength of [0, 0.13, 0.18]) {
+        for (const [name, values] of cases) {
+            gl.uniform3fv(pixels, values.flat().map(v => v / 255));
+            gl.uniform1f(peak, strength);
+            gl.drawArrays(gl.POINTS, 0, 1);
+            const rgba = new Uint8Array(4);
+            gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
+            if (gl.getError() !== gl.NO_ERROR || rgba[3] !== 255) throw new Error('Readback failed');
+            const rgb = Array.from(rgba.slice(0, 3));
+            let ok = rgb.every((v,c) => {
+                const channel = values.map(p => p[c]);
+                return v >= Math.min(...channel) && v <= Math.max(...channel) &&
+                        (strength > 0 || v === values[0][c]);
+            });
+            if (name === 'soft transition' && strength > 0) ok = ok && rgb[0] > values[0][0];
+            if (!ok) failures++;
+            report.push((ok ? 'PASS ' : 'FAIL ') + strength + ' ' + name + ' -> ' + rgb.join('/'));
+        }
+    }
+    return report.join('\n') + '\nFailures: ' + failures;
+}
+run().then(s => document.querySelector('#result').textContent = s)
+     .catch(e => document.querySelector('#result').textContent = 'ERROR ' + e);
+</script>

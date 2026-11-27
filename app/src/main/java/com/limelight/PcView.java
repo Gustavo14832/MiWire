@@ -59,7 +59,6 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 import android.widget.Toast;
 import android.widget.AdapterView.AdapterContextMenuInfo;
 
@@ -69,10 +68,12 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 public class PcView extends Activity implements AdapterFragmentCallbacks, QuickLaunchView.QuickLaunchCallback {
-    private RelativeLayout noPcFoundLayout;
+    private View noPcFoundLayout;
     private PcGridAdapter pcGridAdapter;
     private ShortcutHelper shortcutHelper;
-    private ComputerManagerService.ComputerManagerBinder managerBinder;
+    private boolean serviceBound;
+    private Thread bindingWorker;
+    private volatile ComputerManagerService.ComputerManagerBinder managerBinder;
     private boolean freezeUpdates, runningPolling, inForeground, completeOnCreateCalled;
     private int autoResumeNoGamePollCount = 0;
     private boolean hasShownRefreshRateToast = false;
@@ -85,13 +86,16 @@ public class PcView extends Activity implements AdapterFragmentCallbacks, QuickL
                     ((ComputerManagerService.ComputerManagerBinder)binder);
 
             // Wait in a separate thread to avoid stalling the UI
-            new Thread() {
+            if (bindingWorker != null) bindingWorker.interrupt();
+            bindingWorker = new Thread() {
                 @Override
                 public void run() {
                     // Wait for the binder to be ready
                     localBinder.waitForReady();
+                    if (isInterrupted()) return;
 
                     // Now make the binder visible
+                    if (isInterrupted()) return;
                     managerBinder = localBinder;
 
                     // Start updates
@@ -100,10 +104,12 @@ public class PcView extends Activity implements AdapterFragmentCallbacks, QuickL
                     // Force a keypair to be generated early to avoid discovery delays
                     new AndroidCryptoProvider(PcView.this).getClientCertificate();
                 }
-            }.start();
+            };
+            bindingWorker.start();
         }
 
         public void onServiceDisconnected(ComponentName className) {
+            if (bindingWorker != null) bindingWorker.interrupt();
             managerBinder = null;
         }
     };
@@ -154,6 +160,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks, QuickL
         ImageButton settingsButton = findViewById(R.id.settingsButton);
         ImageButton addComputerButton = findViewById(R.id.manuallyAddPc);
         ImageButton helpButton = findViewById(R.id.helpButton);
+        View.OnClickListener addByAddress = v ->
+                startActivity(new Intent(PcView.this, AddComputerManually.class));
+        findViewById(R.id.mwAddByAddress).setOnClickListener(addByAddress);
 
         settingsButton.setOnClickListener(new OnClickListener() {
             @Override
@@ -161,13 +170,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks, QuickL
                 startActivity(new Intent(PcView.this, StreamSettings.class));
             }
         });
-        addComputerButton.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent i = new Intent(PcView.this, AddComputerManually.class);
-                startActivity(i);
-            }
-        });
+        addComputerButton.setOnClickListener(addByAddress);
         helpButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -282,7 +285,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks, QuickL
         UiHelper.setLocale(this);
 
         // Bind to the computer manager service
-        bindService(new Intent(PcView.this, ComputerManagerService.class), serviceConnection,
+        serviceBound = bindService(new Intent(PcView.this, ComputerManagerService.class), serviceConnection,
                 Service.BIND_AUTO_CREATE);
 
         pcGridAdapter = new PcGridAdapter(this, PreferenceConfiguration.readPreferences(this));
@@ -355,7 +358,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks, QuickL
             overridesView.onDestroy();
         }
 
-        if (managerBinder != null) {
+        if (bindingWorker != null) bindingWorker.interrupt();
+        if (serviceBound) {
             unbindService(serviceConnection);
         }
     }
@@ -832,14 +836,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks, QuickL
 
         boolean uiChanged = false;
         if (existingEntry != null) {
-            ComputerDetails prev = existingEntry.details;
-            uiChanged = prev == null ||
-                    prev.state != details.state ||
-                    prev.pairState != details.pairState ||
-                    prev.runningGameId != details.runningGameId ||
-                    !java.util.Objects.equals(prev.name, details.name);
-            // Replace the information in the existing entry
-            existingEntry.details = details;
+            uiChanged = existingEntry.update(details);
         }
         else {
             // Add a new entry
@@ -935,12 +932,28 @@ public class PcView extends Activity implements AdapterFragmentCallbacks, QuickL
 
     public static class ComputerObject {
         public ComputerDetails details;
+        private ComputerDetails.State lastState;
+        private PairState lastPairState;
+        private int lastGame;
+        private String lastName;
 
         public ComputerObject(ComputerDetails details) {
             if (details == null) {
                 throw new IllegalArgumentException("details must not be null");
             }
-            this.details = details;
+            update(details);
+        }
+
+        boolean update(ComputerDetails latest) {
+            // Polling can mutate the same ComputerDetails instance already attached to this card.
+            boolean changed = lastState != latest.state || lastPairState != latest.pairState ||
+                    lastGame != latest.runningGameId || !java.util.Objects.equals(lastName, latest.name);
+            details = latest;
+            lastState = latest.state;
+            lastPairState = latest.pairState;
+            lastGame = latest.runningGameId;
+            lastName = latest.name;
+            return changed;
         }
 
         @Override

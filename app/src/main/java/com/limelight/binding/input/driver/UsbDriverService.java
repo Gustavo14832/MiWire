@@ -14,6 +14,7 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.view.InputDevice;
 import android.widget.Toast;
 
@@ -21,8 +22,9 @@ import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.preferences.PreferenceConfiguration;
 
-import java.io.File;
-import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class UsbDriverService extends Service implements UsbDriverListener {
 
@@ -36,9 +38,12 @@ public class UsbDriverService extends Service implements UsbDriverListener {
     private final UsbEventReceiver receiver = new UsbEventReceiver();
     private final UsbDriverBinder binder = new UsbDriverBinder();
 
-    private final ArrayList<AbstractController> controllers = new ArrayList<>();
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private final ExecutorService usbWorker = Executors.newSingleThreadExecutor(r -> new Thread(r, "USB controller setup"));
+    private final UsbControllerSessions controllers = new UsbControllerSessions(usbWorker);
+    private final HashSet<String> permissionRequests = new HashSet<>();
 
-    private UsbDriverListener listener;
+    private volatile UsbDriverListener listener;
     private UsbDriverStateListener stateListener;
     private int nextDeviceId;
 
@@ -46,27 +51,30 @@ public class UsbDriverService extends Service implements UsbDriverListener {
     public void reportControllerState(int controllerId, int buttonFlags, float leftStickX, float leftStickY,
                                       float rightStickX, float rightStickY, float leftTrigger, float rightTrigger) {
         // Call through to the client's listener
-        if (listener != null) {
-            listener.reportControllerState(controllerId, buttonFlags, leftStickX, leftStickY, rightStickX, rightStickY, leftTrigger, rightTrigger);
+        UsbDriverListener sink = listener;
+        if (sink != null) {
+            sink.reportControllerState(controllerId, buttonFlags, leftStickX, leftStickY, rightStickX, rightStickY, leftTrigger, rightTrigger);
         }
     }
 
     @Override
     public void deviceRemoved(AbstractController controller) {
         // Remove the the controller from our list (if not removed already)
-        controllers.remove(controller);
+        controllers.removed(controller);
 
         // Call through to the client's listener
-        if (listener != null) {
-            listener.deviceRemoved(controller);
+        UsbDriverListener sink = listener;
+        if (sink != null) {
+            sink.deviceRemoved(controller);
         }
     }
 
     @Override
     public void deviceAdded(AbstractController controller) {
         // Call through to the client's listener
-        if (listener != null) {
-            listener.deviceAdded(controller);
+        UsbDriverListener sink = listener;
+        if (sink != null) {
+            sink.deviceAdded(controller);
         }
     }
 
@@ -74,11 +82,11 @@ public class UsbDriverService extends Service implements UsbDriverListener {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
+            final UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+            if (!started || device == null) return;
 
             // Initial attachment broadcast
             if (action.equals(UsbManager.ACTION_USB_DEVICE_ATTACHED)) {
-                final UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-
                 // shouldClaimDevice() looks at the kernel's enumerated input
                 // devices to make its decision about whether to prompt to take
                 // control of the device. The kernel bringing up the input stack
@@ -86,22 +94,18 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                 // kernel is capable of running the device. Let's post a delayed
                 // message to process this state change to allow the kernel
                 // some time to bring up the stack.
-                new Handler().postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        // Continue the state machine
-                        handleUsbDeviceState(device);
-                    }
+                main.postDelayed(() -> {
+                    UsbDevice present = usbManager.getDeviceList().get(device.getDeviceName());
+                    if (present != null) handleUsbDeviceState(present);
                 }, 1000);
+            }
+            else if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
+                controllers.detach(device.getDeviceName());
+                finishPermission(device);
             }
             // Subsequent permission dialog completion intent
             else if (action.equals(ACTION_USB_PERMISSION)) {
-                UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-
-                // Permission dialog is now closed
-                if (stateListener != null) {
-                    stateListener.onUsbPermissionPromptCompleted();
-                }
+                if (!finishPermission(device)) return;
 
                 // If we got this far, we've already found we're able to handle this device
                 if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
@@ -117,7 +121,7 @@ public class UsbDriverService extends Service implements UsbDriverListener {
 
             // Report all controllerMap that already exist
             if (listener != null) {
-                for (AbstractController controller : controllers) {
+                for (AbstractController controller : controllers.active()) {
                     listener.deviceAdded(controller);
                 }
             }
@@ -136,11 +140,18 @@ public class UsbDriverService extends Service implements UsbDriverListener {
         }
     }
 
+    private boolean finishPermission(UsbDevice device) {
+        if (!permissionRequests.remove(device.getDeviceName())) return false;
+        if (stateListener != null) stateListener.onUsbPermissionPromptCompleted();
+        return true;
+    }
+
     private void handleUsbDeviceState(UsbDevice device) {
         // Are we able to operate it?
         if (shouldClaimDevice(device, prefConfig.bindAllUsb)) {
             // Do we have permission yet?
             if (!usbManager.hasPermission(device)) {
+                if (!permissionRequests.add(device.getDeviceName())) return;
                 // Let's ask for permission
                 try {
                     // Tell the state listener that we're about to display a permission dialog
@@ -168,45 +179,51 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                     usbManager.requestPermission(device, PendingIntent.getBroadcast(UsbDriverService.this, 0, i, intentFlags));
                 } catch (SecurityException e) {
                     Toast.makeText(this, this.getText(R.string.error_usb_prohibited), Toast.LENGTH_LONG).show();
-                    if (stateListener != null) {
-                        stateListener.onUsbPermissionPromptCompleted();
-                    }
+                    finishPermission(device);
                 }
                 return;
             }
 
-            // Open the device
-            UsbDeviceConnection connection = usbManager.openDevice(device);
-            if (connection == null) {
-                LimeLog.warning("Unable to open USB device: "+device.getDeviceName());
-                return;
-            }
+            controllers.attach(device.getDeviceName(), () -> openController(device));
+        }
+    }
 
+    private AbstractController openController(UsbDevice device) {
+        UsbDeviceConnection connection;
+        try {
+            connection = usbManager.openDevice(device);
+        } catch (SecurityException e) {
+            LimeLog.warning("USB permission was lost before open");
+            return null;
+        }
+        if (connection == null) {
+            LimeLog.warning("Unable to open USB device: "+device.getDeviceName());
+            return null;
+        }
 
-            AbstractController controller;
+        AbstractController controller;
 
-            if (XboxOneController.canClaimDevice(device)) {
-                controller = new XboxOneController(device, connection, nextDeviceId++, this);
-            }
-            else if (Xbox360Controller.canClaimDevice(device)) {
-                controller = new Xbox360Controller(device, connection, nextDeviceId++, this);
-            }
-            else if (Xbox360WirelessDongle.canClaimDevice(device)) {
-                controller = new Xbox360WirelessDongle(device, connection, nextDeviceId++, this);
-            }
-            else {
-                // Unreachable
-                return;
-            }
+        if (XboxOneController.canClaimDevice(device)) {
+            controller = new XboxOneController(device, connection, nextDeviceId++, this);
+        }
+        else if (Xbox360Controller.canClaimDevice(device)) {
+            controller = new Xbox360Controller(device, connection, nextDeviceId++, this);
+        }
+        else if (Xbox360WirelessDongle.canClaimDevice(device)) {
+            controller = new Xbox360WirelessDongle(device, connection, nextDeviceId++, this);
+        }
+        else {
+            connection.close();
+            return null;
+        }
 
-            // Start the controller
-            if (!controller.start()) {
-                connection.close();
-                return;
-            }
-
-            // Add this controller to the list
-            controllers.add(controller);
+        // Start the controller
+        boolean startedController = false;
+        try {
+            startedController = controller.start();
+            return startedController ? controller : null;
+        } finally {
+            if (!startedController) connection.close();
         }
     }
 
@@ -275,10 +292,14 @@ public class UsbDriverService extends Service implements UsbDriverListener {
     }
 
     public static boolean shouldClaimDevice(UsbDevice device, boolean claimAllAvailable) {
-        return ((!kernelSupportsXboxOne() || !isRecognizedInputDevice(device) || claimAllAvailable) && XboxOneController.canClaimDevice(device)) ||
-                ((!isRecognizedInputDevice(device) || claimAllAvailable) && Xbox360Controller.canClaimDevice(device)) ||
-                // We must not call isRecognizedInputDevice() because wireless controllers don't share the same product ID as the dongle
-                ((!kernelSupportsXbox360W() || claimAllAvailable) && Xbox360WirelessDongle.canClaimDevice(device));
+        if (XboxOneController.canClaimDevice(device)) {
+            return claimAllAvailable || !kernelSupportsXboxOne() || !isRecognizedInputDevice(device);
+        }
+        if (Xbox360Controller.canClaimDevice(device)) {
+            return claimAllAvailable || !isRecognizedInputDevice(device);
+        }
+        // Wireless controllers reported by the kernel can have a different product ID from their receiver.
+        return Xbox360WirelessDongle.canClaimDevice(device) && (claimAllAvailable || !kernelSupportsXbox360W());
     }
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
@@ -292,6 +313,7 @@ public class UsbDriverService extends Service implements UsbDriverListener {
         // Register for USB attach broadcasts and permission completions
         IntentFilter filter = new IntentFilter();
         filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         filter.addAction(ACTION_USB_PERMISSION);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED);
@@ -302,10 +324,7 @@ public class UsbDriverService extends Service implements UsbDriverListener {
 
         // Enumerate existing devices
         for (UsbDevice dev : usbManager.getDeviceList().values()) {
-            if (shouldClaimDevice(dev, prefConfig.bindAllUsb)) {
-                // Start the process of claiming this device
-                handleUsbDeviceState(dev);
-            }
+            handleUsbDeviceState(dev);
         }
     }
 
@@ -319,11 +338,12 @@ public class UsbDriverService extends Service implements UsbDriverListener {
         // Stop the attachment receiver
         unregisterReceiver(receiver);
 
-        // Stop all controllers
-        while (controllers.size() > 0) {
-            // Stop and remove the controller
-            controllers.remove(0).stop();
+        main.removeCallbacksAndMessages(null);
+        for (String ignored : permissionRequests) {
+            if (stateListener != null) stateListener.onUsbPermissionPromptCompleted();
         }
+        permissionRequests.clear();
+        controllers.stopAll();
     }
 
     @Override
@@ -335,6 +355,7 @@ public class UsbDriverService extends Service implements UsbDriverListener {
     @Override
     public void onDestroy() {
         stop();
+        usbWorker.shutdown();
 
         // Remove listeners
         listener = null;

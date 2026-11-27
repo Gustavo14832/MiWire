@@ -13,13 +13,14 @@ import com.limelight.nvstream.jni.MoonBridge;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class AbstractXboxController extends AbstractController {
     protected final UsbDevice device;
     protected final UsbDeviceConnection connection;
 
     private Thread inputThread;
-    private boolean stopped;
+    private final AtomicBoolean stopped = new AtomicBoolean();
 
     protected UsbEndpoint inEndpt, outEndpt;
 
@@ -52,62 +53,61 @@ public abstract class AbstractXboxController extends AbstractController {
                 }
 
                 // Report that we're added _before_ reporting input
+                if (stopped.get()) return;
                 notifyDeviceAdded();
 
-                while (!isInterrupted() && !stopped) {
-                    byte[] buffer = new byte[64];
-
-                    int res;
-
-                    //
-                    // There's no way that I can tell to determine if a device has failed
-                    // or if the timeout has simply expired. We'll check how long the transfer
-                    // took to fail and assume the device failed if it happened before the timeout
-                    // expired.
-                    //
-
-                    do {
-                        // Read the next input state packet
-                        long lastMillis = SystemClock.uptimeMillis();
-                        res = connection.bulkTransfer(inEndpt, buffer, buffer.length, 3000);
-
-                        // If we get a zero length response, treat it as an error
-                        if (res == 0) {
-                            res = -1;
-                        }
-
-                        if (res == -1 && SystemClock.uptimeMillis() - lastMillis < 1000) {
-                            LimeLog.warning("Detected device I/O error");
-                            AbstractXboxController.this.stop();
-                            break;
-                        }
-                    } while (res == -1 && !isInterrupted() && !stopped);
-
-                    if (res == -1 || stopped) {
-                        break;
-                    }
-
-                    if (handleRead(ByteBuffer.wrap(buffer, 0, res).order(ByteOrder.LITTLE_ENDIAN))) {
-                        // Report input if handleRead() returns true
-                        reportInput();
-                    }
-                }
+                readInput();
             }
         };
     }
 
-    public boolean start() {
-        // Force claim all interfaces
-        for (int i = 0; i < device.getInterfaceCount(); i++) {
-            UsbInterface iface = device.getInterface(i);
+    void readInput() {
+        byte[] buffer = new byte[64];
+        ByteBuffer packet = ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN);
+        while (!Thread.currentThread().isInterrupted() && !stopped.get()) {
 
-            if (!connection.claimInterface(iface, true)) {
-                LimeLog.warning("Failed to claim interfaces");
-                return false;
+            int res;
+
+            //
+            // There's no way that I can tell to determine if a device has failed
+            // or if the timeout has simply expired. We'll check how long the transfer
+            // took to fail and assume the device failed if it happened before the timeout
+            // expired.
+            //
+
+            do {
+                // Read the next input state packet
+                long lastMillis = SystemClock.uptimeMillis();
+                res = connection.bulkTransfer(inEndpt, buffer, buffer.length, 3000);
+
+                // If we get a zero length response, treat it as an error
+                if (res == 0) {
+                    res = -1;
+                }
+
+                if (res < 0 && SystemClock.uptimeMillis() - lastMillis < 1000) {
+                    LimeLog.warning("Detected device I/O error");
+                    stop();
+                    break;
+                }
+            } while (res < 0 && !Thread.currentThread().isInterrupted() && !stopped.get());
+
+            if (res < 0 || stopped.get()) {
+                break;
+            }
+
+            packet.clear();
+            packet.limit(res);
+            if (handleRead(packet)) {
+                // Report input if handleRead() returns true
+                reportInput();
             }
         }
+    }
 
-        // Find the endpoints
+    public boolean start() {
+        // The supported wired protocols use interface zero for commands and input.
+        // Other interfaces on a composite controller may belong to Android.
         UsbInterface iface = device.getInterface(0);
         for (int i = 0; i < iface.getEndpointCount(); i++) {
             UsbEndpoint endpt = iface.getEndpoint(i);
@@ -133,24 +133,26 @@ public abstract class AbstractXboxController extends AbstractController {
             return false;
         }
 
-        // Run the init function
-        if (!doInit()) {
+        if (!connection.claimInterface(iface, true)) {
+            LimeLog.warning("Failed to claim controller interface");
             return false;
         }
-
-        // Start listening for controller input
-        inputThread = createInputThread();
-        inputThread.start();
-
-        return true;
+        boolean running = false;
+        try {
+            if (!doInit()) return false;
+            inputThread = createInputThread();
+            inputThread.start();
+            running = true;
+            return true;
+        } finally {
+            if (!running) connection.releaseInterface(iface);
+        }
     }
 
     public void stop() {
-        if (stopped) {
+        if (!stopped.compareAndSet(false, true)) {
             return;
         }
-
-        stopped = true;
 
         // Cancel any rumble effects
         rumble((short)0, (short)0);
@@ -161,7 +163,8 @@ public abstract class AbstractXboxController extends AbstractController {
             inputThread = null;
         }
 
-        // Close the USB connection
+        // Android's release operation lets the kernel reattach its original driver.
+        connection.releaseInterface(device.getInterface(0));
         connection.close();
 
         // Report the device removed

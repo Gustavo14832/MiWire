@@ -50,11 +50,11 @@ public class OverlayMenuButton extends LinearLayout {
     private static final int DETAIL_LINES = 3;
 
     private static final int DARK = 0xFF0B0F14;
-    private static final int FROSTED = 0x1AFFFFFF;
-    private static final int FROSTED_PILL = 0x24FFFFFF;
-    private static final int RING = 0xFFC4B5FD;
+    private static final int FROSTED = 0xFF191A1B;
+    private static final int FROSTED_PILL = 0xFF222323;
+    private static final int RING = 0xFFFF963E;
     private static final int TOGGLE_OUTLINE = 0x40FFFFFF;
-    private static final int TOGGLE_ON_FILL = 0x598B5CF6;
+    private static final int TOGGLE_ON_FILL = 0xFF51301A;
 
     private ImageView iconView;
     private TextView labelView;
@@ -141,7 +141,7 @@ public class OverlayMenuButton extends LinearLayout {
             int padding = (int) (TILE_SIDE_PADDING_DP * density);
             setPadding(padding, (int) (12 * density), padding, (int) (10 * density));
             setMinimumHeight((int) (82 * density));
-            background.setCornerRadius(18 * density);
+            background.setCornerRadius(8 * density);
             ((LinearLayout.LayoutParams) iconView.getLayoutParams()).gravity = Gravity.CENTER_HORIZONTAL;
             labelParams.leftMargin = 0;
             labelParams.topMargin = iconView.getVisibility() == GONE ? 0 : (int) (8 * density);
@@ -155,7 +155,7 @@ public class OverlayMenuButton extends LinearLayout {
             int padding = (int) (18 * density);
             setPadding(padding, 0, padding, 0);
             setMinimumHeight((int) (52 * density));
-            background.setCornerRadius(999 * density);
+            background.setCornerRadius(8 * density);
             labelView.setTextSize(TypedValue.COMPLEX_UNIT_SP, style == STYLE_PRIMARY ? 16 : 15);
             labelView.setMaxLines(1);
         }
@@ -317,7 +317,7 @@ public class OverlayMenuButton extends LinearLayout {
 
         if (style == STYLE_PRIMARY) {
             // Always white; a teal ring shows when it is selected
-            background.setColor(0xFFFFFFFF);
+            background.setColor(RING);
             background.setStroke(isSelected ? strokeWidth : 0, RING);
             setContentColor(DARK);
         }
@@ -334,7 +334,7 @@ public class OverlayMenuButton extends LinearLayout {
         }
         else {
             background.setColor(style == STYLE_TILE ? FROSTED : FROSTED_PILL);
-            background.setStroke(0, 0);
+            background.setStroke(Math.max(1, strokeWidth / 3), 0xFF353636);
             setContentColor(0xFFFFFFFF);
         }
     }

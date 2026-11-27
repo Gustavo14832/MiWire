@@ -1,0 +1,8 @@
+<com.limelight.ui.CoverImageView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/heroCover"
+    android:layout_width="@dimen/cg_hero_cover_width"
+    android:layout_height="@dimen/cg_hero_cover_height"
+    android:background="@drawable/cg_cover"
+    android:elevation="0dp"
+    android:importantForAccessibility="no"
+    android:scaleType="fitXY" />

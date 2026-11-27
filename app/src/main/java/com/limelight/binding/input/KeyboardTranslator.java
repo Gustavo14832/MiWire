@@ -4,7 +4,10 @@ import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.hardware.input.InputManager;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.SparseArray;
+import android.util.SparseBooleanArray;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 
@@ -59,14 +62,12 @@ public class KeyboardTranslator implements InputManager.InputDeviceListener {
     public static final short VK_LWIN = 0x5b;
 
     private static class KeyboardMapping {
-        private final InputDevice device;
         private final int[] deviceKeyCodeToQwertyKeyCode;
 
         @TargetApi(33)
         public KeyboardMapping(InputDevice device) {
             int maxKeyCode = KeyEvent.getMaxKeyCode();
 
-            this.device = device;
             this.deviceKeyCodeToQwertyKeyCode = new int[maxKeyCode + 1];
 
             // Any unmatched keycodes are treated as unknown
@@ -74,19 +75,14 @@ public class KeyboardTranslator implements InputManager.InputDeviceListener {
 
             for (int i = 0; i <= maxKeyCode; i++) {
                 int deviceKeyCode = device.getKeyCodeForKeyLocation(i);
-                if (deviceKeyCode != KeyEvent.KEYCODE_UNKNOWN) {
+                if (deviceKeyCode > KeyEvent.KEYCODE_UNKNOWN && deviceKeyCode <= maxKeyCode) {
                     deviceKeyCodeToQwertyKeyCode[deviceKeyCode] = i;
                 }
             }
         }
 
-        @TargetApi(33)
-        public int getDeviceKeyCodeForQwertyKeyCode(int qwertyKeyCode) {
-            return device.getKeyCodeForKeyLocation(qwertyKeyCode);
-        }
-
         public int getQwertyKeyCodeForDeviceKeyCode(int deviceKeyCode) {
-            if (deviceKeyCode > KeyEvent.getMaxKeyCode()) {
+            if (deviceKeyCode < 0 || deviceKeyCode >= deviceKeyCodeToQwertyKeyCode.length) {
                 return KeyEvent.KEYCODE_UNKNOWN;
             }
 
@@ -95,12 +91,22 @@ public class KeyboardTranslator implements InputManager.InputDeviceListener {
     }
 
     private final SparseArray<KeyboardMapping> keyboardMappings = new SparseArray<>();
+    private final SparseBooleanArray pending = new SparseBooleanArray();
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private final Runnable refresh = this::refreshPending;
 
     // Remap a physical keyboard's keys to QWERTY, which is what the host expects
-    private boolean forceQwerty = true;
+    private boolean forceQwerty;
 
     public void setForceQwerty(boolean forceQwerty) {
+        if (this.forceQwerty == forceQwerty) return;
         this.forceQwerty = forceQwerty;
+        main.removeCallbacks(refresh);
+        pending.clear();
+        keyboardMappings.clear();
+        if (forceQwerty && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            for (int id : InputDevice.getDeviceIds()) rebuildMapping(id);
+        }
     }
 
     /** Whether a key from this device is remapped to QWERTY. */
@@ -143,19 +149,44 @@ public class KeyboardTranslator implements InputManager.InputDeviceListener {
     }
 
     public KeyboardTranslator() {
+        this(true);
+    }
+
+    public KeyboardTranslator(boolean forceQwerty) {
+        setForceQwerty(forceQwerty);
+    }
+
+    private void refreshPending() {
+        while (pending.size() != 0) {
+            int id = pending.keyAt(pending.size() - 1);
+            pending.delete(id);
+            rebuildMapping(id);
+        }
+    }
+
+    private void rebuildMapping(int id) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            for (int deviceId : InputDevice.getDeviceIds()) {
-                InputDevice device = InputDevice.getDevice(deviceId);
-                if (device != null && device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
-                    keyboardMappings.set(deviceId, new KeyboardMapping(device));
-                }
+            InputDevice device = InputDevice.getDevice(id);
+            if (device != null && device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
+                keyboardMappings.put(id, new KeyboardMapping(device));
+            } else {
+                keyboardMappings.remove(id);
             }
         }
     }
 
+    private KeyboardMapping mappingFor(int id) {
+        // A key event may precede the queued refresh after a layout change.
+        if (pending.get(id)) {
+            pending.delete(id);
+            rebuildMapping(id);
+        }
+        return keyboardMappings.get(id);
+    }
+
     public boolean hasNormalizedMapping(int keycode, int deviceId) {
         if (remapsToQwerty(forceQwerty, deviceId)) {
-            KeyboardMapping mapping = keyboardMappings.get(deviceId);
+            KeyboardMapping mapping = mappingFor(deviceId);
             if (mapping != null) {
                 // Try to map this device-specific keycode onto a QWERTY layout.
                 // GFE assumes incoming keycodes are from a QWERTY keyboard.
@@ -181,7 +212,7 @@ public class KeyboardTranslator implements InputManager.InputDeviceListener {
 
         // If a device ID was provided, look up the keyboard mapping
         if (remapsToQwerty(forceQwerty, deviceId)) {
-            KeyboardMapping mapping = keyboardMappings.get(deviceId);
+            KeyboardMapping mapping = mappingFor(deviceId);
             if (mapping != null) {
                 // Try to map this device-specific keycode onto a QWERTY layout.
                 // GFE assumes incoming keycodes are from a QWERTY keyboard.
@@ -421,28 +452,20 @@ public class KeyboardTranslator implements InputManager.InputDeviceListener {
 
     @Override
     public void onInputDeviceAdded(int index) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            InputDevice device = InputDevice.getDevice(index);
-            if (device != null && device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
-                keyboardMappings.put(index, new KeyboardMapping(device));
-            }
-        }
+        onInputDeviceChanged(index);
     }
 
     @Override
     public void onInputDeviceRemoved(int index) {
+        pending.delete(index);
         keyboardMappings.remove(index);
     }
 
     @Override
     public void onInputDeviceChanged(int index) {
-        keyboardMappings.remove(index);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            InputDevice device = InputDevice.getDevice(index);
-            if (device != null && device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
-                keyboardMappings.set(index, new KeyboardMapping(device));
-            }
+        if (forceQwerty && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (pending.size() == 0) main.post(refresh);
+            pending.put(index, true);
         }
     }
 }

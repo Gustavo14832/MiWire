@@ -11,6 +11,10 @@
     <TextView
         android:id="@+id/manuallyAddPcText"
         android:text="@string/title_add_pc"
+        android:drawableStart="@drawable/mw_mark"
+        android:drawablePadding="10dp"
+        android:gravity="center_vertical"
+        android:fontFamily="sans-serif-black"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:preferKeepClear="true"
@@ -46,6 +50,8 @@
         android:layout_alignParentRight="true"
         android:layout_alignParentEnd="true"
         android:preferKeepClear="true"
+        android:background="@drawable/cg_pill_white"
+        android:textColor="@color/mw_black"
         android:text="@android:string/ok"/>
 	
 </RelativeLayout>

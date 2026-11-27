@@ -29,6 +29,9 @@ uint32_t SunshineFeatureFlags;
 // Threads: nothing runs by itself. The test runs the input thread with sendQueuedInput().
 static ThreadEntry threadEntry;
 static void* threadContext;
+static uint64_t clockUs = 1000000;
+static int requestedSleepUs;
+static int nextMoveDelayUs = -1;
 int PltCreateThread(const char* name, ThreadEntry entry, void* context, PLT_THREAD* thread) {
     (void)name; (void)thread;
     threadEntry = entry;
@@ -48,10 +51,10 @@ void PltSetEvent(PLT_EVENT* event) { (void)event; }
 void PltClearEvent(PLT_EVENT* event) { (void)event; }
 void PltWaitForEvent(PLT_EVENT* event) { (void)event; }
 void PltSleepMs(int ms) { (void)ms; }
-void PltSleepUs(int us) { (void)us; }
+void PltSleepUs(int us) { requestedSleepUs += us; clockUs += us; }
 void PltSleepMsInterruptible(PLT_THREAD* thread, int ms) { (void)thread; (void)ms; }
 uint64_t PltGetMillis(void) { static uint64_t t = 1000; return t += 10; }
-uint64_t PltGetMicroseconds(void) { static uint64_t t = 1000000; return t += 10000; }
+uint64_t PltGetMicroseconds(void) { return clockUs; }
 
 // Queues: a plain list, since only one thread runs
 int LbqInitializeLinkedBlockingQueue(PLINKED_BLOCKING_QUEUE queue, int sizeBound) {
@@ -94,6 +97,12 @@ int LbqPollQueueElement(PLINKED_BLOCKING_QUEUE queue, void** data) {
 }
 // An empty queue stops a waiting thread, so the input thread returns once it has sent everything
 int LbqWaitForQueueElement(PLINKED_BLOCKING_QUEUE queue, void** data) {
+    // Feed the second report after the first has left, in the same sender invocation.
+    if (queue->head == NULL && nextMoveDelayUs >= 0) {
+        clockUs += nextMoveDelayUs;
+        nextMoveDelayUs = -1;
+        LiSendMouseMoveEvent(-2, 3);
+    }
     return LbqPollQueueElement(queue, data) == LBQ_SUCCESS ? LBQ_SUCCESS : LBQ_INTERRUPTED;
 }
 int LbqPeekQueueElement(PLINKED_BLOCKING_QUEUE queue, void** data) {
@@ -165,6 +174,8 @@ bool isReferenceFrameInvalidationEnabled(void) { return false; }
 static struct {
     unsigned char data[512];  // An encrypted control message is under 280 bytes (sendMessageEnet())
     size_t length;
+    uint32_t flags;
+    bool serviced;
 } sent[MAX_SENT];
 static int sentCount;
 static int unkept;
@@ -191,6 +202,8 @@ int enet_peer_send(ENetPeer* enetPeer, enet_uint8 channelID, ENetPacket* packet)
     if (sentCount < MAX_SENT && packet->dataLength <= sizeof(sent[0].data)) {
         memcpy(sent[sentCount].data, packet->data, packet->dataLength);
         sent[sentCount].length = packet->dataLength;
+        sent[sentCount].flags = packet->flags;
+        sent[sentCount].serviced = false;
     }
     else {
         if (sentCount < MAX_SENT) {
@@ -202,7 +215,11 @@ int enet_peer_send(ENetPeer* enetPeer, enet_uint8 channelID, ENetPacket* packet)
     enet_packet_destroy(packet);  // ENet owns a packet once it's been given one
     return 0;
 }
-int enet_host_service(ENetHost* host, ENetEvent* event, enet_uint32 timeout) { (void)host; (void)event; (void)timeout; return 0; }
+int enet_host_service(ENetHost* host, ENetEvent* event, enet_uint32 timeout) {
+    (void)host; (void)event; (void)timeout;
+    if (sentCount > 0 && sentCount <= MAX_SENT) sent[sentCount - 1].serviced = true;
+    return 0;
+}
 void enet_host_flush(ENetHost* host) { (void)host; }
 ENetHost* enet_host_create(int addressFamily, const ENetAddress* address, size_t peerCount, size_t channelLimit,
                            enet_uint32 incomingBandwidth, enet_uint32 outgoingBandwidth) {
@@ -281,6 +298,57 @@ static int countInput(uint32_t magic) {
 static ENetHost fakeHost;
 static ENetPeer fakePeer;
 
+static bool relativePacketIs(int i, short dx, short dy) {
+    if (controlType(i) != (unsigned short)packetTypes[IDX_INPUT_DATA] ||
+            controlPayloadLength(i) != sizeof(NV_REL_MOUSE_MOVE_PACKET)) return false;
+    const unsigned char* p = controlPayload(i);
+    return read32le(p + 4) == MOUSE_MOVE_REL_MAGIC_GEN5 &&
+           ((p[8] << 8) | p[9]) == (uint16_t)dx &&
+           ((p[10] << 8) | p[11]) == (uint16_t)dy &&
+           (sent[i].flags & ENET_PACKET_FLAG_RELIABLE) != 0;
+}
+
+static void checkRelativeMouseDispatch(void) {
+    const int gapsUs[] = {100, 250, 500, 999, 1000, 2000, 8000};
+    for (unsigned i = 0; i < sizeof(gapsUs) / sizeof(gapsUs[0]); i++) {
+        sentCount = 0;
+        requestedSleepUs = 0;
+        nextMoveDelayUs = gapsUs[i];
+        LiSendMouseMoveEvent(4, -1);
+        threadEntry(threadContext);
+        printf("  report gap %d us, sender requested %d us of sleep\n", gapsUs[i], requestedSleepUs);
+        check(requestedSleepUs == 0 && sentCount == 2 &&
+              relativePacketIs(0, 4, -1) && relativePacketIs(1, -2, 3) &&
+              sent[0].serviced && sent[1].serviced, "both reports dispatched without a batching sleep");
+    }
+
+    sentCount = 0;
+    LiSendMouseMoveEvent(4, -1);
+    LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, BUTTON_LEFT);
+    LiSendMouseMoveEvent(-2, 3);
+    LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_LEFT);
+    threadEntry(threadContext);
+    check(sentCount == 4 && relativePacketIs(0, 4, -1) && relativePacketIs(2, -2, 3) &&
+          controlPayloadLength(1) == sizeof(NV_MOUSE_BUTTON_PACKET) &&
+          read32le(controlPayload(1) + 4) == MOUSE_BUTTON_DOWN_EVENT_MAGIC_GEN5 &&
+          controlPayloadLength(3) == sizeof(NV_MOUSE_BUTTON_PACKET) &&
+          read32le(controlPayload(3) + 4) == MOUSE_BUTTON_UP_EVENT_MAGIC_GEN5 &&
+          sent[1].serviced && sent[3].serviced, "movement, press, movement, release in order with prompt clicks");
+
+    sentCount = 0;
+    LiSendMouseMoveEvent(30000, -30000);
+    LiSendMouseMoveEvent(10000, -10000);
+    threadEntry(threadContext);
+    check(sentCount == 2 && relativePacketIs(0, 32767, -32768) && relativePacketIs(1, 7233, -7232) &&
+          sent[1].serviced, "large queued displacement arrives exactly, split into signed 16-bit packets");
+
+    sentCount = 0;
+    LiSendMouseMoveEvent(5, -7);
+    LiSendMouseMoveEvent(-5, 7);
+    threadEntry(threadContext);
+    check(sentCount == 0, "opposite queued movements cancel without an empty packet");
+}
+
 // Starts the control and input streams the way LiStartConnection() does, for a host that reports
 // this appversion, and sends what the input stream queued as it started
 static void startStream(int a, int b, int c, int d) {
@@ -330,6 +398,7 @@ int main(void) {
           controlPayload(0)[8] == 0x00 && controlPayload(0)[9] == 0x07 &&
           controlPayload(0)[10] == 0x00 && controlPayload(0)[11] == 0x01,
           "summed deltaX=7 and deltaY=1 in big endian");
+    checkRelativeMouseDispatch();
 
     // Sunshine, Apollo and Vibepollo handle a periodic ping (0x0200) by doing nothing, logging it
     // only at their most detailed level. A type they don't map is logged at debug level with a

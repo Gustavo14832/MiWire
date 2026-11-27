@@ -37,7 +37,9 @@ vec3 applyRcas(vec3 e, vec3 b, vec3 d, vec3 f, vec3 h, float peak) {
     float noiseGate = smoothstep(0.008, 0.03, contrast);
 
     float w = -min(peak, maxAmp) * noiseGate;
-    return clamp((ec + w * (bc + dc + fc + hc)) / (1.0 + 4.0 * w), 0.0, 1.0);
+    // Keep the sharpened value within the local channel extrema. An isolated edge
+    // should not acquire a brighter or darker outline than either side.
+    return clamp((ec + w * (bc + dc + fc + hc)) / (1.0 + 4.0 * w), mn, mx);
 }
 
 // Interleaved gradient noise (Jimenez 2014). Its energy sits at high spatial frequencies

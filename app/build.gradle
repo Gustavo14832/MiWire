@@ -13,6 +13,8 @@ try {
 catch (Exception ignored) {
 }
 
+def boxLocal = providers.gradleProperty('miwireBoxLocal').orNull == 'true'
+
 android {
     ndkVersion "29.0.14206865"
 
@@ -25,8 +27,11 @@ android {
         targetSdk 36
 
         // MiWire version. Carries on above v0.3.0 (321) so all com.miwire builds upgrade cleanly in place.
-        versionName "0.3.0"
-        versionCode = 322
+        versionName "0.4.0"
+        versionCode = 326
+        if (boxLocal) {
+            ndk.abiFilters.add('armeabi-v7a')
+        }
         buildConfigField "String", "GIT_COMMIT", "\"${gitCommit}\""
 
         // Generate native debug symbols to allow Google Play to symbolicate our native crashes
@@ -227,7 +232,11 @@ android {
             //
             // MiWire: honoured by giving the nonRoot flavor its own
             // applicationId (com.miwire), so no suffix is needed here.
-            resValue "string", "app_label", "MiWire"
+            if (boxLocal) {
+                applicationIdSuffix ".local"
+                versionNameSuffix "-box"
+            }
+            resValue "string", "app_label", boxLocal ? "MiWire Box" : "MiWire"
             resValue "string", "app_label_root", "MiWire (Root)"
 
             if (signingConfigs.release.storeFile != null) {

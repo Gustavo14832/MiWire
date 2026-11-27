@@ -1,30 +1,13 @@
-<!-- Cover Glow home: the selected game's cover, title, settings and Play button up top, the PC's
-     other games below. AppView tints the background and glow with the selected cover's colour. -->
+<!-- MiWire library. The selected cover supplies the accent for the short rule above the hero. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/appRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FF0D0F12"
+    android:background="@color/mw_black"
     android:clipChildren="false"
     tools:context=".AppView"
     tools:ignore="Overdraw" >
-
-    <View
-        android:id="@+id/coverGlow"
-        android:layout_width="720dp"
-        android:layout_height="720dp"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="-300dp"
-        android:layout_marginEnd="-200dp"
-        android:alpha="0.45"
-        android:background="@drawable/cg_glow"
-        android:importantForAccessibility="no" />
-
-    <!-- Stars and nebula over the glow -->
-    <com.limelight.ui.StarfieldView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
 
     <!-- The games fill this; the header sits over their top and scrolls away with them
          (CollapsingHeader), and the slim bar takes over once Play has scrolled off -->
@@ -78,138 +61,19 @@
                     android:includeFontPadding="false"
                     android:letterSpacing="-0.01"
                     android:text="@string/cg_wordmark"
-                    android:textColor="#FFFFFFFF"
+                    android:textColor="@color/mw_amber"
                     android:textSize="@dimen/cg_wordmark_size" />
             </com.limelight.ui.WordmarkRow>
 
-            <LinearLayout
-                android:id="@+id/heroSection"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/cg_hero_top_margin"
-                android:gravity="bottom"
-                android:orientation="horizontal">
+            <View
+                android:id="@+id/coverGlow"
+                android:layout_width="52dp"
+                android:layout_height="3dp"
+                android:layout_marginTop="4dp"
+                android:background="@color/mw_amber"
+                android:importantForAccessibility="no" />
 
-                <com.limelight.ui.CoverImageView
-                    android:id="@+id/heroCover"
-                    android:layout_width="@dimen/cg_hero_cover_width"
-                    android:layout_height="@dimen/cg_hero_cover_height"
-                    android:background="@drawable/cg_cover"
-                    android:clipToOutline="true"
-                    android:elevation="16dp"
-                    android:importantForAccessibility="no"
-                    android:scaleType="fitXY" />
-
-                <TextView
-                    android:id="@+id/heroLoaderText"
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    android:importantForAccessibility="no" />
-
-                <!-- The label, the title, then the chips over the buttons; on wide, short
-                     screens the chips sit beside the buttons instead (cover_glow_dimens.xml) -->
-                <RelativeLayout
-                    android:id="@+id/heroDetails"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="@dimen/cg_hero_gap"
-                    android:layout_weight="1">
-
-                    <TextView
-                        android:id="@+id/heroLabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textColor="#FFE2E8F0"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-
-                    <!-- A set number of title lines and a minimum chip-row height keep the header
-                         one height whichever game is picked, so the covers under it don't shift -->
-                    <TextView
-                        android:id="@+id/heroTitle"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_below="@id/heroLabel"
-                        android:layout_marginTop="@dimen/cg_hero_title_margin_top"
-                        android:ellipsize="end"
-                        android:fontFamily="sans-serif-black"
-                        android:gravity="bottom"
-                        android:lines="@integer/cg_hero_title_lines"
-                        android:textColor="#FFFFFFFF"
-                        android:textSize="@dimen/cg_hero_title_size" />
-
-                    <!-- Chips that don't fit whole are left out rather than squeezed -->
-                    <com.limelight.ui.ChipRow
-                        android:id="@+id/heroChips"
-                        style="@style/CgHeroChipsPlace"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minHeight="34dp" />
-
-                    <!-- Side by side, or stacked on narrow screens (cover_glow_dimens.xml) -->
-                    <LinearLayout
-                        android:id="@+id/heroButtons"
-                        style="@style/CgHeroButtons"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content">
-
-                        <!-- Quit sits beside Play/Resume, so showing it never changes the
-                             header's height (CollapsingHeader relies on that) -->
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal">
-
-                            <Button
-                                android:id="@+id/heroPlay"
-                                android:layout_width="wrap_content"
-                                android:layout_height="@dimen/cg_hero_button_height"
-                                android:background="@drawable/cg_pill_white"
-                                android:drawableStart="@drawable/cg_ic_play"
-                                android:drawablePadding="10dp"
-                                android:paddingStart="26dp"
-                                android:paddingEnd="30dp"
-                                android:stateListAnimator="@null"
-                                android:text="@string/cg_play"
-                                android:textAllCaps="false"
-                                android:textColor="#FF0B0F14"
-                                android:textSize="18sp"
-                                android:textStyle="bold" />
-
-                            <Button
-                                android:id="@+id/heroQuit"
-                                android:layout_width="wrap_content"
-                                android:layout_height="@dimen/cg_hero_button_height"
-                                android:layout_marginStart="10dp"
-                                android:background="@drawable/cg_pill_frosted"
-                                android:drawableStart="@drawable/ic_overlay_stop"
-                                android:drawablePadding="8dp"
-                                android:paddingStart="20dp"
-                                android:paddingEnd="24dp"
-                                android:stateListAnimator="@null"
-                                android:text="@string/cg_quit"
-                                android:textAllCaps="false"
-                                android:textColor="#FFFFFFFF"
-                                android:textSize="16sp"
-                                android:visibility="gone" />
-                        </LinearLayout>
-
-                        <Button
-                            android:id="@+id/heroSettings"
-                            style="@style/CgHeroSettingsButton"
-                            android:layout_width="wrap_content"
-                            android:layout_height="@dimen/cg_hero_button_height"
-                            android:background="@drawable/cg_pill_frosted"
-                            android:paddingStart="24dp"
-                            android:paddingEnd="24dp"
-                            android:stateListAnimator="@null"
-                            android:text="@string/cg_game_settings"
-                            android:textAllCaps="false"
-                            android:textColor="#FFFFFFFF"
-                            android:textSize="16sp" />
-                    </LinearLayout>
-                </RelativeLayout>
-            </LinearLayout>
+            <include layout="@layout/mw_library_hero" />
 
             <TextView
                 android:id="@+id/coverRowLabel"

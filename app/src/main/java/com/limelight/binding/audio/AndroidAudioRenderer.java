@@ -33,6 +33,13 @@ public class AndroidAudioRenderer implements AudioRenderer {
     private AudioTrack track;
     private boolean floatPcmActive;
     private boolean audioThreadPriorityElevated;
+    private volatile boolean stopping;
+    private boolean writeFailureReported;
+    private boolean backlogReported;
+    private final PcmWriter<short[]> shortWriter = (data, offset, count) ->
+            stopping ? 0 : track.write(data, offset, count);
+    private final PcmWriter<float[]> floatWriter = (data, offset, count) ->
+            stopping ? 0 : track.write(data, offset, count, AudioTrack.WRITE_BLOCKING);
 
     // Optional: turns the bass in the audio into vibration
     private final AudioHaptics haptics;
@@ -124,9 +131,8 @@ public class AndroidAudioRenderer implements AudioRenderer {
         }
         int safePacketFrames = Math.max(1, packetFrames);
         int burstFrames = halFramesPerBurst > 0 ? halFramesPerBurst : Math.max(240, safePacketFrames);
-        int minSafeFrames = Math.max(safePacketFrames, burstFrames);
-        int desiredFrames = Math.max(safePacketFrames * 2, burstFrames * 2);
-        return Math.max(minSafeFrames, Math.min(desiredFrames, capacityFrames));
+        long desiredFrames = 2L * Math.max(safePacketFrames, burstFrames);
+        return (int) Math.min(desiredFrames, capacityFrames);
     }
 
     public static boolean isBluetoothAudioDeviceType(int sdkInt, int deviceType) {
@@ -335,7 +341,11 @@ public class AndroidAudioRenderer implements AudioRenderer {
                     halFramesPerBurst, packetFrames, capacityFrames, true, bluetooth);
             if (targetFrames > 0) {
                 int appliedFrames = audioTrack.setBufferSizeInFrames(targetFrames);
-                LimeLog.info("AudioTrack FastMixer buffer trimmed: target=" + targetFrames +
+                if (appliedFrames < 0) {
+                    LimeLog.warning("AudioTrack rejected buffer size " + targetFrames + ": " + appliedFrames);
+                    return;
+                }
+                LimeLog.info("AudioTrack buffer size: target=" + targetFrames +
                         " applied=" + appliedFrames + " capacity=" + capacityFrames +
                         " halBurst=" + halFramesPerBurst);
             } else {
@@ -474,15 +484,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
             haptics.process(audioData);
         }
 
-        // Only queue up to the configured cap of pending audio data in addition to what AudioTrack buffers.
-        if (MoonBridge.getPendingAudioDuration() < maxPendingAudioMs) {
-            // This will block until the write is completed. That can cause a backlog
-            // of pending audio data, so we do the above check to bound latency.
-            track.write(audioData, 0, audioData.length);
-        }
-        else {
-            LimeLog.info("Too much pending audio data: " + MoonBridge.getPendingAudioDuration() +" ms");
-        }
+        writePacket(audioData, audioData.length, shortWriter);
     }
 
     @Override
@@ -492,16 +494,34 @@ public class AndroidAudioRenderer implements AudioRenderer {
             haptics.process(audioData);
         }
 
-        if (MoonBridge.getPendingAudioDuration() < maxPendingAudioMs) {
-            track.write(audioData, 0, audioData.length, AudioTrack.WRITE_BLOCKING);
+        writePacket(audioData, audioData.length, floatWriter);
+    }
+
+    private <T> void writePacket(T data, int count, PcmWriter<T> writer) {
+        if (stopping || count == 0) {
+            return;
         }
-        else {
-            LimeLog.info("Too much pending audio data: " + MoonBridge.getPendingAudioDuration() + " ms");
+        int pendingMs = MoonBridge.getPendingAudioDuration();
+        if (pendingMs >= maxPendingAudioMs) {
+            if (!backlogReported) {
+                LimeLog.info("Too much pending audio data: " + pendingMs + " ms");
+                backlogReported = true;
+            }
+            return;
         }
+        backlogReported = false;
+        int result = writer.writeAll(data, count);
+        if (result <= 0 && !stopping && !writeFailureReported) {
+            LimeLog.warning("AudioTrack write stopped with result " + result);
+        }
+        writeFailureReported = result <= 0;
     }
 
     @Override
     public void start() {
+        stopping = false;
+        writeFailureReported = false;
+        backlogReported = false;
         audioThreadPriorityElevated = false;
         if (haptics != null) {
             haptics.start();
@@ -519,6 +539,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
 
     @Override
     public void stop() {
+        stopping = true;
         if (haptics != null) {
             haptics.stop();
         }
@@ -534,6 +555,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
 
     @Override
     public void cleanup() {
+        stopping = true;
         if (haptics != null) {
             haptics.stop();
         }

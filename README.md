@@ -13,10 +13,10 @@
 [![Target: Mi Box S Gen 3](https://img.shields.io/badge/Target-Mi%20Box%20S%20Gen%203-FF6700?style=flat-square)](https://github.com/Gustavo14832/MiWire/releases/latest)
 [![Package: com.miwire](https://img.shields.io/badge/package-com.miwire-blue?style=flat-square)](https://github.com/Gustavo14832/MiWire/releases/latest)
 
-### [⬇ Baixar Backup Estável v0.3.0 (GitHub Releases)](https://github.com/Gustavo14832/MiWire/releases/latest) · [📦 APK Backup no Repositório](release/MiWire.apk)
+### [Baixar MiWire 0.4.0](https://github.com/Gustavo14832/MiWire/releases/tag/v0.4.0) · [Backup v320](https://github.com/Gustavo14832/MiWire/releases/tag/v0.3.0-miware)
 
 **Versão Estável (Backup):** `0.3.0` (`v0.3.0-miware` · `com.miware`) | **SHA-256:** `572CEBCEB5D47D410091CDBF2088762E2AE523C93A3D7DE0D5D42F7F1CF975FF`  
-**Próximas compilações (`main` / CI):** pacote definitivo **`com.miwire`** com assinatura persistente (atualizáveis por cima sem desinstalar).
+**Atualização da Box:** o APK MiWire Box ARMv7a atualiza a v325 local. O APK MiWire universal atualiza a edição oficial com pacote com.miwire.
 
 </div>
 
@@ -42,14 +42,13 @@ Ele nasceu com um propósito específico: transformar a **Xiaomi Mi Box S Gen 3*
 
 ## 🚀 Recursos Exclusivos do MiWire (Otimizações Mi Box S Gen 3)
 
-### 1. 👻 Ghost Overlay (Modo Fantasma de Composição 60 Hz Contínua) + Keep-Alive
-* **O Problema Resolvido:** No SoC Amlogic da Mi Box, quando nenhum elemento de UI é desenhado na tela, o *Hardware Composer* ativa um modo de economia agressivo (*Bypass*) e o governador de CPU reduz o clock, quebrando a sincronia com o relógio do Vulkan e causando **83+ pulos de quadro (skips)** por sessão.
-* **A Solução do MiWire:** Quando as estatísticas estão ocultas na TV, o MiWire ativa o **Ghost Overlay** (sobreposição invisível com alfa `0x01000000`, equivalente a ~0,39% de opacidade) aliado a um pulso periódico de 1 Hz (`uiKeepAliveView`). Isso mantém o *SurfaceFlinger* em composição contínua a 60.00 Hz sem obstruir a imagem do jogo.
+### 1. 👻 Ghost Overlay na TV
+* Com as estatísticas ocultas, o aplicativo solicita uma atualização discreta da interface a cada segundo durante a sessão. O efeito sobre os intervalos de apresentação depende do compositor e da saída HDMI. A seção 12 do histórico descreve como comparar o comportamento na Box.
 
 ### 2. ⏱️ Frame Pacing `mibox-60hz` & Renderizador Vulkan Avançado
-* **Pacing dedicado (`FRAME_PACING_MIBOX_60HZ`):** Sincronização *phase-locked* em 60 Hz com alvo de **1 vsync/frame**, janela de jitter de 2,5 s (99% de cobertura), decaimento rápido após pausas estáticas e limite de buffer reduzido para **7 ms**.
+* **Pacing dedicado (`FRAME_PACING_MIBOX_60HZ`).** O perfil usa um ciclo de tela por quadro e permite até 10 ms de retenção adicional para absorver variações de chegada. Com a extensão de temporização Vulkan, o escalonador ajusta a antecedência a partir dos horários informados pelo driver.
 * **Nitidez Vulkan RCAS + 10-bit SDR:** Filtro AMD FidelityFX Contrast-Adaptive Sharpening (`Off`, `Balanced`, `Crisp`) via shader GLSL/SPIR-V com gate de ruído, reconstrução explícita de croma e *Spatial Dithering* em swapchain 10-bit SDR.
-* **Telemetria `p50/p95/p99`:** Estatísticas em tempo real de intervalos de apresentação no overlay (filtrando pausas ociosas do host).
+* **Telemetria de apresentação.** No perfil MiBox com a extensão de temporização Vulkan, o painel detalhado mostra p50/p95/p99 e 1% low calculados sobre intervalos entre apresentações informadas pelo driver, incluindo pausas. Os intervalos longos dos últimos 60 segundos ajudam a localizar engasgos raros.
 
 ### 3. 🎯 Calibração Automática Out-of-the-Box para Android TV
 Na primeira execução em dispositivos Android TV / Amlogic (`isTvOrAmlogicDevice`), o MiWire configura automaticamente:
@@ -59,10 +58,11 @@ Na primeira execução em dispositivos Android TV / Amlogic (`isTvOrAmlogicDevic
 * **Casca e Menus Leves (fora do streaming):** reciclagem com `ViewHolder`, cache leve de preferências por jogo, seleção via D-pad sem recarregar toda a grade, decodificação escalonada de capas e limpeza imediata de executores ao sair das telas.
 * **Interface & Controles na TV:** Tema visual *Xiaomi Gaming* (carbono escuro `#0D0F12` com destaque laranja `#FF6700`), abertura de menu por `LB+RB`, botão *Back* como tecla Meta (`Win`), deadzone analógica mínima de `3%` (e gatilhos a `2%`), desativação de controles por toque, botão flutuante e sensores de movimento.
 
-### 4. 🖱️ Mouse Anti-Coasting (1000 Hz) & Periféricos
+### 4. 🖱️ Mouse e periféricos
 * **Acumulador Sub-pixel:** Deltas fracionários de mouse relativos são acumulados em vez de descartados, eliminando travamentos no início de movimentos lentos de câmera.
-* **Engine C (`moonlight-common-c`) Tunada:** Coalescência de mouse a 1 ms (`1000 Hz`) com envio imediato de cliques/teclas urgentes, drenagem de pacotes UDP em rajada via `recvmmsg`, marcação QoS DSCP (EF áudio / CS4 vídeo) e `PR_SET_TIMERSLACK = 1 ns`.
-* **Controles e Teclado:** Deduplicação de pacotes repetidos de controle (com heartbeat de 1 s), calibração de centro de analógico (`StickCenterStore`), serviço de acessibilidade para teclado físico (Alt+Tab, Win), suporte a teclas extras **ABNT2/ISO** e correção de `Print Screen`.
+* **Movimento relativo:** o cliente envia o deslocamento disponível assim que a fila permite. Só soma movimentos consecutivos ainda na fila, preservando a posição de cada clique. A frequência de entrada depende do mouse e do Android.
+* **Rede:** drenagem de pacotes UDP em rajada via `recvmmsg`, marcação QoS DSCP (EF áudio / CS4 vídeo) e `PR_SET_TIMERSLACK = 1 ns`.
+* **Controles e Teclado:** Deduplicação de pacotes repetidos de controle (com heartbeat de 1 s), leitura dos deslocamentos de centro de analógico já salvos, serviço de acessibilidade para teclado físico (Alt+Tab, Win), suporte a teclas extras **ABNT2/ISO** e correção de `Print Screen`.
 
 ---
 
@@ -80,10 +80,10 @@ Além das otimizações exclusivas para Mi Box S Gen 3, o MiWire preserva os rec
 
 ## 📥 Como Instalar e Usar na Mi Box S Gen 3
 
-1. Baixe o **`MiWire.apk`** na página de [Releases do GitHub](https://github.com/Gustavo14832/MiWire/releases/latest) (ou diretamente em [`release/MiWire.apk`](release/MiWire.apk)).
-2. Verifique a integridade (opcional): SHA-256 `572CEBCEB5D47D410091CDBF2088762E2AE523C93A3D7DE0D5D42F7F1CF975FF`.
+1. Na [release](https://github.com/Gustavo14832/MiWire/releases/tag/v0.4.0), escolha **MiWire-Box-v326-armeabi-v7a.apk** para atualizar o MiWire Box v325 ou **MiWire-0.4.0.apk** para atualizar o MiWire oficial.
+2. Confira o SHA-256 indicado ao lado do arquivo no GitHub.
 3. Transfira o APK para a Mi Box via pendrive ou *Send Files to TV* e instale usando um gerenciador de arquivos (como *X-plore* ou *AnExplorer*).
-4. Abra o **MiWire**, pareie com seu PC (**Sunshine**, **Vibepollo** ou **Apollo**) e jogue com 60 Hz cravados.
+4. Abra o **MiWire**, pareie com seu PC (**Sunshine**, **Vibepollo** ou **Apollo**) e selecione o perfil Mi Box 1080p60.
 5. *(Opcional)* Para usar microfone ou passthrough USB com um PC Windows, confira os scripts e instruções na pasta [`windows/`](windows/README.md).
 
 ---

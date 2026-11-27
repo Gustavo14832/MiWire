@@ -471,7 +471,7 @@ int main(int argc, char** argv) {
             }
             if (presentAhead) {
                 while (!queue.empty()) {
-                    const int64_t showVsync = pacer.plannedVsyncNs(queue.front());
+                    const int64_t showVsync = pacer.plannedVsyncNs(queue.front(), timing.arrivalNs);
                     if (showVsync == 0) break;
                     pacer.onPresentedAhead(showVsync);
                     aheadSlack.push_back(showVsync - timing.arrivalNs);
@@ -543,7 +543,9 @@ int main(int argc, char** argv) {
             if (timings.size() > FramePacer::kMaxQueuedFrames) {
                 timings.resize(FramePacer::kMaxQueuedFrames);
             }
-            const int choice = pacer.onVsync(vsyncNs, timings.data(), timings.size());
+            const int64_t dispatchNs = f.size() >= 16 ? toInt(f[15]) :
+                    vsyncNs + (f.size() >= 14 ? std::max<int64_t>(0, toInt(f[12])) : 0);
+            const int choice = pacer.onVsync(vsyncNs, timings.data(), timings.size(), dispatchNs);
             if (explain) {
                 if (explainFirstNs == 0) explainFirstNs = vsyncNs;
                 // Each waiting frame as arrival and due time relative to this vsync, in ms
@@ -585,7 +587,7 @@ int main(int argc, char** argv) {
                              (pacer.timeline().bufferNs() + pacer.scheduleDelayNs()) / 1e6);
             if (presentAhead) {
                 while (!queue.empty()) {
-                    const int64_t showVsync = pacer.plannedVsyncNs(queue.front());
+                    const int64_t showVsync = pacer.plannedVsyncNs(queue.front(), dispatchNs);
                     if (showVsync == 0) break;
                     pacer.onPresentedAhead(showVsync);
                     aheadSlack.push_back(showVsync - vsyncNs);

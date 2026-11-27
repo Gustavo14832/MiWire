@@ -80,7 +80,6 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Matrix;
 import android.graphics.Point;
-import android.graphics.drawable.GradientDrawable;
 import android.graphics.Rect;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
@@ -202,6 +201,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private InputCaptureProvider inputCaptureProvider;
     private final SubpixelMouseAccumulator mouseDeltaAccumulator = new SubpixelMouseAccumulator();
+    private final MouseDispatchStats mouseDispatchStats = new MouseDispatchStats();
     private int modifierFlags = 0;
     // The keyboard keys the PC has been told are down, with the flags they went with, so opening
     // the menu can let go of them
@@ -359,7 +359,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private WifiManager.WifiLock highPerfWifiLock;
     private WifiManager.WifiLock lowLatencyWifiLock;
-    private ConnectivityManager.NetworkCallback wifiLockNetworkCallback;
+    private StreamNetworkCallback wifiLockNetworkCallback;
+    private String defaultNetworkDescription;
 
     public static boolean isWiredEthernetOnly(boolean hasEthernet, boolean hasWifi) {
         return hasEthernet && !hasWifi;
@@ -511,13 +512,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void updateWifiLocksForCapabilities(NetworkCapabilities netCaps) {
-        boolean wiredEthernetOnly = netCaps != null && isWiredEthernetOnly(
-                netCaps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET),
-                netCaps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI));
-        if (wiredEthernetOnly) {
-            releaseWifiLocks();
-        } else {
+        defaultNetworkDescription = getString(R.string.perf_overlay_default_network,
+                StreamNetworkStatus.describe(this, netCaps));
+        if (StreamNetworkStatus.wantsWifiLock(netCaps)) {
             acquireWifiLocks();
+        } else {
+            releaseWifiLocks();
         }
     }
 
@@ -534,20 +534,20 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
-    private boolean connectedToUsbDriverService = false;
+    private boolean boundToUsbDriverService;
     private ServiceConnection usbDriverServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+            if (!boundToUsbDriverService) return;
             UsbDriverService.UsbDriverBinder binder = (UsbDriverService.UsbDriverBinder) iBinder;
             binder.setListener(controllerHandler);
             binder.setStateListener(Game.this);
             binder.start();
-            connectedToUsbDriverService = true;
         }
 
         @Override
         public void onServiceDisconnected(ComponentName componentName) {
-            connectedToUsbDriverService = false;
+            // The binding remains registered while Android reconnects the service.
         }
     };
 
@@ -769,39 +769,26 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             displayTransientMessage(getResources().getString(R.string.conn_metered));
         }
 
-        // Only wake/lock the Wi-Fi radio when Wi-Fi is actually in use. Keeping Wi-Fi locked
-        // high-power on a wired Ethernet TV box creates unnecessary 2.4 GHz radio contention with
         // Free launcher poster caches before codec/Vulkan allocate DMA-BUF/swapchain memory on 2 GB devices
         AppIcons.clearCache();
         MemoryAssetLoader.clearStaticCache();
 
-        // wireless USB gamepad dongles.
+        Network defaultStreamNetwork = null;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Network activeNet = connMgr.getActiveNetwork();
-            updateWifiLocksForCapabilities(activeNet != null ? connMgr.getNetworkCapabilities(activeNet) : null);
+            defaultStreamNetwork = connMgr.getActiveNetwork();
+            updateWifiLocksForCapabilities(defaultStreamNetwork != null ? connMgr.getNetworkCapabilities(defaultStreamNetwork) : null);
         } else {
             acquireWifiLocks();
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            wifiLockNetworkCallback = new ConnectivityManager.NetworkCallback() {
-                @Override
-                public void onCapabilitiesChanged(Network network, NetworkCapabilities networkCapabilities) {
-                    runOnUiThread(() -> updateWifiLocksForCapabilities(networkCapabilities));
-                }
-
-                @Override
-                public void onLost(Network network) {
-                    runOnUiThread(() -> {
-                        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-                        Network activeNet = cm != null ? cm.getActiveNetwork() : null;
-                        updateWifiLocksForCapabilities(activeNet != null ? cm.getNetworkCapabilities(activeNet) : null);
-                    });
-                }
-            };
+            wifiLockNetworkCallback = new StreamNetworkCallback(defaultStreamNetwork, this::runOnUiThread,
+                    this::updateWifiLocksForCapabilities,
+                    Build.VERSION.SDK_INT < Build.VERSION_CODES.O ? connMgr::getNetworkCapabilities : null);
             try {
                 connMgr.registerDefaultNetworkCallback(wifiLockNetworkCallback);
             } catch (Throwable ignored) {
+                wifiLockNetworkCallback.close();
                 wifiLockNetworkCallback = null;
             }
         }
@@ -1053,8 +1040,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 httpsPort, uniqueId, config,
                 PlatformBinding.getCryptoProvider(this), serverCert);
         controllerHandler = new ControllerHandler(this, conn, this, prefConfig);
-        keyboardTranslator = new KeyboardTranslator();
-        keyboardTranslator.setForceQwerty(prefConfig.forceQwerty);
+        keyboardTranslator = new KeyboardTranslator(prefConfig.forceQwerty);
 
         // Setup overlay menu now that controllerHandler is initialized
         setupOverlayMenu();
@@ -1082,7 +1068,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         if (prefConfig.usbDriver) {
             // Start the USB driver
-            bindService(new Intent(this, UsbDriverService.class),
+            boundToUsbDriverService = bindService(new Intent(this, UsbDriverService.class),
                     usbDriverServiceConnection, Service.BIND_AUTO_CREATE);
         }
 
@@ -1481,6 +1467,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // On M, we can explicitly set the optimal display mode
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Display.Mode bestMode = display.getMode();
+            boolean needsFullHd = FullHdTvMode.needsUpgrade(isAndroidTV, prefConfig.width, prefConfig.height,
+                    prefConfig.fps, bestMode.getPhysicalWidth(), bestMode.getPhysicalHeight());
+            Display.Mode fullHdMode = null;
             boolean isNativeResolutionStream = PreferenceConfiguration.isNativeResolution(prefConfig.width, prefConfig.height);
             boolean refreshRateIsGood = isRefreshRateGoodMatch(bestMode.getRefreshRate());
             boolean refreshRateIsEqual = isRefreshRateEqualMatch(bestMode.getRefreshRate());
@@ -1489,6 +1478,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     bestMode.getPhysicalHeight()+"x"+bestMode.getRefreshRate());
 
             for (Display.Mode candidate : display.getSupportedModes()) {
+                if (needsFullHd && FullHdTvMode.isBetter(candidate.getPhysicalWidth(), candidate.getPhysicalHeight(),
+                        candidate.getRefreshRate(), fullHdMode == null ? 0 : fullHdMode.getRefreshRate())) {
+                    fullHdMode = candidate;
+                }
                 boolean refreshRateReduced = candidate.getRefreshRate() < bestMode.getRefreshRate();
                 boolean resolutionReduced = candidate.getPhysicalWidth() < bestMode.getPhysicalWidth() ||
                         candidate.getPhysicalHeight() < bestMode.getPhysicalHeight();
@@ -1567,6 +1560,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 refreshRateIsEqual = isRefreshRateEqualMatch(candidate.getRefreshRate());
             }
 
+            if (fullHdMode != null) {
+                bestMode = fullHdMode;
+            }
             LimeLog.info("Best display mode: "+bestMode.getPhysicalWidth()+"x"+
                     bestMode.getPhysicalHeight()+"x"+bestMode.getRefreshRate());
 
@@ -1754,9 +1750,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (keyboardTranslator != null) {
             InputManager inputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
             inputManager.unregisterInputDeviceListener(keyboardTranslator);
+            keyboardTranslator.setForceQwerty(false);
         }
 
         if (wifiLockNetworkCallback != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            wifiLockNetworkCallback.close();
             try {
                 ConnectivityManager connMgr = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
                 if (connMgr != null) {
@@ -1767,8 +1765,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
         releaseWifiLocks();
 
-        if (connectedToUsbDriverService) {
-            // Unbind from the discovery service
+        if (boundToUsbDriverService) {
+            boundToUsbDriverService = false;
             unbindService(usbDriverServiceConnection);
         }
 
@@ -1910,6 +1908,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         else {
             inputCaptureProvider.disableCapture();
             mouseDeltaAccumulator.reset();
+            mouseDispatchStats.clear();
         }
 
         // Grab/ungrab system keyboard shortcuts
@@ -2630,13 +2629,22 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         int eventSource = event.getSource();
-        int deviceSources = event.getDevice() != null ? event.getDevice().getSources() : 0;
+        if (eventSource == InputDevice.SOURCE_MOUSE_RELATIVE && prefConfig.enablePerfOverlay &&
+                !prefConfig.enablePerfOverlayLite && !isHidingOverlays && event.getPointerCount() > 0 &&
+                event.getToolType(0) == MotionEvent.TOOL_TYPE_MOUSE &&
+                (event.getActionMasked() == MotionEvent.ACTION_MOVE ||
+                        event.getActionMasked() == MotionEvent.ACTION_HOVER_MOVE)) {
+            long now = SystemClock.uptimeMillis();
+            long latest = event.getEventTime();
+            mouseDispatchStats.record(now, latest, event.getHistorySize() == 0 ? latest : event.getHistoricalEventTime(0));
+        }
         if ((eventSource & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) {
             if (controllerHandler.handleMotionEvent(event)) {
                 return true;
             }
         }
-        else if ((deviceSources & InputDevice.SOURCE_CLASS_JOYSTICK) != 0 && controllerHandler.tryHandleTouchpadEvent(event)) {
+        else if ((eventSource == InputDevice.SOURCE_TOUCHPAD || eventSource == InputDevice.SOURCE_MOUSE) &&
+                controllerHandler != null && controllerHandler.tryHandleTouchpadEvent(event)) {
             return true;
         }
         else if ((eventSource & InputDevice.SOURCE_CLASS_POINTER) != 0 ||
@@ -3958,7 +3966,17 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             @Override
             public void run() {
                 if (performanceOverlayView != null && prefConfig.enablePerfOverlay && !isHidingOverlays) {
-                    performanceOverlayView.setText(text);
+                    String details = text;
+                    if (!prefConfig.enablePerfOverlayLite) {
+                        if (defaultNetworkDescription != null) details += "\n" + defaultNetworkDescription;
+                        if (mouseDispatchStats.fresh(SystemClock.uptimeMillis())) {
+                            details += "\n" + getString(R.string.perf_overlay_mouse_dispatch,
+                                    mouseDispatchStats.newestP95(), mouseDispatchStats.oldestP95(),
+                                    mouseDispatchStats.batchCount());
+                        }
+                    }
+                    mouseDispatchStats.clear();
+                    performanceOverlayView.setText(details);
                 }
             }
         });
@@ -4238,10 +4256,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         params.setMargins(0, (int) (4 * density), 0, 0);
         performanceOverlayView.setLayoutParams(params);
 
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(0x99000000);
-        background.setCornerRadius(10 * density);
-        performanceOverlayView.setBackground(background);
+        performanceOverlayView.setBackgroundResource(R.drawable.stats_overlay_background);
 
         int padH = (int) (8 * density);
         int padV = (int) (2 * density);
@@ -4275,20 +4290,20 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             performanceOverlayView.setVisibility(View.VISIBLE);
             if (prefConfig.enablePerfOverlayLite) {
                 styleLitePerformanceOverlay();
-                performanceOverlayView.setTextColor(0xBFFFFFFF);
+                performanceOverlayView.setTextColor(0xFFF7F3ED);
             } else {
                 float density = getResources().getDisplayMetrics().density;
                 FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) performanceOverlayView.getLayoutParams();
                 params.gravity = Gravity.START | Gravity.TOP;
                 params.setMargins((int) (5 * density), (int) (5 * density), 0, 0);
                 performanceOverlayView.setLayoutParams(params);
-                performanceOverlayView.setBackgroundResource(R.drawable.stats_overlay_background);
-                int pad = (int) (2 * density);
-                performanceOverlayView.setPadding(pad, pad, pad, pad);
+                performanceOverlayView.setBackgroundResource(R.drawable.mw_hud_full);
+                int pad = Math.round(4 * density);
+                performanceOverlayView.setPadding(2 * pad, pad, pad, pad);
                 performanceOverlayView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
                 performanceOverlayView.setGravity(Gravity.START);
                 performanceOverlayView.setSingleLine(false);
-                performanceOverlayView.setTextColor(0xBFFFFFFF);
+                performanceOverlayView.setTextColor(0xFFF7F3ED);
             }
         } else {
             if (isAndroidTV) {

@@ -539,10 +539,7 @@ public class CoverGlowTest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
             LayoutInflater inflater = LayoutInflater.from(context);
             View root = inflater.inflate(R.layout.activity_app_view, null);
-            android.animation.ValueAnimator rainbow = Rainbow.applyTo((TextView) root.findViewById(R.id.cgWordmark));
-            root.setBackgroundColor(CoverGlow.deep(tint));
-            root.findViewById(R.id.coverGlow).setBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(tint));
+            root.findViewById(R.id.coverGlow).setBackgroundColor(tint);
             ((TextView) root.findViewById(R.id.appListText)).setText("GAMING-PC");
             ((TextView) root.findViewById(R.id.coverRowLabel)).setText("On GAMING-PC");
             ((TextView) root.findViewById(R.id.heroLabel)).setText(R.string.cg_last_played);
@@ -600,7 +597,6 @@ public class CoverGlowTest {
             assertTrue("cover row only " + coverRow.getHeight() + " px",
                     coverRow.getHeight() >= 176 * d);
 
-            rainbow.cancel();
             Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
             root.draw(new Canvas(bitmap));
             File out = TestFiles.file(target, "cover_glow_home.png");

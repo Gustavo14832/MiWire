@@ -1,0 +1,18 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/heroSection"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="@dimen/cg_hero_top_margin"
+    android:background="@drawable/cg_feel_panel"
+    android:padding="16dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+    <include layout="@layout/mw_hero_details" />
+    <Space android:layout_width="@dimen/cg_hero_gap" android:layout_height="1dp" />
+    <include layout="@layout/mw_hero_cover" />
+    <TextView
+        android:id="@+id/heroLoaderText"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:importantForAccessibility="no" />
+</LinearLayout>

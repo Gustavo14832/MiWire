@@ -12,6 +12,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-26
+
+- Preserve saved TV settings when upgrading, release pending service connections, and correct manual PC subnet and port checks.
+- Bound the secondary artwork cache and avoid allocating an object per decoder timestamp.
+
+- MiWire Box has a black OLED dashboard, an original launcher mark, visible PC pairing status, an amber focus outline and a compact session HUD. Wide libraries put game actions first and the selected cover on the right.
+
+### Fixed
+
+- Captured relative mouse movement skips the controller device lookup. The full performance overlay shows the 95th percentile age of the newest and oldest Android mouse samples in each batch.
+
+- Bursts of USB input-device notifications refresh mouse capture and keyboard layouts together. On Android 13+ keyboards using their own layout skip QWERTY table construction. Optional Xbox USB setup runs off the activity thread, claims only the wired gamepad interface, and returns devices disconnected during initialization.
+
+- Android video reception can wait for one UDP datagram and immediately drain a burst on either Ethernet or Wi-Fi. The full overlay identifies the default network. Both overlays distinguish an unavailable network RTT, and the Wi-Fi lock follows the active transport.
+
+- Mi Box direct-submit Vulkan streams check for a spare decoder input without blocking the receiver after a frame. Input waits yield to codec recovery. The detailed MediaCodec/Vulkan overlay now measures from the start of submission and shows mean, peak and measured frame count.
+
+- Decoder stalls can now escalate from a keyframe request through a flush to a restart. The decode-time average counts measured frames, and a rejected Vulkan presentation no longer increments the presented-frame counter.
+- Partial PCM writes resume at the first unwritten sample, and the HDMI audio buffer request respects the track capacity. The PC grid detects offline transitions on reused host objects. Cover lookup, eviction and clearing share a lock.
+- The optional local Box build packages 32-bit ARM and installs alongside the release and backup as MiWire Box.
+- The license screen identifies the revision of the native core bundled with the local mouse changes.
+- The Mi Box 60 Hz pacer can recover an isolated missing refresh callback. Without display timing it can retain one fresh frame after a short burst. The detailed overlay distinguishes incoming video, reported screen intervals and queue drops.
+- Vulkan sharpening preserves the local color bounds at text and high-contrast edges.
+- A 1080p60 stream on Android TV can request an advertised 1080p60 or 59.94 Hz mode when the current output is smaller.
+- The performance overlay measures app traffic over the elapsed time between samples.
+
 ### Added
 
 - **MiWire rebrand, persistent signing & Android TV identity:** migrated package ID to `com.miwire`
@@ -62,6 +88,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- Relative mouse motion now leaves the input queue without a batching timer. Only consecutive
+  pending moves are combined, so a press or release stays between the moves on either side.
 - **Lightweight menu & UI shell optimizations (`versionCode = 322`):** added `ViewHolder` reuse in
   `GenericGridAdapter`, JSON-free custom-settings detection and cache + reused `Rainbow.Ring` +
   direct D-pad tile selection updates without `notifyDataSetChanged()` in `AppGridAdapter`, bounded
@@ -94,8 +122,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   button on Android TV and Amlogic devices.
 - **C-engine stream tuning (`moonlight-common-c`) & ADPF:** adds Android 12+ ADPF performance hint
   sessions in Java and native Vulkan threads, `recvmmsg` burst UDP video drain on Linux/Android,
-  1 ms (`1000 Hz`) zero-hold relative mouse coalescing with immediate UDP socket flush (`sendInputPacket`
-  and click/key preemption) to prevent ENet/Windows queue coasting, pure RFC 4594 DSCP
+  a 1 ms batching window for absolute mouse positions, reliable relative mouse events, RFC 4594 DSCP
   marking (`IP_TOS`/`IPV6_TCLASS`), and 1 ns kernel timer slack with raised thread priority on
   native stream worker threads.
 - **Sub-pixel mouse accumulator and trigger deadzone:** preserves fractional relative mouse deltas
@@ -567,7 +594,8 @@ same app renamed; it installs separately, so you can uninstall Voidlink afterwar
 - **Extras:** monitor switching, pinch to zoom anytime, changing the bitrate mid-stream, audio
   haptics and shortcuts imported from a file.
 
-[Unreleased]: https://github.com/Gustavo14832/MiWire/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Gustavo14832/MiWire/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Gustavo14832/MiWire/compare/v0.3.0-miware...v0.4.0
 [0.3.0]: https://github.com/SicarioGaming/Starwire/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/SicarioGaming/Starwire/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/SicarioGaming/Starwire/compare/v0.1.2...v0.2.0

@@ -10,5 +10,5 @@
     android:paddingStart="4dp"
     android:paddingEnd="4dp"
     android:fontFamily="sans-serif-medium"
-    android:textColor="#FFC4B5FD"
+    android:textColor="@color/mw_amber"
     android:textSize="17sp" />

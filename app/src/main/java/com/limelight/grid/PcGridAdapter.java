@@ -70,7 +70,7 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
             txtView.setAlpha(1.0f);
         }
         else {
-            txtView.setAlpha(0.4f);
+            txtView.setAlpha(0.78f);
         }
 
         if (obj.details.state == ComputerDetails.State.OFFLINE) {
@@ -107,6 +107,8 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
         else {
             state = R.string.pcview_menu_header_unknown;
         }
+        TextView stateLabel = parentView.findViewById(R.id.mwComputerState);
+        if (stateLabel != null) stateLabel.setText(state);
         parentView.setContentDescription(obj.details.name + ", " + context.getString(state));
     }
 }

@@ -35,11 +35,14 @@ android {
             ndk { abiFilters 'arm64-v8a' }
         }
     }
-    externalNativeBuild {
-        cmake {
-            path 'src/main/cpp/CMakeLists.txt'
-            // CI installs this CMake with the NDK (build.yml, devices.yml and release.yml)
-            version "3.31.6"
+    // The local 32-bit Box package uses the Java capability check only.
+    if (providers.gradleProperty('miwireBoxLocal').orNull != 'true') {
+        externalNativeBuild {
+            cmake {
+                path 'src/main/cpp/CMakeLists.txt'
+                // CI installs this CMake with the NDK (build.yml, devices.yml and release.yml)
+                version "3.31.6"
+            }
         }
     }
     compileOptions {
