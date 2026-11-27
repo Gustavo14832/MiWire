@@ -342,7 +342,7 @@ static void VideoPingThreadProc(void* context) {
 
 static int processVideoDatagram(int err, const char* rawBuffer, char** ioPlainBuffer,
                                 int decryptedSize, int minSize, bool encrypted,
-                                int waitingForVideoMs) {
+                                uint64_t firstWaitStartMs) {
     PRTP_PACKET packet;
     int queueStatus;
 
@@ -364,9 +364,8 @@ static int processVideoDatagram(int err, const char* rawBuffer, char** ioPlainBu
 
     if (!receivedDataFromPeer) {
         receivedDataFromPeer = true;
-        Limelog("Received first video packet after %d ms\n", waitingForVideoMs);
-
         firstDataTimeMs = PltGetMillis();
+        Limelog("Received first video packet after %u ms\n", (unsigned)(firstDataTimeMs - firstWaitStartMs));
     }
 
 #ifndef LC_FUZZING
@@ -447,7 +446,6 @@ static void VideoReceiveThreadProc(void* context) {
     char* buffer;
     char* encryptedBuffer;
     bool useSelect;
-    int waitingForVideoMs;
     bool encrypted;
 #if defined(__linux__) && defined(MSG_DONTWAIT)
     char* burstEncBufs[VIDEO_UDP_BURST_MAX] = { 0 };
@@ -497,8 +495,13 @@ static void VideoReceiveThreadProc(void* context) {
         encryptedBuffer = NULL;
     }
 
-    waitingForVideoMs = 0;
+    uint64_t firstWaitStartMs = PltGetMillis();
     while (!PltIsThreadInterrupted(&receiveThread)) {
+        if (!receivedDataFromPeer && PltGetMillis() - firstWaitStartMs >= FIRST_FRAME_TIMEOUT_SEC * 1000) {
+            Limelog("Terminating connection due to lack of video traffic\n");
+            ListenerCallbacks.connectionTerminated(ML_ERROR_NO_VIDEO_TRAFFIC);
+            break;
+        }
         if (buffer == NULL) {
             buffer = (char*)malloc(bufferSize);
             if (buffer == NULL) {
@@ -515,6 +518,7 @@ static void VideoReceiveThreadProc(void* context) {
         // made non-blocking per call, it waits in select() once the deadline is close; a recv()
         // with a short SO_RCVTIMEO there often went 10 ms without returning.
         int64_t untilDeadlineUs = checkPartialFrameDeadline();
+        bool readComplete = false;
 
 #if defined(__linux__) && defined(MSG_DONTWAIT)
         {
@@ -543,7 +547,15 @@ static void VideoReceiveThreadProc(void* context) {
                 break;
             }
 
-            int batchCount = recvmmsg(rtpSocket, msgs, VIDEO_UDP_BURST_MAX, MSG_DONTWAIT, NULL);
+            // SO_RCVTIMEO bounds the first receive. Drain only packets already queued
+            // after it. With a frame deadline, keep the existing deadline-aware poll.
+            int flags = MSG_DONTWAIT;
+#ifdef MSG_WAITFORONE
+            if (!useSelect && untilDeadlineUs < 0) {
+                flags = MSG_WAITFORONE;
+            }
+#endif
+            int batchCount = recvmmsg(rtpSocket, msgs, VIDEO_UDP_BURST_MAX, flags, NULL);
             if (batchCount > 0) {
                 bool fatal = false;
                 for (int i = 0; i < batchCount; i++) {
@@ -558,14 +570,14 @@ static void VideoReceiveThreadProc(void* context) {
                             }
                         }
                         if (processVideoDatagram((int)msgs[i].msg_len, burstEncBufs[i], &buffer,
-                                                 decryptedSize, minSize, true, waitingForVideoMs) < 0) {
+                                                 decryptedSize, minSize, true, firstWaitStartMs) < 0) {
                             fatal = true;
                             break;
                         }
                     }
                     else {
                         if (processVideoDatagram((int)msgs[i].msg_len, burstPlainBufs[i], &burstPlainBufs[i],
-                                                 decryptedSize, minSize, false, waitingForVideoMs) < 0) {
+                                                 decryptedSize, minSize, false, firstWaitStartMs) < 0) {
                             fatal = true;
                             break;
                         }
@@ -578,6 +590,16 @@ static void VideoReceiveThreadProc(void* context) {
             }
             else if (batchCount < 0) {
                 int errCode = LastSocketError();
+                if (flags != MSG_DONTWAIT) {
+                    if (errCode == EAGAIN || errCode == EWOULDBLOCK) {
+                        // The socket timeout already expired. Do not wait a second time.
+                        err = 0;
+                        readComplete = true;
+                    }
+                    else if (errCode == EINTR || errCode == ECONNREFUSED) {
+                        continue;
+                    }
+                }
                 if (errCode != EWOULDBLOCK && errCode != EAGAIN && errCode != EINTR && errCode != ECONNREFUSED) {
                     Limelog("Video Receive: recvmmsg() failed: %d\n", errCode);
                     ListenerCallbacks.connectionTerminated(LastSocketFail());
@@ -587,7 +609,6 @@ static void VideoReceiveThreadProc(void* context) {
         }
 #endif
 
-        bool received = false;
         if (untilDeadlineUs >= 0) {
             struct pollfd pfd;
             int timeoutMs = (int)((untilDeadlineUs + 999) / 1000);
@@ -600,7 +621,7 @@ static void VideoReceiveThreadProc(void* context) {
 #ifdef MSG_DONTWAIT
             err = (int)recvfrom(rtpSocket, encrypted ? encryptedBuffer : buffer, receiveSize, MSG_DONTWAIT, NULL, NULL);
             if (err >= 0) {
-                received = true;
+                readComplete = true;
             }
             else if (LastSocketError() == EWOULDBLOCK || LastSocketError() == EAGAIN || LastSocketError() == EINTR) {
                 if (pollSockets(&pfd, 1, timeoutMs) == 0) {
@@ -616,7 +637,7 @@ static void VideoReceiveThreadProc(void* context) {
 #endif
         }
 
-        if (!received) {
+        if (!readComplete) {
             err = recvUdpSocket(rtpSocket,
                                 encrypted ? encryptedBuffer : buffer,
                                 receiveSize,
@@ -627,24 +648,13 @@ static void VideoReceiveThreadProc(void* context) {
             ListenerCallbacks.connectionTerminated(LastSocketFail());
             break;
         }
-        else if  (err == 0) {
-            if (!receivedDataFromPeer) {
-                // If we wait many seconds without ever receiving a video packet,
-                // assume something is broken and terminate the connection.
-                waitingForVideoMs += UDP_RECV_POLL_TIMEOUT_MS;
-                if (waitingForVideoMs >= FIRST_FRAME_TIMEOUT_SEC * 1000) {
-                    Limelog("Terminating connection due to lack of video traffic\n");
-                    ListenerCallbacks.connectionTerminated(ML_ERROR_NO_VIDEO_TRAFFIC);
-                    break;
-                }
-            }
-
+        else if (err == 0) {
             // Receive timed out; try again
             continue;
         }
 
         if (processVideoDatagram(err, encrypted ? encryptedBuffer : buffer, &buffer,
-                                 decryptedSize, minSize, encrypted, waitingForVideoMs) < 0) {
+                                 decryptedSize, minSize, encrypted, firstWaitStartMs) < 0) {
             break;
         }
     }

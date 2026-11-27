@@ -36,10 +36,7 @@ static uint8_t currentPenButtonState;
 // Matches Win32 WHEEL_DELTA definition
 #define LI_WHEEL_DELTA 120
 
-// If we try to send more than one stylus or mouse motion event
-// per 1 ms (1000 Hz cap), wait briefly to batch with the next motion event while
-// letting the first move leave immediately and flushing immediately
-// if an urgent input (click/button/key) enters the queue.
+// Absolute pointer updates keep their existing 1 ms batching window.
 #define MOUSE_BATCHING_INTERVAL_US 1000
 #define PEN_BATCHING_INTERVAL_MS 1
 
@@ -58,7 +55,10 @@ typedef struct _PACKET_HOLDER {
     union {
         NV_INPUT_HEADER header;
         NV_KEYBOARD_PACKET keyboard;
-        NV_REL_MOUSE_MOVE_PACKET mouseMoveRel;
+        struct {
+            NV_REL_MOUSE_MOVE_PACKET wire;
+            int64_t deltaX, deltaY; // Host-order sum of consecutive moves queued in this holder
+        } mouseMoveRel;
         NV_ABS_MOUSE_MOVE_PACKET mouseMoveAbs;
         NV_MOUSE_BUTTON_PACKET mouseButton;
         NV_CONTROLLER_PACKET controller;
@@ -82,10 +82,6 @@ static struct {
     float x, y, z;
     bool dirty; // Update ready to send (queued packet holder in packetQueue)
 } currentGamepadSensorState[MAX_GAMEPADS][MAX_MOTION_EVENTS];
-static struct {
-    int deltaX, deltaY;
-    bool dirty; // Update ready to send (queued packet holder in packetQueue)
-} currentRelativeMouseState;
 static struct {
     int x, y;
     int width, height;
@@ -119,7 +115,6 @@ int initializeInputStream(void) {
     absCurrentPosX = absCurrentPosY = 0.5f;
 
     memset(currentGamepadSensorState, 0, sizeof(currentGamepadSensorState));
-    memset(&currentRelativeMouseState, 0, sizeof(currentRelativeMouseState));
     memset(&currentAbsoluteMouseState, 0, sizeof(currentAbsoluteMouseState));
     PltCreateMutex(&batchedInputMutex);
 
@@ -371,76 +366,24 @@ static void inputSendThreadProc(void* context) {
 
             PltUnlockMutex(&batchedInputMutex);
         }
-        // If it's a relative mouse move packet, we can do batching
+        // The receiver of the queue entry owns its accumulated deltas exclusively.
         else if (holder->packet.header.magic == relMouseMagicLE) {
-            uint64_t nowUs = PltGetMicroseconds();
+            while (holder->packet.mouseMoveRel.deltaX != 0 || holder->packet.mouseMoveRel.deltaY != 0) {
+                short dx = (short)CLAMP(holder->packet.mouseMoveRel.deltaX, INT16_MIN, INT16_MAX);
+                short dy = (short)CLAMP(holder->packet.mouseMoveRel.deltaY, INT16_MIN, INT16_MAX);
+                holder->packet.mouseMoveRel.wire.deltaX = BE16(dx);
+                holder->packet.mouseMoveRel.wire.deltaY = BE16(dy);
+                holder->packet.mouseMoveRel.deltaX -= dx;
+                holder->packet.mouseMoveRel.deltaY -= dy;
 
-            // First move leaves immediately; subsequent moves within 1 ms wait briefly
-            // unless an urgent event (click, button, or key) is waiting behind it.
-            if (lastMousePacketTimeUs != 0 &&
-                    nowUs < lastMousePacketTimeUs + MOUSE_BATCHING_INTERVAL_US &&
-                    !hasUrgentInputQueued(relMouseMagicLE)) {
-                flushInputOnControlStream();
-                PltSleepUs((int)(lastMousePacketTimeUs + MOUSE_BATCHING_INTERVAL_US - nowUs));
-            }
-
-            PltLockMutex(&batchedInputMutex);
-
-            // Send as many packets as it takes to get the entire delta through
-            while (currentRelativeMouseState.deltaX != 0 || currentRelativeMouseState.deltaY != 0) {
-                bool more = false;
-
-                if (currentRelativeMouseState.deltaX < INT16_MIN) {
-                    holder->packet.mouseMoveRel.deltaX = BE16(INT16_MIN);
-                    currentRelativeMouseState.deltaX -= INT16_MIN;
-                    more = true;
-                }
-                else if (currentRelativeMouseState.deltaX > INT16_MAX) {
-                    holder->packet.mouseMoveRel.deltaX = BE16(INT16_MAX);
-                    currentRelativeMouseState.deltaX -= INT16_MAX;
-                    more = true;
-                }
-                else {
-                    holder->packet.mouseMoveRel.deltaX = BE16(currentRelativeMouseState.deltaX);
-                    currentRelativeMouseState.deltaX = 0;
-                }
-
-                if (currentRelativeMouseState.deltaY < INT16_MIN) {
-                    holder->packet.mouseMoveRel.deltaY = BE16(INT16_MIN);
-                    currentRelativeMouseState.deltaY -= INT16_MIN;
-                    more = true;
-                }
-                else if (currentRelativeMouseState.deltaY > INT16_MAX) {
-                    holder->packet.mouseMoveRel.deltaY = BE16(INT16_MAX);
-                    currentRelativeMouseState.deltaY -= INT16_MAX;
-                    more = true;
-                }
-                else {
-                    holder->packet.mouseMoveRel.deltaY = BE16(currentRelativeMouseState.deltaY);
-                    currentRelativeMouseState.deltaY = 0;
-                }
-
-                // Don't hold the batching lock while we're doing network I/O
-                PltUnlockMutex(&batchedInputMutex);
-
-                // Encrypt and send the split packet immediately on the UDP control socket
+                bool more = holder->packet.mouseMoveRel.deltaX != 0 || holder->packet.mouseMoveRel.deltaY != 0;
                 if (!sendInputPacket(holder, more)) {
                     freePacketHolder(holder);
                     return;
                 }
-
-                PltLockMutex(&batchedInputMutex);
             }
 
-            // The state change is no longer pending
-            currentRelativeMouseState.dirty = false;
-
-            PltUnlockMutex(&batchedInputMutex);
-
             lastMousePacketTimeUs = PltGetMicroseconds();
-
-            // We sent everything we needed in the loop above, so we can just free the
-            // holder of the original packet and wait for another input event.
             freePacketHolder(holder);
             continue;
         }
@@ -618,8 +561,8 @@ static void inputSendThreadProc(void* context) {
             continue;
         }
 
-        // Encrypt and send the input packet (flush absolute mouse updates immediately)
-        bool moreData = holder->packet.header.magic != LE32(MOUSE_MOVE_ABS_MAGIC) &&
+        // Mouse clicks, wheel events and absolute updates can leave as soon as they reach the head.
+        bool moreData = holder->channelId != CTRL_CHANNEL_MOUSE &&
                         LbqGetItemCount(&packetQueue) > 0;
         if (!sendInputPacket(holder, moreData)) {
             freePacketHolder(holder);
@@ -737,55 +680,36 @@ int LiSendMouseMoveEvent(short deltaX, short deltaY) {
         return 0;
     }
 
-    PltLockMutex(&batchedInputMutex);
+    const uint32_t magic = LE32(AppVersionQuad[0] >= 5 ? MOUSE_MOVE_REL_MAGIC_GEN5 : MOUSE_MOVE_REL_MAGIC);
 
-    // Combine the previous deltas with the new one
-    currentRelativeMouseState.deltaX += deltaX;
-    currentRelativeMouseState.deltaY += deltaY;
-
-    // Queue a packet holder if this is the only pending relative mouse event
-    if (!currentRelativeMouseState.dirty) {
-        // Set the dirty flag to claim ownership of inserting the packet holder
-        // and unlock to allow other threads to enqueue or process input.
-        currentRelativeMouseState.dirty = true;
-        PltUnlockMutex(&batchedInputMutex);
-
-        holder = allocatePacketHolder(0);
-        if (holder == NULL) {
-            currentRelativeMouseState.dirty = false;
-            return -1;
-        }
-
-        holder->channelId = CTRL_CHANNEL_MOUSE;
-
-        // TODO: Send this as unreliable sequenced when we have a delayed reliable retransmission thread
-        // and protocol updates to allow us to determine which unreliable messages were dropped.
-        holder->enetPacketFlags = ENET_PACKET_FLAG_RELIABLE;
-
-        holder->packet.mouseMoveRel.header.size = BE32(sizeof(NV_REL_MOUSE_MOVE_PACKET) - sizeof(uint32_t));
-        if (AppVersionQuad[0] >= 5) {
-            holder->packet.mouseMoveRel.header.magic = LE32(MOUSE_MOVE_REL_MAGIC_GEN5);
-        }
-        else {
-            holder->packet.mouseMoveRel.header.magic = LE32(MOUSE_MOVE_REL_MAGIC);
-        }
-
-        // Remaining fields are set in the input thread based on the latest currentRelativeMouseState values
-
-        err = LbqOfferQueueItem(&packetQueue, holder, &holder->entry);
-        if (err != LBQ_SUCCESS) {
-            LC_ASSERT(err == LBQ_BOUND_EXCEEDED);
-            Limelog("Input queue reached maximum size limit\n");
-            freePacketHolder(holder);
-
-            // We weren't able to insert the entry, so let the next call try again
-            currentRelativeMouseState.dirty = false;
+    // Only merge into a move still at the tail. A button or key queued between
+    // two moves must reach the host between them. Dequeue uses the same mutex.
+    PltLockMutex(&packetQueue.mutex);
+    if (!packetQueue.shutdown && !packetQueue.draining && packetQueue.tail != NULL) {
+        PPACKET_HOLDER tail = packetQueue.tail->data;
+        if (tail->packet.header.magic == magic && tail->channelId == CTRL_CHANNEL_MOUSE) {
+            tail->packet.mouseMoveRel.deltaX += deltaX;
+            tail->packet.mouseMoveRel.deltaY += deltaY;
+            PltUnlockMutex(&packetQueue.mutex);
+            return 0;
         }
     }
-    else {
-        // There's already a packet holder queued to send this event
-        PltUnlockMutex(&batchedInputMutex);
-        err = 0;
+    PltUnlockMutex(&packetQueue.mutex);
+
+    holder = allocatePacketHolder(0);
+    if (holder == NULL) {
+        return -1;
+    }
+    holder->channelId = CTRL_CHANNEL_MOUSE;
+    holder->enetPacketFlags = ENET_PACKET_FLAG_RELIABLE;
+    holder->packet.mouseMoveRel.wire.header.size = BE32(sizeof(NV_REL_MOUSE_MOVE_PACKET) - sizeof(uint32_t));
+    holder->packet.mouseMoveRel.wire.header.magic = magic;
+    holder->packet.mouseMoveRel.deltaX = deltaX;
+    holder->packet.mouseMoveRel.deltaY = deltaY;
+
+    err = LbqOfferQueueItem(&packetQueue, holder, &holder->entry);
+    if (err != LBQ_SUCCESS) {
+        freePacketHolder(holder);
     }
 
     return err;
