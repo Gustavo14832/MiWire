@@ -22,13 +22,7 @@
 
 ---
 
-> [!CAUTION]
-> ### ⚠️ AVISO DE COMPATIBILIDADE ESPECÍFICA (LEIA ANTES DE INSTALAR)
-> Este aplicativo é uma versão **especializada e altamente calibrada** projetada exclusivamente para a **Xiaomi Mi Box S de 3ª Geração (SoC Amlogic S905X5M, Android TV / Google TV)** operando em telas **1080p a 60 Hz**.
->
-> As otimizações de baixo nível presentes neste APK — como o controle de bypass do Hardware Composer da Amlogic, a sincronização de fase de VSync cravada em 16.66 ms, o acumulador sub-pixel de mouse para Android TV e o ajuste dinâmico de CPU via ADPF — foram criadas especificamente para contornar limitações e comportamentos do driver da Amlogic.
->
-> **Em celulares, tablets ou aparelhos com telas de 90 Hz, 120 Hz ou VRR, este APK se comportará de forma inadequada (podendo causar engasgos e perda de sincronia).** Para outros aparelhos, utilize o [Starwire original](https://github.com/SicarioGaming/Starwire) ou o [Moonlight oficial](https://github.com/moonlight-stream/moonlight-android).
+> O perfil de referência usa a Xiaomi Mi Box S de 3ª geração, saída Full HD a 60 Hz e stream a 60 fps. O monitor, a cadência do host, a rede e os recursos expostos pelo driver determinam os intervalos reais de apresentação. Outros aparelhos podem escolher os demais modos de frame pacing.
 
 ---
 
@@ -53,13 +47,13 @@ Ele nasceu com um propósito específico: transformar a **Xiaomi Mi Box S Gen 3*
 ### 3. 🎯 Calibração Automática Out-of-the-Box para Android TV
 Na primeira execução em dispositivos Android TV / Amlogic (`isTvOrAmlogicDevice`), o MiWire configura automaticamente:
 * **Vídeo:** `1920x1080` @ `60 FPS`, `35 Mbps`, **HEVC (H.265)**, renderizador **Vulkan**, `mibox-60hz`, dither `high`, RCAS `balanced`, Full Range (`0-255`), `exactSlices` desativado (preservando predição NVENC de quadro inteiro).
-* **Decodificador Amlogic Codec2 (`c2.amlogic.*`):** Ignora a chave genérica `low-latency` (que causa travamentos no driver da Amlogic), aplica extensões de baixa latência da fabricante (`vendor.amlogic.*`, `vendor.media.omx.gamemode`, `operating-rate 240`, prioridade `0`), restaura HEVC RFI no `c2.amlogic`, expande buffers dinâmicos de entrada (>= 2 MB) e adiciona *watchdog* de 3 estágios contra travamento (IDR -> Flush -> Restart).
+* **Decodificação de vídeo.** H.264, HEVC e AV1 dependem dos decodificadores anunciados pelo Android e do host. O cliente tenta opções de baixa latência compatíveis com o fabricante e reduz essas opções nas tentativas de recuperação. O monitor de travamento pode solicitar quadro-chave, limpar buffers e reiniciar o decoder.
 * **Sistema, Faixa Dinâmica & Áudio:** ADPF (`PerformanceHintManager` em Java e C++) ativo sob demanda (com Modo de Desempenho Sustentado opcional desativado por padrão na TV), prioridade elevada de threads de renderização/áudio, `AudioTrack` de baixa latência no HDMI em Android 12+, fila máxima de áudio de `20 ms`, skip de Wi-Fi lock na rede Ethernet, compatibilidade opt-in com `HDR10` / `HDR10+` / `HLG` / `Dolby Vision` (incluindo mapeamento Vulkan 10-bit PQ→SDR), negociação automática HDMI/AVR (`auto`) e opção de áudio `PCM Float 32-bit`.
 * **Casca e Menus Leves (fora do streaming):** reciclagem com `ViewHolder`, cache leve de preferências por jogo, seleção via D-pad sem recarregar toda a grade, decodificação escalonada de capas e limpeza imediata de executores ao sair das telas.
-* **Interface & Controles na TV:** Tema visual *Xiaomi Gaming* (carbono escuro `#0D0F12` com destaque laranja `#FF6700`), abertura de menu por `LB+RB`, botão *Back* como tecla Meta (`Win`), deadzone analógica mínima de `3%` (e gatilhos a `2%`), desativação de controles por toque, botão flutuante e sensores de movimento.
+* **Interface e controles na TV.** Preto OLED (#000000), foco âmbar (#FF963E), biblioteca navegável pelo direcional e HUD de sessão. No perfil da Box, LB+RB abre o menu e o botão Back pode atuar como Meta.
 
 ### 4. 🖱️ Mouse e periféricos
-* **Acumulador Sub-pixel:** Deltas fracionários de mouse relativos são acumulados em vez de descartados, eliminando travamentos no início de movimentos lentos de câmera.
+* **Acumulador Sub-pixel:** Deltas fracionários de mouse relativos são acumulados em vez de descartados, preservando movimentos lentos que seriam arredondados para zero.
 * **Movimento relativo:** o cliente envia o deslocamento disponível assim que a fila permite. Só soma movimentos consecutivos ainda na fila, preservando a posição de cada clique. A frequência de entrada depende do mouse e do Android.
 * **Rede:** drenagem de pacotes UDP em rajada via `recvmmsg`, marcação QoS DSCP (EF áudio / CS4 vídeo) e `PR_SET_TIMERSLACK = 1 ns`.
 * **Controles e Teclado:** Deduplicação de pacotes repetidos de controle (com heartbeat de 1 s), leitura dos deslocamentos de centro de analógico já salvos, serviço de acessibilidade para teclado físico (Alt+Tab, Win), suporte a teclas extras **ABNT2/ISO** e correção de `Print Screen`.

@@ -11,7 +11,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = 34)
+@Config(sdk = 34, instrumentedPackages = {"com.limelight.nvstream.jni"})
 public class ManualHostTest {
     @Test public void allPrefixesUseTheMostSignificantBits() {
         byte[] local = {(byte) 192, 0, 2, 33};

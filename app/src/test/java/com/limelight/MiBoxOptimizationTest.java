@@ -136,7 +136,7 @@ public class MiBoxOptimizationTest {
     }
 
     @Test
-    public void tvDefaultsV1UpgradesCleanlyToV2() {
+    public void tvV1MigrationKeepsTheSelectedPacingVsyncAndAsyncModes() {
         prefs.edit()
                 .putBoolean("mibox_tv_gaming_defaults_v1", true)
                 .putString("frame_pacing", "latency")
@@ -169,10 +169,10 @@ public class MiBoxOptimizationTest {
         assertEquals("high", prefs.getString("spatial_dithering", ""));
         assertEquals("balanced", prefs.getString("vulkan_sharpening", ""));
         assertTrue(prefs.getBoolean("checkbox_full_range", false));
-        assertEquals("mibox-60hz", prefs.getString("frame_pacing", ""));
-        assertEquals("off", prefs.getString("vsync_mode", ""));
-        assertFalse(prefs.getBoolean("checkbox_async_decode", true));
-        assertFalse(prefs.getBoolean("checkbox_async_lfr", true));
+        assertEquals("latency", prefs.getString("frame_pacing", ""));
+        assertEquals("fast", prefs.getString("vsync_mode", ""));
+        assertTrue(prefs.getBoolean("checkbox_async_decode", false));
+        assertTrue(prefs.getBoolean("checkbox_async_lfr", false));
         assertFalse(prefs.getBoolean("checkbox_usb_driver", true));
         assertFalse(prefs.getBoolean("checkbox_vibrate_fallback", true));
         assertEquals(45000, prefs.getInt("seekbar_bitrate_kbps", 0));
@@ -319,7 +319,7 @@ public class MiBoxOptimizationTest {
     }
 
     @Test
-    public void tvDefaultsV4UpgradesCleanlyToV5AndDisablesExactSlices() {
+    public void tvV4MigrationKeepsAnExplicitExactSlicesSetting() {
         prefs.edit()
                 .putBoolean("mibox_tv_gaming_defaults_v1", true)
                 .putBoolean("mibox_tv_gaming_defaults_v2", true)
@@ -341,7 +341,7 @@ public class MiBoxOptimizationTest {
         assertTrue(prefs.getBoolean("checkbox_back_as_meta", false));
         assertTrue(prefs.getBoolean("checkbox_small_icon_mode", false));
         assertTrue(prefs.getBoolean("checkbox_disable_warnings", false));
-        assertFalse(prefs.getBoolean("checkbox_exact_slices", true));
+        assertTrue(prefs.getBoolean("checkbox_exact_slices", false));
         assertEquals(20, prefs.getInt("seekbar_max_pending_audio_ms", 0));
 
         // Explicit user changes after v5 migration persist
@@ -530,7 +530,7 @@ public class MiBoxOptimizationTest {
     }
 
     @Test
-    public void tvDefaultsV7UpgradesCleanlyToV8AndUnlocksLowLatencyAudio() {
+    public void tvV7MigrationKeepsAudioEffectsAndHonorsTheirLatencyTradeoff() {
         prefs.edit()
                 .putBoolean("mibox_tv_gaming_defaults_v1", true)
                 .putBoolean("mibox_tv_gaming_defaults_v2", true)
@@ -546,13 +546,14 @@ public class MiBoxOptimizationTest {
 
         assertTrue(prefs.getBoolean("mibox_tv_gaming_defaults_v8", false));
         boolean audioFx = prefs.getBoolean("checkbox_enable_audiofx", true);
-        assertFalse(audioFx);
-        assertTrue(AndroidAudioRenderer.shouldAttemptLowLatencyAudio(34, 48000, 48000, audioFx));
+        assertTrue(audioFx);
+        assertFalse(AndroidAudioRenderer.shouldAttemptLowLatencyAudio(34, 48000, 48000, audioFx));
 
-        // Explicit user opt-in after v8 persists
-        prefs.edit().putBoolean("checkbox_enable_audiofx", true).commit();
+        // Opting out later reopens low-latency audio.
+        prefs.edit().putBoolean("checkbox_enable_audiofx", false).commit();
         PreferenceConfiguration.seedTvGamingDefaultsIfNeeded(prefs, true);
-        assertTrue(prefs.getBoolean("checkbox_enable_audiofx", false));
+        assertFalse(prefs.getBoolean("checkbox_enable_audiofx", true));
+        assertTrue(AndroidAudioRenderer.shouldAttemptLowLatencyAudio(34, 48000, 48000, false));
     }
 
     @Test
