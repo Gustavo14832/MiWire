@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- A página do projeto ganhou uma galeria da interface em português, fotos dos fabricantes, especificações do perfil 1080p60 e um guia para escolher entre os APKs Box, universal e de restauração.
+
 ## [0.4.0] - 2026-11-26
 
 - Preserve saved TV settings when upgrading, release pending service connections, and correct manual PC subnet and port checks.

@@ -1,128 +1,114 @@
-# 🎮 MiWire
+# ![MiWire · Streaming de jogos no Android TV](docs/images/title.svg)
 
-<div align="center">
+Jogue na TV usando o PC que você já tem. O computador executa o jogo, e o **MiWire** recebe o vídeo e o áudio na Box e devolve os comandos do mouse, do teclado ou do controle. Este cliente da família Moonlight foi adaptado para a **Xiaomi TV Box S de 3ª geração**, com um perfil dedicado a jogos em **1080p a 60 quadros por segundo**.
 
-<img src="docs/images/title.svg" alt="MiWire" width="380" />
+**[Baixar para a Mi Box · ARMv7a][apk-box]**　·　[Baixar o APK universal][apk-universal]　·　[Notas da versão 0.4.0][release]
 
-**Cliente de streaming Moonlight hiper-calibrado para a Xiaomi Mi Box S (3ª Geração) a 1080p @ 60 Hz.**
+## Por dentro do MiWire
 
-*Fork especializado do [Starwire](https://github.com/SicarioGaming/Starwire) (por SicarioGaming) e do [Moonlight Android](https://github.com/moonlight-stream/moonlight-android) (por Cameron Gutman).*
+| Encontre seu PC | Escolha o que jogar |
+| --- | --- |
+| [![Tela Computadores com o botão Adicionar por endereço][tela-pcs]][tela-pcs] | [![Biblioteca com o jogo recente, a opção Jogar e as capas dos demais títulos][tela-jogos]][tela-jogos] |
+| O PC aparece na rede local. Para um computador em outra rede, use **Adicionar por endereço**. | O jogo recente fica em destaque. O direcional percorre a biblioteca e o contorno âmbar indica o foco. |
 
-[![Licença: GPL-3.0](https://img.shields.io/badge/licen%C3%A7a-GPL--3.0-FF6700?style=flat-square)](LICENSE.txt)
-[![Android TV 11+](https://img.shields.io/badge/Android%20TV-11%2B%20(Google%20TV)-34A853?style=flat-square&logo=android&logoColor=white)](https://github.com/Gustavo14832/MiWire/releases/latest)
-[![Target: Mi Box S Gen 3](https://img.shields.io/badge/Target-Mi%20Box%20S%20Gen%203-FF6700?style=flat-square)](https://github.com/Gustavo14832/MiWire/releases/latest)
-[![Package: com.miwire](https://img.shields.io/badge/package-com.miwire-blue?style=flat-square)](https://github.com/Gustavo14832/MiWire/releases/latest)
+| Ajuste a transmissão | Acesse os controles durante o jogo |
+| --- | --- |
+| [![Configurações de transmissão com resolução, taxa de bits e ritmo de quadros][tela-ajustes]][tela-ajustes] | [![Menu da sessão com teclado, emulação de mouse e estatísticas][tela-menu]][tela-menu] |
+| Resolução, taxa de bits e ritmo de quadros podem ser ajustados na própria TV. | No perfil da Box, **LB + RB** abre o menu do controle. Por ali você acessa o teclado virtual e as estatísticas da sessão. |
 
-### [Baixar MiWire 0.4.0](https://github.com/Gustavo14832/MiWire/releases/tag/v0.4.0) · [Backup v320](https://github.com/Gustavo14832/MiWire/releases/tag/v0.3.0-miware)
+*Selecione uma imagem para ampliá-la. São capturas da interface em português, geradas pelos testes visuais da versão 0.4.0. O PC, as capas e a sessão usam dados de demonstração.*
 
-**Versão Estável (Backup):** `0.3.0` (`v0.3.0-miware` · `com.miware`) | **SHA-256:** `572CEBCEB5D47D410091CDBF2088762E2AE523C93A3D7DE0D5D42F7F1CF975FF`  
-**Atualização da Box:** o APK MiWire Box ARMv7a atualiza a v325 local. O APK MiWire universal atualiza a edição oficial com pacote com.miwire.
+## Instalação
 
-</div>
+**Escolha o arquivo pela edição que você usa.** A versão 0.4.0 tem código 326 nas duas edições. Na primeira instalação em uma Box que aceita aplicativos ARM de 32 bits, use **MiWire Box**.
 
----
+| Se você usa… | Baixe este arquivo | Como fica a instalação |
+| --- | --- | --- |
+| MiWire Box v323, v324 ou v325 | [MiWire Box · ARMv7a][apk-box] | Atualiza a edição `com.miwire.local` com a mesma assinatura. |
+| MiWire oficial, inclusive em outra arquitetura | [MiWire · universal][apk-universal] | Atualiza a edição `com.miwire`. Inclui ARMv7a, ARM64, x86 e x86-64. |
+| A versão de restauração v320 | [Backup original da v320][backup] | O backup usa `com.miware`. A v326 instala ao lado dele e mantém um pareamento próprio. |
 
-> O perfil de referência usa a Xiaomi Mi Box S de 3ª geração, saída Full HD a 60 Hz e stream a 60 fps. O monitor, a cadência do host, a rede e os recursos expostos pelo driver determinam os intervalos reais de apresentação. Outros aparelhos podem escolher os demais modos de frame pacing.
+1. **No PC**, configure um servidor compatível, como [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo) ou [Vibepollo](https://github.com/Nonary/Vibepollo), e disponibilize o jogo ou a área de trabalho.
+2. **Na Box**, abra o APK com um gerenciador de arquivos. Se o Android solicitar, permita que esse gerenciador instale o aplicativo.
+3. **No MiWire**, selecione o computador ou escolha **Adicionar por endereço**. Digite no servidor do PC o PIN que a TV exibir. Depois do pareamento, abra a biblioteca e selecione **Jogar**.
 
----
+> [!IMPORTANT]
+> Para conservar as configurações e o pareamento ao atualizar, instale o APK correspondente sobre a edição existente. A desinstalação apaga os dados locais. A página da versão mostra o SHA-256 de cada arquivo. [Ver arquivos e assinaturas][release]
 
-## 🌟 O que é o MiWire?
+## O perfil de 1080p60
 
-O **MiWire** é um fork independente derivado do projeto original **[Starwire](https://github.com/SicarioGaming/Starwire)** (criado por *SicarioGaming*), construído sobre o **[Moonlight Android](https://github.com/moonlight-stream/moonlight-android)** (criado por *Cameron Gutman*) e reunindo recursos de outros clientes da comunidade Moonlight.
+| Recurso | Como funciona na Box |
+| --- | --- |
+| **Imagem** | O perfil inicial usa 1920 × 1080, 60 fps e 35 Mb/s, com HEVC (H.265), renderizador Vulkan e nitidez equilibrada. A taxa de bits pode ser ajustada durante o jogo. |
+| **Codecs** | Há opções de H.264, HEVC e AV1. O formato disponível na sessão depende do que o PC consegue codificar e do que o Android anuncia para decodificação. |
+| **Ritmo dos quadros** | O modo `mibox-60hz` organiza a apresentação em ciclos de tela de aproximadamente 16,67 ms. Quando o driver Vulkan fornece os tempos de apresentação, o painel mostra p50, p95, p99 e os intervalos longos observados no último minuto. |
+| **Mouse e rede** | O cliente preserva movimentos fracionários e a ordem dos cliques. A recepção de vídeo trata rajadas de pacotes por Wi-Fi e Ethernet. O painel detalhado identifica a rede ativa e exibe o tempo de ida e volta quando há uma medição. |
+| **Áudio e periféricos** | O receptor opcional para Windows recebe o áudio do microfone pelo protocolo criptografado SWMC v1. O compartilhamento de dispositivos USB com o PC e os gatilhos adaptativos do DualSense são experimentais. [Microfone no Windows](windows/README.md) · [USB no Windows](windows/USB-HELPER.md) |
 
-Ele nasceu com um propósito específico: transformar a **Xiaomi Mi Box S Gen 3** em um console de streaming de baixíssima latência para jogos de PC na rede local ou na nuvem (como instâncias GPU usando **Sunshine**, **Vibepollo** ou **Apollo**).
+## Equipamento de referência
 
----
+| Xiaomi TV Box S · 3ª geração | Monitor AOC 22B1HM5 |
+| --- | --- |
+| <a href="https://www.mi.com/global/product/xiaomi-tv-box-s-3rd-gen/specs/"><img src="https://i02.appmifile.com/270_operator_sg/18/03/2025/1d8c806c228803f254a6986e86cfd749.png" width="295" alt="Xiaomi TV Box S de terceira geração, imagem oficial da Xiaomi"></a> | <a href="https://aoc.portaltpv.com.br/produto/22b1hm5-monitor-widescreen-led"><img src="https://aoc.portaltpv.com.br/uploads/images/2021/06/499-22b1hm5-monitor-widescreen-led-1624624496.png" width="220" alt="Monitor AOC 22B1HM5, imagem oficial da AOC"></a> |
+| Google TV, 2 GB de RAM, 32 GB de armazenamento, HDMI 2.1 e uma porta USB 2.0. Wi-Fi 6 nas bandas de 2,4 e 5 GHz. | Painel VA de 21,5″, resolução nativa Full HD e até 75 Hz por HDMI. O perfil do projeto usa saída de **60 Hz** para a transmissão de 60 fps. |
+| [Foto e especificações da Xiaomi](https://www.mi.com/global/product/xiaomi-tv-box-s-3rd-gen/specs/) · [Bandas de Wi-Fi](https://www.mi.com/uk/support/faq/details/KA-567165/) | [Foto da AOC](https://aoc.portaltpv.com.br/produto/22b1hm5-monitor-widescreen-led) · [Ficha técnica do modelo](https://aoc.portaltpv.com.br/uploads/specifications/2024/07/22b1hm5.pdf) |
 
-## 🚀 Recursos Exclusivos do MiWire (Otimizações Mi Box S Gen 3)
+Na configuração cabeada de referência, o **hub Exbom UHL-300** liga a Ethernet e os periféricos à mesma porta USB da Box. O APK da Box atende tanto ao cabo quanto ao Wi-Fi. O tema em preto OLED também funciona no painel VA do AOC.
 
-### 1. 👻 Ghost Overlay na TV
-* Com as estatísticas ocultas, o aplicativo solicita uma atualização discreta da interface a cada segundo durante a sessão. O efeito sobre os intervalos de apresentação depende do compositor e da saída HDMI. A seção 12 do histórico descreve como comparar o comportamento na Box.
+## O que foi verificado
 
-### 2. ⏱️ Frame Pacing `mibox-60hz` & Renderizador Vulkan Avançado
-* **Pacing dedicado (`FRAME_PACING_MIBOX_60HZ`).** O perfil usa um ciclo de tela por quadro e permite até 10 ms de retenção adicional para absorver variações de chegada. Com a extensão de temporização Vulkan, o escalonador ajusta a antecedência a partir dos horários informados pelo driver.
-* **Nitidez Vulkan RCAS + 10-bit SDR:** Filtro AMD FidelityFX Contrast-Adaptive Sharpening (`Off`, `Balanced`, `Crisp`) via shader GLSL/SPIR-V com gate de ruído, reconstrução explícita de croma e *Spatial Dithering* em swapchain 10-bit SDR.
-* **Telemetria de apresentação.** No perfil MiBox com a extensão de temporização Vulkan, o painel detalhado mostra p50/p95/p99 e 1% low calculados sobre intervalos entre apresentações informadas pelo driver, incluindo pausas. Os intervalos longos dos últimos 60 segundos ajudam a localizar engasgos raros.
+Na versão 0.4.0, passaram **1.043 testes funcionais** e **70 comparações visuais**. Um teste funcional foi ignorado. No emulador **Android TV 14**, a suíte registrou **142 aprovações**, dez casos ignorados e zero falhas. A abertura pelo menu da TV e a navegação com o direcional também passaram. [Compilação e testes](https://github.com/Gustavo14832/MiWire/actions/runs/46048504751) · [Relatório do Android TV](https://github.com/Gustavo14832/MiWire/actions/runs/46048504955)
 
-### 3. 🎯 Calibração Automática Out-of-the-Box para Android TV
-Na primeira execução em dispositivos Android TV / Amlogic (`isTvOrAmlogicDevice`), o MiWire configura automaticamente:
-* **Vídeo:** `1920x1080` @ `60 FPS`, `35 Mbps`, **HEVC (H.265)**, renderizador **Vulkan**, `mibox-60hz`, dither `high`, RCAS `balanced`, Full Range (`0-255`), `exactSlices` desativado (preservando predição NVENC de quadro inteiro).
-* **Decodificação de vídeo.** H.264, HEVC e AV1 dependem dos decodificadores anunciados pelo Android e do host. O cliente tenta opções de baixa latência compatíveis com o fabricante e reduz essas opções nas tentativas de recuperação. O monitor de travamento pode solicitar quadro-chave, limpar buffers e reiniciar o decoder.
-* **Sistema, Faixa Dinâmica & Áudio:** ADPF (`PerformanceHintManager` em Java e C++) ativo sob demanda (com Modo de Desempenho Sustentado opcional desativado por padrão na TV), prioridade elevada de threads de renderização/áudio, `AudioTrack` de baixa latência no HDMI em Android 12+, fila máxima de áudio de `20 ms`, skip de Wi-Fi lock na rede Ethernet, compatibilidade opt-in com `HDR10` / `HDR10+` / `HLG` / `Dolby Vision` (incluindo mapeamento Vulkan 10-bit PQ→SDR), negociação automática HDMI/AVR (`auto`) e opção de áudio `PCM Float 32-bit`.
-* **Casca e Menus Leves (fora do streaming):** reciclagem com `ViewHolder`, cache leve de preferências por jogo, seleção via D-pad sem recarregar toda a grade, decodificação escalonada de capas e limpeza imediata de executores ao sair das telas.
-* **Interface e controles na TV.** Preto OLED (#000000), foco âmbar (#FF963E), biblioteca navegável pelo direcional e HUD de sessão. No perfil da Box, LB+RB abre o menu e o botão Back pode atuar como Meta.
+> [!NOTE]
+> A latência entre mexer o mouse e ver a resposta no monitor, as perdas de rede e os engasgos por minuto da v326 ainda precisam ser medidos na Box física. O histórico descreve como comparar os resultados com a v320 usando a mesma cena. [Histórico de engenharia](docs/HANDOFF_MIWIRE.md)
 
-### 4. 🖱️ Mouse e periféricos
-* **Acumulador Sub-pixel:** Deltas fracionários de mouse relativos são acumulados em vez de descartados, preservando movimentos lentos que seriam arredondados para zero.
-* **Movimento relativo:** o cliente envia o deslocamento disponível assim que a fila permite. Só soma movimentos consecutivos ainda na fila, preservando a posição de cada clique. A frequência de entrada depende do mouse e do Android.
-* **Rede:** drenagem de pacotes UDP em rajada via `recvmmsg`, marcação QoS DSCP (EF áudio / CS4 vídeo) e `PR_SET_TIMERSLACK = 1 ns`.
-* **Controles e Teclado:** Deduplicação de pacotes repetidos de controle (com heartbeat de 1 s), leitura dos deslocamentos de centro de analógico já salvos, serviço de acessibilidade para teclado físico (Alt+Tab, Win), suporte a teclas extras **ABNT2/ISO** e correção de `Print Screen`.
+## Documentação e suporte
 
----
+[Histórico das versões](CHANGELOG.md) · [Código e compilação](CONTRIBUTING.md) · [Origem dos binários](docs/PROVENANCE.md) · [Política de segurança](SECURITY.md)
 
-## 🛠️ Recursos Herdados do Ecossistema Starwire & Moonlight
+Para relatar um problema de transmissão, informe a versão do APK, o modelo do aparelho, o codec e se estava usando Ethernet ou Wi-Fi. Uma captura do painel da sessão ajuda a localizar a etapa afetada. [Abrir um relato no GitHub](https://github.com/Gustavo14832/MiWire/issues)
 
-Além das otimizações exclusivas para Mi Box S Gen 3, o MiWire preserva os recursos modernos trazidos pelo **Starwire** e demais forks:
+## Créditos e licença
 
-* **ID de Pacote Próprio (`com.miwire` / `com.miwire.debug`):** Instala lado a lado com Moonlight oficial e Starwire (e com o backup legado `com.miware`), mantendo assinatura fixa em todas as novas builds para atualizar sem desinstalar.
-* **Gatilhos Adaptativos DualSense (Experimental):** Efeitos de gatilho via Bluetooth (Android 12+) com suporte a hosts compatíveis (como Vibepollo) ou presets integrados.
-* **Passthrough USB Completo (Experimental):** Compartilhe volantes, controles e dispositivos USB com o PC via túnel USB/IP criptografado e auxiliar Windows ([guia Windows USB](windows/USB-HELPER.md)).
-* **Microfone Criptografado para Qualquer Host:** Envie seu microfone via protocolo criptografado SWMC v1 para o receptor Windows ([guia Microfone Windows](windows/README.md)), VBAN ou diretamente embutido no stream (Apollo).
-* **Menu In-Stream Completo:** Modo toque/trackpad/multi-touch, teclado completo de 82 teclas na tela, atalhos importáveis em JSON, alternador de monitores, ajuste de bitrate em tempo real, sincronização de área de transferência, Virtual Display e comandos de servidor.
+O MiWire é um projeto independente mantido por [Gustavo14832](https://github.com/Gustavo14832). A base direta é o **Starwire**, de **SicarioGaming**, que deriva do **Moonlight Android**, de **Cameron Gutman e colaboradores**. O MiWire adapta essa base à Box com o perfil de 60 Hz, ajustes de entrada e rede e uma interface de TV própria.
 
----
+### Créditos ao Projeto Original e à comunidade
 
-## 📥 Como Instalar e Usar na Mi Box S Gen 3
+<details>
+<summary>Ver projetos, autores e contribuições</summary>
 
-1. Na [release](https://github.com/Gustavo14832/MiWire/releases/tag/v0.4.0), escolha **MiWire-Box-v326-armeabi-v7a.apk** para atualizar o MiWire Box v325 ou **MiWire-0.4.0.apk** para atualizar o MiWire oficial.
-2. Confira o SHA-256 indicado ao lado do arquivo no GitHub.
-3. Transfira o APK para a Mi Box via pendrive ou *Send Files to TV* e instale usando um gerenciador de arquivos (como *X-plore* ou *AnExplorer*).
-4. Abra o **MiWire**, pareie com seu PC (**Sunshine**, **Vibepollo** ou **Apollo**) e selecione o perfil Mi Box 1080p60.
-5. *(Opcional)* Para usar microfone ou passthrough USB com um PC Windows, confira os scripts e instruções na pasta [`windows/`](windows/README.md).
+| Projeto | Autoria | Contribuição |
+| --- | --- | --- |
+| **[Starwire](https://github.com/SicarioGaming/Starwire)** | SicarioGaming | Base direta, interface Cover Glow, microfone SWMC v1, USB/IP, DualSense e infraestrutura de testes. |
+| **[Moonlight Android](https://github.com/moonlight-stream/moonlight-android)** | Cameron Gutman e colaboradores | Cliente Android que fornece a base de vídeo, áudio, entrada e pareamento. |
+| **[Moonlight X](https://github.com/MoreOrLessSoftware/moonlight-android)** | MoreOrLessSoftware | Renderização Vulkan, integração com PyroWave, menu da sessão e ajustes por jogo. |
+| **[Artemis](https://github.com/ClassicOldSong/moonlight-android)** | Yukino Song (ClassicOldSong) | Modos de toque, área de transferência, tela virtual e comandos do servidor. |
+| **[Artemide](https://github.com/derflacco/moonlight-android)** | derflacco | NanoPacer, decodificação assíncrona, ajustes para MediaTek e integração de recursos do Artemis. |
+| **[Moonlight de Axixi2233](https://github.com/Axixi2233/moonlight-android)** | Axixi2233 | Teclado virtual, formato dos atalhos e painel compacto de estatísticas. |
+| **LavArtemis** | Lavagnou | Acessibilidade do teclado físico, indicações de desempenho ao Android e monitoramento térmico. |
+| **[Moonlight V+](https://github.com/qiin2333/moonlight-vplus)** | qiin2333 e CLF (CLF184) | Exportação USB/IP, gatilhos DualSense por Bluetooth e referências para áudio háptico e estatísticas. |
+| **[Moonlight X Turnip](https://github.com/NoCrypt/moonlight-x-turnip)** | ncpt (NoCrypt) | Carregamento de driver Vulkan personalizado para PyroWave. |
+| **[Moonlit Artemis](https://github.com/4had45/moonlit-artemis)** | Mohammad Forhad (4had45) | Referência para alternância de monitores e zoom por gesto. |
+| **[Moonlight Fold](https://github.com/sblocktechnologies/moonlight-fold)** | sblocktechnologies | Adaptação da transmissão à tela interna de aparelhos dobráveis. |
+| **[Nightjar](https://github.com/RamazanKara/nightjar)** | Ramazan Kara | Encaminhamento dos efeitos de gatilho DualSense ao Android. |
+| **[Apollo Microphone](https://github.com/logabell/apollo-microphone)** | logabell | Captura e transporte do microfone integrado à sessão. |
+| **[VBAN e VB-CABLE](https://vb-audio.com/Cable/)** | VB-Audio (Vincent Burel) | Formato de áudio em rede e dispositivo virtual de áudio no Windows. |
+| **[Moonlight Common C](https://github.com/moonlight-stream/moonlight-common-c)** | Cameron Gutman, Diego Waxemberg e colaboradores | Núcleo nativo de transmissão, recepção de pacotes e controle. |
+| **[PyroWave](https://github.com/Themaister/pyrowave) e [libadrenotools](https://github.com/bylaws/libadrenotools)** | Hans-Kristian Arntzen (Themaister) e Billy Laws (bylaws) | Codec PyroWave e carregamento de drivers Vulkan para Adreno. |
+| **[usbipdcpp](https://github.com/yunsmall/usbipdcpp) e [usbip-win2](https://github.com/vadimgrn/usbip-win2)** | yunsmall e vadimgrn | Servidor USB/IP (usbipdcpp, LGPLv3) e protocolo do driver para Windows. |
+| **nanors e ENet** | sleepybishop e cgutman | Correção de perdas por redundância e transporte confiável sobre UDP. |
+| **[Vibepollo](https://github.com/Nonary/Vibepollo), [Apollo](https://github.com/ClassicOldSong/Apollo) e [Sunshine](https://github.com/LizardByte/Sunshine)** | Chase Payne (Nonary), ClassicOldSong e LizardByte | Servidores compatíveis para o PC. |
+| **[Claude Code](https://claude.com/claude-code) e [REA](https://github.com/morluto/rea)** | Anthropic e morluto | Ferramentas usadas no desenvolvimento, nos testes e na análise do projeto de origem. |
 
----
+</details>
 
-## 📚 Documentação e Repositório
+O MiWire é distribuído sob a **GNU GPL v3**. Os componentes de terceiros mantêm suas próprias licenças e avisos de autoria. As imagens de produto são da Xiaomi e da AOC. As marcas pertencem aos respectivos titulares. [Licença do MiWire](LICENSE.txt) · [Avisos dos componentes](app/src/main/assets/licenses/)
 
-* **Contexto Técnico & Handoff para IA:** consulte [`docs/HANDOFF_MIWIRE.md`](docs/HANDOFF_MIWIRE.md) para o histórico completo de calibração, hardware alvo, regras de assinatura e decisões de engenharia.
-* **Código-fonte e Build:** consulte [`CONTRIBUTING.md`](CONTRIBUTING.md) para instruções de compilação com Gradle/NDK e execução de testes.
-* **Histórico de Versões:** consulte [`CHANGELOG.md`](CHANGELOG.md) e a [página de Releases](https://github.com/Gustavo14832/MiWire/releases).
-* **Segurança:** consulte [`SECURITY.md`](SECURITY.md) para detalhes sobre criptografia, drivers customizados e relato de vulnerabilidades.
-* **Proveniência e Binários:** consulte [`docs/PROVENANCE.md`](docs/PROVENANCE.md).
-* **Reportar Problemas / Sugestões:** abra uma [Issue](https://github.com/Gustavo14832/MiWire/issues).
-
----
-
-## ⚖️ Conformidade Legal, Licenciamento e Créditos
-
-Todo o código-fonte do **MiWire** é software livre licenciado sob a **GNU General Public License v3.0 (GPL-3.0)** — veja o texto integral em [`LICENSE.txt`](LICENSE.txt).
-
-### Créditos ao Projeto Original e Projetos da Comunidade
-
-O MiWire existe graças ao trabalho dos desenvolvedores originais do **Starwire**, do **Moonlight** e de toda a comunidade open source:
-
-| Projeto | Autor Original / Mantenedor | Licença | Contribuição Utilizada |
-|---|---|---|---|
-| **[Starwire](https://github.com/SicarioGaming/Starwire)** *(APK original do fork)* | SicarioGaming | GPL-3.0 | Base direta do fork, interface Cover Glow, microfone criptografado (SWMC v1), passthrough USB/IP, DualSense Bluetooth, pipeline de testes e infraestrutura CI. |
-| **[Moonlight Android](https://github.com/moonlight-stream/moonlight-android)** | Cameron Gutman (cgutman) | GPL-3.0 | Cliente Moonlight Android fundamental, arquitetura de streaming, áudio, input e decodificação. |
-| **[Moonlight X](https://github.com/MoreOrLessSoftware/moonlight-android)** | MoreOrLessSoftware | GPL-3.0 | Base upstream do Starwire: renderizador Vulkan, PyroWave, menu overlay, configurações por jogo, Quick Launch e resoluções/FPS customizados. |
-| **[Artemis](https://github.com/ClassicOldSong/moonlight-android)** | Yukino Song (ClassicOldSong) | GPL-3.0 | Pan/zoom, modos de toque, clipboard, comandos de servidor, Virtual Display, pacing Warp, Back como Meta, Force QWERTY e Back abre o menu (via Artemide). |
-| **[Artemide](https://github.com/derflacco/moonlight-android)** | derflacco | GPL-3.0 | Fast V-Sync (NanoPacer), Sync/Async LFR, decodificação assíncrona e melhorias MediaTek. |
-| **[Moonlight (Axixi2233 fork)](https://github.com/Axixi2233/moonlight-android)** | Axixi2233 | GPL-3.0 | Teclado virtual completo, formato de atalhos e modo Lite de estatísticas (via Artemis). |
-| **LavArtemis** | Lavagnou | GPL-3.0 | Serviço de acessibilidade de teclado físico, hints ADPF, monitoramento térmico e percentis de pacing. |
-| **[Moonlight V+](https://github.com/qiin2333/moonlight-vplus)** | qiin2333 & CLF (CLF184) | GPL-3.0 | Exportador USB/IP (`usbip-backend`), rotas Bluetooth para gatilhos DualSense, áudio háptico, 1% lows e bitrate em tempo real. |
-| **[Moonlight X Turnip](https://github.com/NoCrypt/moonlight-x-turnip)** | ncpt (NoCrypt) | GPL-3.0 | Suporte a driver Vulkan customizado para PyroWave. |
-| **[Moonlit Artemis](https://github.com/4had45/moonlit-artemis)** | Mohammad Forhad (4had45) | GPL-3.0 | Alternador de monitores e pinch-to-zoom contínuo. |
-| **[Moonlight Fold](https://github.com/sblocktechnologies/moonlight-fold)** | sblocktechnologies | GPL-3.0 | Adaptação de transmissão para tela interna de aparelhos dobráveis. |
-| **[Nightjar](https://github.com/RamazanKara/nightjar)** | Ramazan Kara | GPL-3.0 | Mapeamento de efeitos de gatilho DualSense do host para Java. |
-| **[Apollo microphone](https://github.com/logabell/apollo-microphone)** | logabell | GPL-3.0 | Captura e protocolo de microfone in-stream de baixa latência. |
-| **[VBAN and VB-Cable](https://vb-audio.com/Cable/)** | VB-Audio (Vincent Burel) | Donationware | Formato de transporte VBAN e microfone virtual VB-Cable no Windows. |
-| **[Moonlight Common C](https://github.com/moonlight-stream/moonlight-common-c)** | Cameron Gutman & Diego Waxemberg | GPL-3.0 | Biblioteca nativa em C de streaming, RTP e controle (com modificações do Starwire e do MiWire). |
-| **[PyroWave](https://github.com/Themaister/pyrowave) & [libadrenotools](https://github.com/bylaws/libadrenotools)** | Themaister / bylaws | MIT / BSD-2 | Codec PyroWave e carregador de drivers Vulkan customizados. |
-| **[usbipdcpp](https://github.com/yunsmall/usbipdcpp) & [usbip-win2](https://github.com/vadimgrn/usbip-win2)** | yunsmall / vadimgrn | LGPL-3.0 / BSD-2 | Servidor USB/IP nativo e protocolo do driver Windows. |
-| **nanors & enet** | sleepybishop / cgutman | MIT | Reed-Solomon FEC e transporte UDP confiável. |
-| **[Vibepollo](https://github.com/Nonary/Vibepollo) / [Apollo](https://github.com/ClassicOldSong/Apollo) / [Sunshine](https://github.com/LizardByte/Sunshine)** | Nonary / ClassicOldSong / LizardByte | GPL-3.0 | Servidores host compatíveis no PC. |
-| **[Claude Code](https://claude.com/claude-code) & [REA](https://github.com/morluto/rea)** | Anthropic / morluto | — | Desenvolvimento original no Starwire, testes e engenharia reversa / análise. |
-
-### Isenção de Marcas Registradas (Trademark Disclaimer)
-* *Xiaomi*, *Mi Box*, *Android*, *Google TV*, *NVIDIA*, *GeForce*, *PlayStation*, *DualSense* e outros nomes citados são marcas comerciais de seus respectivos proprietários. O uso destes nomes destina-se exclusivamente a identificar e descrever compatibilidade técnica de hardware e software, sem qualquer afiliação, endosso ou patrocínio.
+[apk-box]: https://github.com/Gustavo14832/MiWire/releases/download/v0.4.0/MiWire-Box-v326-armeabi-v7a.apk
+[apk-universal]: https://github.com/Gustavo14832/MiWire/releases/download/v0.4.0/MiWire-0.4.0.apk
+[release]: https://github.com/Gustavo14832/MiWire/releases/tag/v0.4.0
+[backup]: https://github.com/Gustavo14832/MiWire/releases/tag/v0.3.0-miware
+[tela-pcs]: app/src/test/screenshots/pcList%5BMI_BOX_1080P%5D.png
+[tela-jogos]: app/src/test/screenshots/gameScreen%5BMI_BOX_1080P%5D.png
+[tela-ajustes]: app/src/test/screenshots/settings%5BMI_BOX_1080P%5D.png
+[tela-menu]: app/src/test/screenshots/streamMenu%5BMI_BOX_1080P%5D.png
