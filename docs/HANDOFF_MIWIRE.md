@@ -1,8 +1,12 @@
 # MiWire — Complete Engineering Context & AI Handoff
 
-## Base da edição local MiWire Box
+## Ponto de partida para continuar o trabalho
 
-**25 de novembro de 2026.** Para continuar o trabalho nesta cópia local, partir da branch **`feature/integracao-armv7`**. Ela deriva da v322 (`f0dda75c`) e já contém as etapas de mouse, definição de vídeo e frame pacing. A Box do mantenedor instala aplicativos `armeabi-v7a`. A tag `backup-v0.3.0-estavel` (`494d377a`, v320) é o ponto de restauração.
+A branch `main` no GitHub contém a revisão publicada. Para reproduzir a versão 326, use a tag `v0.4.0`, incluindo os submódulos. Na Box com a v325, a atualização correspondente é `MiWire-Box-v326-armeabi-v7a.apk`. A seção 18 reúne as correções, os testes e as assinaturas.
+
+## Histórico da edição local MiWire Box
+
+**25 de novembro de 2026.** A integração local começou na branch **`feature/integracao-armv7`**. Ela deriva da v322 (`f0dda75c`) e já contém as etapas de mouse, definição de vídeo e frame pacing. A Box do mantenedor instala aplicativos `armeabi-v7a`. A tag `backup-v0.3.0-estavel` (`494d377a`, v320) é o ponto de restauração.
 
 | Correção incorporada | Código integrado | Verificação | Pendente na Box |
 |---|---|---|---|
@@ -12,7 +16,7 @@
 
 A [seção 10](#10-mouse-relativo-na-box-armv7--alteração-local-de-25-de-novembro-de-2026) guarda a comparação com o código anterior. A seção 9 contém os demais achados da auditoria para escolha das próximas correções. Para cada ponto que o mantenedor escolher, usar a versão de integração como base, registrar aqui o commit e as verificações e repetir os testes dos componentes afetados. Se o núcleo nativo mudar, registrar também sua nova revisão no aplicativo.
 
-O APK local mais recente é a **v325** (seção 17). Reúne rede (seção 15), hub e mouse (seção 16), codecs da v324 (seção 14) e a nova interface para TV. As revisões de código e a assinatura estão registradas na seção 17.
+A edição publicada mais recente é a **0.4.0 (326)**. A seção 18 registra a auditoria, os testes e os dois APKs. A edição Box ARMv7a atualiza a v325 da seção 17.
 
 O nome da edição local no Android é **MiWire Box**, com dados e pareamento próprios. O código oficial e a tag de restauração têm identificadores de pacote distintos desta edição.
 
@@ -598,3 +602,16 @@ Validação desta etapa: 1.032 casos funcionais do aplicativo, incluindo a compa
 
 Os percursos de entrada, rede, USB, decodificação, áudio, pacing, vídeo, interface e distribuição foram revistos contra os testes do projeto. Nesta etapa não houve medição de mouse a fóton, perda de rede ou frame pacing na Box física. O teste de instalação sobre cada pacote depende de acesso ao aparelho. O Android exige o mesmo identificador de pacote e certificado para atualizar os dados existentes. A release fornece os arquivos, certificados e hashes para distinguir os caminhos de atualização.
 
+### Publicação e verificação da v0.4.0
+
+Em 27 de novembro de 2026, a [release estável](https://github.com/Gustavo14832/MiWire/releases/tag/v0.4.0) foi publicada a partir de `13d60133404cdde6d0ae0d8be56710666b0db4df`. O [APK de restauração v320](https://github.com/Gustavo14832/MiWire/releases/tag/v0.3.0-miware) continua disponível. A tag de código `backup-v0.3.0-estavel` aponta para `494d377a`.
+
+| APK | Identificador | SHA-256 conferido com o arquivo do GitHub |
+|---|---|---|
+| MiWire-Box-v326-armeabi-v7a.apk | `com.miwire.local` | `ccce83bd0f7b1dba620d313a4984bcbc57d8c774e08e0decc5c71b76f5d936d1` |
+| MiWire-0.4.0.apk | `com.miwire` | `dfb369f76e736ef558c8e021803b0d954031d4044199e25f48eabb5c0499a6b1` |
+
+- O APK da Box usa somente armeabi-v7a e o mesmo certificado da v325. O APK universal passou na verificação do certificado oficial e contém a ABI armeabi-v7a. O alinhamento e os dois hashes foram conferidos.
+- Na máquina de compilação, 1043 testes funcionais passaram, 1 foi ignorado e houve zero falhas. As 70 comparações visuais passaram. Os oito cenários determinísticos de recepção UDP e as verificações nativas de pacing e apresentação Vulkan passaram.
+- No primeiro teste de Android TV 14, quatro verificações instrumentadas ainda esperavam o nome, o ícone ou a animação anterior ao redesenho. Depois da atualização dos testes, o emulador registrou 142 aprovações, zero falhas e 10 casos ignorados na suíte base. A abertura pelo launcher e a sequência com o direcional também passaram. [Relatório Android TV](https://github.com/Gustavo14832/MiWire/actions/runs/46048504955) · [Compilação e testes oficiais](https://github.com/Gustavo14832/MiWire/actions/runs/46048504751).
+- As verificações de interface foram feitas por software. Latência física, percurso Wi-Fi/Ethernet, perda de pacotes e percentis durante o jogo dependem de medição na Mi Box com o host real.
